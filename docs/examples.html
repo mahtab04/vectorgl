@@ -1,24 +1,41 @@
-
-
-VectorGL
-Theme Overview Guides API Examples
-
-Example sections
-Patterns Sample apps Usage guides
-
-Examples
-Repository demos turned into reusable documentation.
-These sections summarize the sample apps already shipped with the library, so you can understand what each demo proves without opening the source first.
-
-Patterns
-Typical application flows
-
-Sample Apps
-What the repo examples demonstrate
-Toggle theme
-On this page
-Intro Patterns Sample apps
-
-Examples
-This page maps the shipped demos into reusable patterns, which makes it useful both in-repo and as a public docs section.
-Overview Guides API
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Runnable VectorGL examples for Canvas, scenes, animation, text, and effects."><title>Examples — VectorGL</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=Space+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css"><script defer src="app.js"></script>
+</head>
+<body data-page="examples" data-theme="dark">
+  <div class="page-shell">
+    <header class="compact-hero">
+      <nav class="docs-navbar" aria-label="Primary navigation"><div class="site-container nav-inner">
+        <a class="brand-link brand-lockup" href="index.html"><span class="brand-mark">V</span><span>VectorGL</span></a>
+        <div class="nav-links"><a class="docs-nav-link" href="index.html">Home</a><a class="docs-nav-link" href="overview.html">Overview</a><a class="docs-nav-link" href="guides.html">Guides</a><a class="docs-nav-link" href="api.html">API</a><a class="docs-nav-link is-active" href="examples.html">Examples</a></div>
+        <div class="nav-actions"><button class="theme-toggle" type="button" data-theme-toggle aria-label="Toggle color theme">Theme</button><a class="github-link" href="https://github.com/mahtab04/vectorgl">GitHub ↗</a></div>
+      </div></nav>
+      <div class="site-container page-heading"><span class="eyebrow">Documentation / Examples</span><h1 class="page-title">Learn by running real code</h1><p class="hero-copy">Start with a small rendering flow, then explore the repository examples that combine drawing, input, animation, assets, and effects.</p></div>
+    </header>
+    <main class="site-container docs-page-main">
+      <div class="docs-page-grid">
+        <aside class="docs-sidebar"><div class="sidebar-panel"><strong>Examples</strong><a class="sidebar-link" href="#first-frame">First frame</a><a class="sidebar-link" href="#repository-examples">Repository examples</a><a class="sidebar-link" href="#build-examples">Build locally</a></div></aside>
+        <article class="docs-content">
+          <section id="first-frame"><span class="section-kicker">Walkthroughs</span><h2>Understand the rendering flow</h2><p>These compact examples isolate one idea at a time, making them useful as starting points for your own components.</p><div class="example-flow-grid" id="example-flow-grid"></div></section>
+          <section id="repository-examples"><span class="section-kicker">Runnable programs</span><h2>Explore complete examples</h2><p>The repository includes applications you can compile, modify, and step through in a debugger.</p><div class="repo-example-grid" id="repo-example-grid"></div></section>
+          <section id="build-examples"><span class="section-kicker">Build locally</span><h2>Compile every example</h2>
+            <div class="code-header"><span>Terminal</span><button class="copy-button" type="button">Copy</button></div>
+            <pre class="code-block"><code>cmake -S . -B build -DVECTORGL_BUILD_EXAMPLES=ON
+cmake --build build --config Release
+ctest --test-dir build -C Release --output-on-failure</code></pre>
+            <div class="callout"><strong>Windows note.</strong><span>For multi-config generators such as Visual Studio, keep <code>--config Release</code> on both the build and test commands.</span></div>
+          </section>
+          <div class="next-link"><span>Looking for a signature?</span><a href="api.html">Open the API reference →</a></div>
+        </article>
+        <aside class="docs-rail"><div class="rail-panel"><strong>Contents</strong><a class="rail-link" href="#first-frame">First frame</a><a class="rail-link" href="#repository-examples">Repository examples</a><a class="rail-link" href="#build-examples">Build</a></div></aside>
+      </div>
+    </main>
+    <footer class="docs-footer"><div class="site-container footer-inner"><span>VectorGL examples</span><a href="https://github.com/mahtab04/vectorgl/tree/main/examples">Browse source ↗</a></div></footer>
+  </div>
+</body>
+</html>

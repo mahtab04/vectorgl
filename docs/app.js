@@ -176,7 +176,6 @@ from.mask = vectorgl::AnimTarget::PosX;
 to.x = 420.0f;
 to.mask = vectorgl::AnimTarget::PosX;
 
-scene.animator().add(std::make_unique<vectorgl::TweenAnimation>(
 scene.animator().emplace<vectorgl::TweenAnimation>(
     card->id(), from, to, 0.8f, vectorgl::Ease::OutCubic);`
     }
@@ -850,7 +849,13 @@ function inferCodeFileName(title) {
 function highlightCode(code) {
     const placeholders = [];
     const stash = (className, value) => {
-        const token = `__CODE_TOKEN_${placeholders.length}__`;
+        let index = placeholders.length;
+        let label = "";
+        do {
+            label = String.fromCharCode(65 + (index % 26)) + label;
+            index = Math.floor(index / 26) - 1;
+        } while (index >= 0);
+        const token = `@@CODE_TOKEN_${label}@@`;
         placeholders.push({ token, html: `<span class="${className}">${value}</span>` });
         return token;
     };

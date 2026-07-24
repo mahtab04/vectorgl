@@ -1,22 +1,38 @@
-
-
-VectorGL
-Theme Overview Guides API Examples
-
-API sections
-Reference Usage guides Examples
-
-API Reference
-Search the public headers without leaving the docs site.
-This reference maps the public API into grouped entries for faster browsing. Use the search box to filter classes, functions, supporting types, and common topics.
-
-Reference
-Searchable public API
-Lifecycle Drawing Animation Assets Math
-Toggle theme
-On this page
-Intro API reference
-
-Reference
-The API page mirrors the public headers and is meant to work well as a searchable hosted reference on GitHub Pages.
-Overview Guides Examples
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Searchable VectorGL C++ API reference."><title>API Reference — VectorGL</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=Space+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css"><script defer src="app.js"></script>
+</head>
+<body data-page="api" data-theme="dark">
+  <div class="page-shell">
+    <header class="compact-hero">
+      <nav class="docs-navbar" aria-label="Primary navigation"><div class="site-container nav-inner">
+        <a class="brand-link brand-lockup" href="index.html"><span class="brand-mark">V</span><span>VectorGL</span></a>
+        <div class="nav-links"><a class="docs-nav-link" href="index.html">Home</a><a class="docs-nav-link" href="overview.html">Overview</a><a class="docs-nav-link" href="guides.html">Guides</a><a class="docs-nav-link is-active" href="api.html">API</a><a class="docs-nav-link" href="examples.html">Examples</a></div>
+        <div class="nav-actions"><button class="theme-toggle" type="button" data-theme-toggle aria-label="Toggle color theme">Theme</button><a class="github-link" href="https://github.com/mahtab04/vectorgl">GitHub ↗</a></div>
+      </div></nav>
+      <div class="site-container page-heading"><span class="eyebrow">Documentation / API</span><h1 class="page-title">API reference</h1><p class="hero-copy">Search the public surface by class, method, or concept. Signatures are paired with concise behavior notes.</p></div>
+    </header>
+    <main class="site-container docs-page-main">
+      <div class="docs-page-grid">
+        <aside class="docs-sidebar"><div class="sidebar-panel"><strong>API groups</strong><a class="sidebar-link" href="#reference">Renderer</a><a class="sidebar-link" href="#reference">Canvas</a><a class="sidebar-link" href="#reference">Scene</a><a class="sidebar-link" href="#reference">Animation</a><a class="sidebar-link" href="#reference">Assets</a></div></aside>
+        <article class="docs-content">
+          <section id="reference">
+            <span class="section-kicker">Public headers</span><h2>Find a symbol</h2><p>The reference follows the types exposed through <code>include/PublicHeaders/vectorgl</code>. Use the search field to filter names, signatures, and descriptions.</p>
+            <label class="search-label" for="api-search">Search the API</label>
+            <input class="docs-search-input" id="api-search" type="search" placeholder="Try Canvas, drawPath, animation…" autocomplete="off">
+            <div class="api-container" id="api-container"></div>
+          </section>
+          <div class="next-link"><span>Need context?</span><a href="guides.html">Read the practical guides →</a></div>
+        </article>
+        <aside class="docs-rail"><div class="rail-panel"><strong>Reference</strong><a class="rail-link" href="#reference">Search API</a><a href="https://github.com/mahtab04/vectorgl/tree/main/include/PublicHeaders/vectorgl">Public headers ↗</a></div></aside>
+      </div>
+    </main>
+    <footer class="docs-footer"><div class="site-container footer-inner"><span>VectorGL API reference</span><span>C++20 · OpenGL 3.3</span></div></footer>
+  </div>
+</body>
+</html>

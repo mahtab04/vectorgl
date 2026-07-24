@@ -1,29 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="VectorGL is a modern C++20 vector graphics library powered by OpenGL 3.3.">
+  <title>VectorGL — GPU vector graphics for modern C++</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=Space+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="app.js"></script>
+</head>
+<body data-page="home" data-theme="dark">
+  <div class="page-shell">
+    <header class="hero-section">
+      <nav class="docs-navbar" aria-label="Primary navigation">
+        <div class="site-container nav-inner">
+          <a class="brand-link brand-lockup" href="index.html" aria-label="VectorGL home">
+            <span class="brand-mark" aria-hidden="true">V</span>
+            <span>VectorGL</span>
+          </a>
+          <div class="nav-links">
+            <a class="docs-nav-link is-active" href="index.html">Home</a>
+            <a class="docs-nav-link" href="overview.html">Overview</a>
+            <a class="docs-nav-link" href="guides.html">Guides</a>
+            <a class="docs-nav-link" href="api.html">API</a>
+            <a class="docs-nav-link" href="examples.html">Examples</a>
+          </div>
+          <div class="nav-actions">
+            <button class="theme-toggle" type="button" data-theme-toggle aria-label="Toggle color theme">Theme</button>
+            <a class="github-link" href="https://github.com/mahtab04/vectorgl">GitHub ↗</a>
+          </div>
+        </div>
+      </nav>
 
+      <div class="site-container hero-content hero-grid">
+        <div>
+          <div class="hero-kicker-row">
+            <span class="status-chip"><span class="status-dot"></span> Open source · MIT</span>
+            <span class="eyebrow">C++20 · OpenGL 3.3</span>
+          </div>
+          <h1 class="hero-title">Vector graphics that feel native to modern C++.</h1>
+          <p class="hero-copy">Build crisp, animated 2D interfaces with a compact GPU renderer, an immediate-mode Canvas API, and a retained-mode scene graph.</p>
+          <div class="hero-actions">
+            <a class="docs-btn docs-btn-primary" href="overview.html#getting-started">Get started</a>
+            <a class="docs-btn docs-btn-secondary" href="examples.html">Explore examples</a>
+          </div>
+        </div>
+        <div class="hero-panel hero-terminal" aria-label="VectorGL code example">
+          <div class="code-header">
+            <span>hello_vectorgl.cpp</span>
+            <span class="code-language">C++</span>
+          </div>
+          <pre class="code-block"><code><span class="token-keyword">vectorgl::</span>Canvas canvas(renderer);
 
-VectorGL
-Theme Overview Guides API Examples
+canvas.<span class="token-function">beginFrame</span>();
+canvas.<span class="token-function">fill</span>({<span class="token-number">0.27f</span>, <span class="token-number">0.52f</span>, <span class="token-number">0.96f</span>, <span class="token-number">1.0f</span>});
+canvas.<span class="token-function">roundedRect</span>({
+  <span class="token-number">32.0f</span>, <span class="token-number">32.0f</span>, <span class="token-number">240.0f</span>, <span class="token-number">96.0f</span>
+}, <span class="token-number">18.0f</span>);
+canvas.<span class="token-function">endFrame</span>();</code></pre>
+        </div>
+      </div>
+      <div class="site-container stat-strip" aria-label="Project highlights">
+        <div class="stat-item"><strong>2</strong><span>Rendering APIs</span></div>
+        <div class="stat-item"><strong>22</strong><span>Easing curves</span></div>
+        <div class="stat-item"><strong>3</strong><span>Asset formats</span></div>
+        <div class="stat-item"><strong>4</strong><span>CI configurations</span></div>
+      </div>
+    </header>
 
+    <main class="main-layout">
+      <section class="site-container docs-section" id="install">
+        <div class="section-heading">
+          <div>
+            <span class="section-kicker">Start here</span>
+            <h2>Drop VectorGL into your CMake project</h2>
+          </div>
+          <p class="section-copy">Fetch the library, link one target, and begin drawing. Dependencies are configured by CMake.</p>
+        </div>
+        <div class="quick-install">
+          <div class="code-header"><span>CMakeLists.txt</span><button class="copy-button" type="button">Copy</button></div>
+          <pre class="code-block"><code>include(FetchContent)
+FetchContent_Declare(
+  vectorgl
+  GIT_REPOSITORY https://github.com/mahtab04/vectorgl.git
+  GIT_TAG main
+)
+FetchContent_MakeAvailable(vectorgl)
+target_link_libraries(your_app PRIVATE vectorgl)</code></pre>
+        </div>
+      </section>
 
-GPU vector graphics for C++20
-A GitHub-ready documentation site for VectorGL.
-Browse the library as a proper docs portal: a landing page, focused usage guides, a searchable API reference, and example-driven pages based on the sample applications already in the repository.
-Read the Overview Browse API
+      <section class="site-container docs-section">
+        <div class="section-heading">
+          <div><span class="section-kicker">Core capabilities</span><h2>One renderer, two ways to work</h2></div>
+          <p class="section-copy">Choose direct drawing for dynamic surfaces or a scene graph for structured, animated interfaces.</p>
+        </div>
+        <div class="feature-grid" id="feature-grid"></div>
+      </section>
 
+      <section class="site-container docs-section">
+        <div class="section-heading">
+          <div><span class="section-kicker">Documentation</span><h2>Go from first frame to polished UI</h2></div>
+          <p class="section-copy">Learn the architecture, follow focused recipes, and keep the API reference close at hand.</p>
+        </div>
+        <div class="feature-grid" id="home-page-grid"></div>
+      </section>
 
-What this docs site includes
+      <section class="site-container docs-callout">
+        <div><span class="section-kicker">Built in the open</span><h2>Ready to draw something?</h2><p>Browse the runnable examples or inspect the full source on GitHub.</p></div>
+        <div class="hero-actions">
+          <a class="docs-btn docs-btn-primary" href="examples.html">View examples</a>
+          <a class="docs-btn docs-btn-secondary" href="https://github.com/mahtab04/vectorgl">Source code ↗</a>
+        </div>
+      </section>
+    </main>
 
-Overview
-Architecture, build steps, and the Scene versus Canvas split.
-Guides
-Task-oriented examples for shapes, paths, text, images, and SVG.
-API
-Searchable reference for the public headers and supporting types.
-Examples
-Repository samples summarized into reusable patterns you can adapt quickly.
-
-Documentation Map
-Jump into the part you need
-
-Publish
-The docs site is self-contained in the docs/ folder, so it can be published directly with GitHub Pages or any static host.
-Overview Guides API Examples
+    <footer class="docs-footer"><div class="site-container footer-inner"><span>VectorGL · GPU vector graphics for C++20</span><span>Released under the MIT License</span></div></footer>
+  </div>
+</body>
+</html>

@@ -1,18 +1,50 @@
-
-
-VectorGL
-Theme Overview Guides API Examples
-
-Guide sections
-Workflow guides Back to overview Jump to API Open examples
-
-Guides
-Task-oriented recipes for the most common VectorGL workflows.
-These guides focus on real usage: drawing shapes, building paths, loading fonts, rendering SVGs, managing scene nodes, and driving animation.
-Toggle theme
-On this page
-Intro Guides grid
-
-Guides
-The guide cards are intended as copy-and-adapt starting points for shapes, paths, fonts, SVG, scene nodes, and animation.
-Overview API Examples
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Practical VectorGL guides for drawing, scenes, text, animation, and effects.">
+  <title>Guides — VectorGL</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=Space+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css"><script defer src="app.js"></script>
+</head>
+<body data-page="guides" data-theme="dark">
+  <div class="page-shell">
+    <header class="compact-hero">
+      <nav class="docs-navbar" aria-label="Primary navigation"><div class="site-container nav-inner">
+        <a class="brand-link brand-lockup" href="index.html"><span class="brand-mark">V</span><span>VectorGL</span></a>
+        <div class="nav-links"><a class="docs-nav-link" href="index.html">Home</a><a class="docs-nav-link" href="overview.html">Overview</a><a class="docs-nav-link is-active" href="guides.html">Guides</a><a class="docs-nav-link" href="api.html">API</a><a class="docs-nav-link" href="examples.html">Examples</a></div>
+        <div class="nav-actions"><button class="theme-toggle" type="button" data-theme-toggle aria-label="Toggle color theme">Theme</button><a class="github-link" href="https://github.com/mahtab04/vectorgl">GitHub ↗</a></div>
+      </div></nav>
+      <div class="site-container page-heading"><span class="eyebrow">Documentation / Guides</span><h1 class="page-title">Build with VectorGL</h1><p class="hero-copy">Focused recipes that explain the important decisions, show complete code, and point to runnable examples.</p></div>
+    </header>
+    <main class="site-container docs-page-main">
+      <div class="docs-page-grid">
+        <aside class="docs-sidebar"><div class="sidebar-panel"><strong>Guide topics</strong><a class="sidebar-link" href="#recipes">All recipes</a><a class="sidebar-link" href="#canvas">Canvas drawing</a><a class="sidebar-link" href="#scene">Scene composition</a><a class="sidebar-link" href="#best-practices">Best practices</a></div></aside>
+        <article class="docs-content">
+          <section id="recipes"><span class="section-kicker">Recipes</span><h2>From primitives to animated interfaces</h2><p>Each guide starts with a practical outcome and includes the code needed to reproduce it. Read them in order or jump directly to the feature you need.</p><div class="guide-grid" id="guides-grid"></div></section>
+          <section id="canvas"><span class="section-kicker">Canvas</span><h2>A minimal immediate-mode frame</h2><p>Keep drawing state local, bracket each frame, and express operations in visual order.</p>
+            <div class="code-header"><span>draw_frame.cpp</span><button class="copy-button" type="button">Copy</button></div>
+            <pre class="code-block"><code>canvas.beginFrame();
+canvas.save();
+canvas.translate({24.0f, 24.0f});
+canvas.fill({0.35f, 0.62f, 1.0f, 1.0f});
+canvas.roundedRect({0.0f, 0.0f, 280.0f, 120.0f}, 20.0f);
+canvas.restore();
+canvas.endFrame();</code></pre>
+          </section>
+          <section id="scene"><span class="section-kicker">Scene graph</span><h2>Compose reusable visual objects</h2><p>Nodes retain geometry and style, while parent-child relationships provide transforms, ordering, and interaction boundaries.</p>
+            <div class="callout"><strong>Use stable ownership.</strong><span>Create long-lived scene nodes once, then update their properties during interaction instead of rebuilding the entire tree every frame.</span></div>
+          </section>
+          <section id="best-practices"><span class="section-kicker">Production notes</span><h2>Patterns that keep rendering smooth</h2>
+            <ul class="check-list"><li>Cache fonts and images instead of loading them in the render loop.</li><li>Group related Canvas operations to reduce state changes.</li><li>Drive animation with frame delta time, not fixed increments.</li><li>Keep OpenGL calls on the thread that owns the context.</li></ul>
+            <div class="next-link"><span>Next</span><a href="api.html">Browse the API reference →</a></div>
+          </section>
+        </article>
+        <aside class="docs-rail"><div class="rail-panel"><strong>Contents</strong><a class="rail-link" href="#recipes">Recipes</a><a class="rail-link" href="#canvas">Canvas</a><a class="rail-link" href="#scene">Scene graph</a><a class="rail-link" href="#best-practices">Best practices</a></div></aside>
+      </div>
+    </main>
+    <footer class="docs-footer"><div class="site-container footer-inner"><span>VectorGL documentation</span><a href="examples.html">Runnable examples →</a></div></footer>
+  </div>
+</body>
+</html>

@@ -1,61 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Understand VectorGL's architecture and build your first application.">
+  <title>Overview — VectorGL</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=Space+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="app.js"></script>
+</head>
+<body data-page="overview" data-theme="dark">
+  <div class="page-shell">
+    <header class="compact-hero">
+      <nav class="docs-navbar" aria-label="Primary navigation">
+        <div class="site-container nav-inner">
+          <a class="brand-link brand-lockup" href="index.html"><span class="brand-mark">V</span><span>VectorGL</span></a>
+          <div class="nav-links">
+            <a class="docs-nav-link" href="index.html">Home</a><a class="docs-nav-link is-active" href="overview.html">Overview</a>
+            <a class="docs-nav-link" href="guides.html">Guides</a><a class="docs-nav-link" href="api.html">API</a><a class="docs-nav-link" href="examples.html">Examples</a>
+          </div>
+          <div class="nav-actions"><button class="theme-toggle" type="button" data-theme-toggle aria-label="Toggle color theme">Theme</button><a class="github-link" href="https://github.com/mahtab04/vectorgl">GitHub ↗</a></div>
+        </div>
+      </nav>
+      <div class="site-container page-heading"><span class="eyebrow">Documentation / Overview</span><h1 class="page-title">How VectorGL fits together</h1><p class="hero-copy">A practical tour of the renderer, the two drawing models, and the shortest path to your first frame.</p></div>
+    </header>
 
-
-VectorGL
-Theme Overview Guides API Examples
-
-On this site
-Overview Guides API Reference Examples
-
-Overview
-Understand the architecture before you pick an API.
-VectorGL exposes two complementary layers: Canvas for immediate-mode drawing and Scene for retained-mode composition. Both sit on top of the same Renderer and require an OpenGL 3.3 context.
-
-Core Concepts
-Choose the right layer
-
-Getting Started
-Build, initialize, and render a first frame
-
-Build and link
-VectorGL targets OpenGL 3.3 Core and a C++20 toolchain. Create the OpenGL context first, then initialize Canvas or Renderer only after the context is current.
-Copy
-terminal
-cmake -S vectorgl -B build
-cmake --build build --config Debug
-
-Minimal Canvas loop
-Copy
-canvas_example.cpp
-#include <vectorgl/canvas.hpp>
-
-vectorgl::Canvas canvas;
-canvas.init();
-
-canvas.beginFrame(fbWidth, fbHeight);
-canvas.setFillColor(vectorgl::Color::hex(0x1E88E5));
-canvas.fillRoundedRect(40.0f, 40.0f, 240.0f, 120.0f, 16.0f);
-canvas.endFrame();
-
-canvas.destroy();
-
-Scene-based loop
-Copy
-scene_example.cpp
-vectorgl::Canvas canvas;
-canvas.init();
-
-vectorgl::Scene scene(canvas.renderer());
-auto card = scene.roundedRect(120.0f, 120.0f, 240.0f, 140.0f, 16.0f);
-card->setFill(vectorgl::Color::hex(0x0F172A));
-
-scene.update(dt);
-canvas.beginFrame(fbWidth, fbHeight);
-scene.render();
-canvas.endFrame();
-Toggle theme
-On this page
-Intro Core concepts Getting started
-
-Overview
-Use this page as the architectural entry point before diving into usage guides or individual API groups.
-Guides API Examples
+    <main class="site-container docs-page-main">
+      <div class="docs-page-grid">
+        <aside class="docs-sidebar"><div class="sidebar-panel"><strong>On this page</strong><a class="sidebar-link" href="#introduction">Introduction</a><a class="sidebar-link" href="#architecture">Architecture</a><a class="sidebar-link" href="#rendering-models">Rendering models</a><a class="sidebar-link" href="#lifecycle">Frame lifecycle</a><a class="sidebar-link" href="#getting-started">Getting started</a></div></aside>
+        <article class="docs-content">
+          <section id="introduction">
+            <span class="section-kicker">Introduction</span><h2>A focused 2D layer over OpenGL</h2>
+            <p>VectorGL turns common vector operations—paths, shapes, text, images, clipping, and effects—into GPU-backed draw calls. Its public API stays small enough to learn quickly while still supporting structured scenes and animation.</p>
+            <div class="callout"><strong>Choose the API per surface.</strong><span>Canvas and Scene share the same renderer, so an application can use both without maintaining separate graphics stacks.</span></div>
+          </section>
+          <section id="architecture">
+            <span class="section-kicker">Architecture</span><h2>Three layers with clear responsibilities</h2>
+            <div class="architecture-flow">
+              <div class="architecture-node"><small>Your application</small><strong>Canvas or Scene</strong><span>Drawing intent and interaction</span></div>
+              <span class="architecture-arrow">→</span>
+              <div class="architecture-node"><small>VectorGL</small><strong>Renderer</strong><span>Batches, paths, text, effects</span></div>
+              <span class="architecture-arrow">→</span>
+              <div class="architecture-node"><small>GPU</small><strong>OpenGL 3.3</strong><span>Portable hardware rendering</span></div>
+            </div>
+          </section>
+          <section id="rendering-models">
+            <span class="section-kicker">Rendering models</span><h2>Immediate when you want control, retained when you want structure</h2>
+            <div class="comparison-grid">
+              <div class="doc-card"><span class="card-label">Canvas API</span><h3>Draw every frame</h3><p>Best for charts, editors, custom widgets, and highly dynamic visuals. Your code owns ordering and redraw logic.</p><a href="guides.html#canvas">Canvas guide →</a></div>
+              <div class="doc-card"><span class="card-label">Scene API</span><h3>Compose persistent nodes</h3><p>Best for interface trees and animated objects. VectorGL manages traversal, transforms, hit testing, and transitions.</p><a href="guides.html#scene">Scene guide →</a></div>
+            </div>
+          </section>
+          <section id="lifecycle">
+            <span class="section-kicker">Frame lifecycle</span><h2>A predictable render loop</h2>
+            <ol class="step-list">
+              <li><strong>Process input</strong><span>Update interaction state and scene properties.</span></li>
+              <li><strong>Advance animation</strong><span>Tick the animator using frame delta time.</span></li>
+              <li><strong>Submit drawing</strong><span>Issue Canvas operations or render the Scene tree.</span></li>
+              <li><strong>Present</strong><span>Swap the host window's OpenGL buffers.</span></li>
+            </ol>
+          </section>
+          <section id="getting-started">
+            <span class="section-kicker">Getting started</span><h2>Build and run your first frame</h2>
+            <p>VectorGL uses CMake and requires a C++20 compiler. Clone the repository to build the included examples, or consume it with <code>FetchContent</code>.</p>
+            <div class="code-header"><span>Terminal</span><button class="copy-button" type="button">Copy</button></div>
+            <pre class="code-block"><code>git clone https://github.com/mahtab04/vectorgl.git
+cd vectorgl
+cmake -S . -B build -DVECTORGL_BUILD_EXAMPLES=ON
+cmake --build build --config Release</code></pre>
+            <div class="next-link"><span>Next</span><a href="guides.html">Follow the practical guides →</a></div>
+          </section>
+        </article>
+        <aside class="docs-rail"><div class="rail-panel"><strong>Contents</strong><a class="rail-link" href="#introduction">Introduction</a><a class="rail-link" href="#architecture">Architecture</a><a class="rail-link" href="#rendering-models">Rendering models</a><a class="rail-link" href="#lifecycle">Lifecycle</a><a class="rail-link" href="#getting-started">Get started</a></div></aside>
+      </div>
+    </main>
+    <footer class="docs-footer"><div class="site-container footer-inner"><span>VectorGL documentation</span><a href="https://github.com/mahtab04/vectorgl">Edit on GitHub ↗</a></div></footer>
+  </div>
+</body>
+</html>
