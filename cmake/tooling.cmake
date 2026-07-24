@@ -52,7 +52,7 @@ function(setup_clang_tooling TARGET_NAME)
 
     if(ENABLE_CLANG_TIDY AND CLANG_TIDY_EXE)
         set_target_properties(${TARGET_NAME} PROPERTIES
-            CXX_CLANG_TIDY "${CLANG_TIDY_EXE};--header-filter=^${_project_source_regex}(/|$);--exclude-header-filter=.*/_deps/.*"
+            CXX_CLANG_TIDY "${CLANG_TIDY_EXE};--header-filter=^${_project_source_regex}/(src|include)/"
         )
     endif()
 
