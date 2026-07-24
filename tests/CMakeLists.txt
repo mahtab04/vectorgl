@@ -1,3 +1,10 @@
-add_executable(vectorgl_scene_tests scene_tests.cpp)
-target_link_libraries(vectorgl_scene_tests PRIVATE vectorgl::vectorgl)
-add_test(NAME vectorgl_scene_tests COMMAND vectorgl_scene_tests)
+function(vectorgl_add_test TEST_NAME)
+    add_executable(${TEST_NAME} ${ARGN})
+    target_link_libraries(${TEST_NAME} PRIVATE vectorgl::vectorgl)
+    add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
+endfunction()
+
+vectorgl_add_test(vectorgl_core_tests core_tests.cpp)
+vectorgl_add_test(vectorgl_path_tests path_tests.cpp)
+vectorgl_add_test(vectorgl_scene_tests scene_tests.cpp)
+vectorgl_add_test(vectorgl_animator_tests animator_tests.cpp)

@@ -124,7 +124,7 @@ float evalEasing(Ease ease, float t)
 
 TweenAnimation::TweenAnimation(uint32_t nodeId, AnimTarget from, AnimTarget to, float duration, Ease easing,
                                LoopMode loop)
-    : from_(from), to_(to), duration_(duration), easing_(easing), loop_(loop)
+    : from_(from), to_(to), duration_(std::max(duration, 0.000001f)), easing_(easing), loop_(loop)
 {
     nodeId_ = nodeId;
 }
@@ -255,6 +255,12 @@ KeyframeAnimation::KeyframeAnimation(uint32_t nodeId, std::vector<Keyframe> keyf
 
 bool KeyframeAnimation::update(float dt)
 {
+    if (keyframes_.size() < 2 || totalDuration_ <= 0.0f)
+    {
+        finished_ = true;
+        return finished_;
+    }
+
     elapsed_ += dt;
     if (loop_ == LoopMode::None && elapsed_ >= totalDuration_)
     {
@@ -334,10 +340,6 @@ void Animator::update(float dt)
     {
         anim->update(dt);
     }
-    // Remove finished
-    animations_.erase(
-        std::remove_if(animations_.begin(), animations_.end(), [](const auto& a) { return a->isFinished(); }),
-        animations_.end());
 }
 
 void Animator::applyTo(Scene& scene)
@@ -350,6 +352,14 @@ void Animator::applyTo(Scene& scene)
             anim->apply(*node);
         }
     }
+    // Keep completed animations alive until their final state has been
+    // applied. Removing them in update() skipped the endpoint frame.
+    animations_.erase(std::remove_if(animations_.begin(), animations_.end(),
+                                     [](const auto& animation)
+                                     {
+                                         return animation->isFinished();
+                                     }),
+                      animations_.end());
 }
 
 void Animator::clear()
