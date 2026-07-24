@@ -1,0 +1,20 @@
+set(VECTORGL_PUBLIC_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}" PARENT_SCOPE)
+set(VECTORGL_PUBLIC_HEADERS
+    "${CMAKE_CURRENT_SOURCE_DIR}/vectorgl/animator.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/vectorgl/canvas.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/vectorgl/color.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/vectorgl/effects.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/vectorgl/font.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/vectorgl/glfw_text_box.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/vectorgl/image.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/vectorgl/node.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/vectorgl/paint.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/vectorgl/path.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/vectorgl/renderer.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/vectorgl/scene.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/vectorgl/svg.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/vectorgl/svg_cache.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/vectorgl/text_box.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/vectorgl/ui.hpp"
+    PARENT_SCOPE
+)

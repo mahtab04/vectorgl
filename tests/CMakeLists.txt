@@ -1,0 +1,3 @@
+add_executable(vectorgl_scene_tests scene_tests.cpp)
+target_link_libraries(vectorgl_scene_tests PRIVATE vectorgl::vectorgl)
+add_test(NAME vectorgl_scene_tests COMMAND vectorgl_scene_tests)
