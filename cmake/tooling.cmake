@@ -46,6 +46,9 @@ function(setup_clang_tooling TARGET_NAME)
     file(REAL_PATH "${PROJECT_SOURCE_DIR}" _project_source_dir)
     string(REPLACE "\\" "/" _project_source_dir "${_project_source_dir}")
     _vectorgl_escape_regex("${_project_source_dir}" _project_source_regex)
+    file(REAL_PATH "${CMAKE_BINARY_DIR}" _binary_dir)
+    string(REPLACE "\\" "/" _binary_dir "${_binary_dir}")
+    _vectorgl_escape_regex("${_binary_dir}" _binary_dir_regex)
 
     if(ENABLE_CLANG_TIDY AND CLANG_TIDY_EXE)
         set_target_properties(${TARGET_NAME} PROPERTIES
@@ -76,6 +79,10 @@ function(setup_clang_tooling TARGET_NAME)
 
         file(REAL_PATH "${_source}" _source_real)
         string(REPLACE "\\" "/" _source_real "${_source_real}")
+
+        if(_source_real MATCHES "^${_binary_dir_regex}(/|$)")
+            continue()
+        endif()
 
         if(NOT _source_real MATCHES "^${_project_source_regex}(/|$)")
             continue()
