@@ -355,10 +355,7 @@ void Animator::applyTo(Scene& scene)
     // Keep completed animations alive until their final state has been
     // applied. Removing them in update() skipped the endpoint frame.
     animations_.erase(std::remove_if(animations_.begin(), animations_.end(),
-                                     [](const auto& animation)
-                                     {
-                                         return animation->isFinished();
-                                     }),
+                                     [](const auto& animation) { return animation->isFinished(); }),
                       animations_.end());
 }
 
