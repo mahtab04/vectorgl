@@ -29,6 +29,12 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v6
 
+      - name: Set up Python
+        id: python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
       - name: Install Linux OpenGL dependencies
         if: runner.os == 'Linux'
         run: |
@@ -48,6 +54,7 @@ jobs:
         run: >
           cmake -S . -B build
           ${{ matrix.cmake_config }}
+          -DPython_EXECUTABLE=${{ steps.python.outputs.python-path }}
           -DVECTORGL_BUILD_EXAMPLES=OFF
           -DVECTORGL_BUILD_TESTS=ON
 
