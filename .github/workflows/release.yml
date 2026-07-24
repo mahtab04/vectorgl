@@ -41,6 +41,9 @@ jobs:
             libxinerama-dev \
             libxrandr-dev
 
+      - name: Install glad generator dependencies
+        run: python -m pip install --disable-pip-version-check "jinja2>=3,<4"
+
       - name: Configure
         run: >
           cmake -S . -B build

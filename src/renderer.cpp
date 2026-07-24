@@ -821,8 +821,8 @@ public:
     {
         if (!effectCaptured_)
             return;
-        drawTexturedQuad(offset.x, offset.y, static_cast<float>(effectW_), static_cast<float>(effectH_),
-                         effectTexture_, tint, Mat3x3::identity());
+        drawTexturedQuad(offset.x, offset.y, static_cast<float>(effectW_), static_cast<float>(effectH_), effectTexture_,
+                         tint, Mat3x3::identity());
     }
 
     void applyBlur(float radius)
