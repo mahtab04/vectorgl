@@ -1,5 +1,17 @@
 # VectorGL
 
+[![Build and Test](https://github.com/mahtab04/vectorgl/actions/workflows/build.yml/badge.svg)](https://github.com/mahtab04/vectorgl/actions/workflows/build.yml)
+[![Latest Release](https://img.shields.io/github/v/release/mahtab04/vectorgl?display_name=tag&sort=semver)](https://github.com/mahtab04/vectorgl/releases/latest)
+[![License](https://img.shields.io/github/license/mahtab04/vectorgl)](./LICENSE)
+[![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C?logo=cplusplus)](https://en.cppreference.com/w/cpp/20)
+[![OpenGL 3.3](https://img.shields.io/badge/OpenGL-3.3-5586A4?logo=opengl)](https://www.khronos.org/opengl/)
+
+[Documentation](https://mahtab04.github.io/vectorgl/) ·
+[Examples](https://mahtab04.github.io/vectorgl/examples.html) ·
+[API Reference](https://mahtab04.github.io/vectorgl/api.html) ·
+[Guides](https://mahtab04.github.io/vectorgl/guides.html) ·
+[Releases](https://github.com/mahtab04/vectorgl/releases)
+
 > A GPU-accelerated 2D vector graphics library for C++20, built on OpenGL 3.3 Core.
 
 VectorGL provides two complementary APIs:
@@ -223,7 +235,7 @@ target_link_libraries(myapp PRIVATE vectorgl::vectorgl)
 include(FetchContent)
 
 FetchContent_Declare(vectorgl
-    GIT_REPOSITORY <url>
+    GIT_REPOSITORY https://github.com/mahtab04/vectorgl.git
     GIT_TAG        v1.0.0
 )
 
@@ -233,32 +245,33 @@ target_link_libraries(myapp PRIVATE vectorgl::vectorgl)
 
 ---
 
-## 📖 API Documentation
+## 📖 Documentation
 
-All public headers include Doxygen-style `/*! @brief ... */` documentation.
+The complete documentation is published as a browsable site:
 
-```bash
-# Generate HTML docs
-doxygen Doxyfile
-```
+- [Documentation home](https://mahtab04.github.io/vectorgl/)
+- [Overview and architecture](https://mahtab04.github.io/vectorgl/overview.html)
+- [Usage guides](https://mahtab04.github.io/vectorgl/guides.html)
+- [API reference](https://mahtab04.github.io/vectorgl/api.html)
+- [Example gallery](https://mahtab04.github.io/vectorgl/examples.html)
 
-Then open `docs/index.html` in your browser. The docs are split into separate pages for:
+The source for the static site lives in [`docs/`](./docs). Every push to
+`main` deploys that directory through the GitHub Pages workflow.
 
-- Overview
-- Guides
-- API Reference
-- Examples
+---
 
-> The `docs/` folder is self-contained and suitable for **GitHub Pages** hosting.
+## ✅ Build and test status
 
-### Publishing to GitHub Pages
+The [Build and Test workflow](https://github.com/mahtab04/vectorgl/actions/workflows/build.yml)
+compiles and tests all four supported CI configurations:
 
-1. Push the repository to GitHub.
-2. Go to **Settings → Pages**.
-3. Set the source to the `main` branch, `/docs` folder.
-4. Use the generated Pages URL as your public docs link.
+- Linux GCC Debug
+- Linux GCC Release
+- Windows MSVC Debug
+- Windows MSVC Release
 
-> A `.nojekyll` marker is included so GitHub Pages serves the files as a plain static site.
+Version tags matching `v*` run the release pipeline and publish installable
+Windows and Linux archives. See [Releases](https://github.com/mahtab04/vectorgl/releases).
 
 ---
 
