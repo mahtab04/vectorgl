@@ -18,8 +18,10 @@ jobs:
         include:
           - platform: linux-x64
             os: ubuntu-latest
+            cmake_config: -DCMAKE_BUILD_TYPE=Release
           - platform: windows-x64
             os: windows-latest
+            cmake_config: ""
 
     runs-on: ${{ matrix.os }}
 
@@ -42,7 +44,7 @@ jobs:
       - name: Configure
         run: >
           cmake -S . -B build
-          -DCMAKE_BUILD_TYPE=Release
+          ${{ matrix.cmake_config }}
           -DVECTORGL_BUILD_EXAMPLES=OFF
           -DVECTORGL_BUILD_TESTS=ON
 
@@ -104,4 +106,3 @@ jobs:
           --verify-tag
           --generate-notes
           --title "VectorGL ${{ github.ref_name }}"
-

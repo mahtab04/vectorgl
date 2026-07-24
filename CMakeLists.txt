@@ -64,6 +64,7 @@ add_library(vectorgl STATIC
     src/svg/svg_gradient.cpp
     src/svg/svg_marker.cpp
     src/svg/svg_css.cpp
+    "${VECTORGL_GLAD_DIR}/src/gl.c"
     include/PublicHeaders/vectorgl/text_box.hpp
     include/PublicHeaders/vectorgl/glfw_text_box.hpp
     include/PublicHeaders/vectorgl/ui.hpp
@@ -73,6 +74,7 @@ add_library(vectorgl::vectorgl ALIAS vectorgl)
 
 target_include_directories(vectorgl PUBLIC
     $<BUILD_INTERFACE:${VECTORGL_PUBLIC_INCLUDE_DIR}>
+    $<BUILD_INTERFACE:${VECTORGL_GLAD_DIR}/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
@@ -87,7 +89,7 @@ target_compile_definitions(vectorgl PRIVATE
     VECTORGL_INSTALL_SHADER_DIR="${CMAKE_INSTALL_FULL_DATADIR}/vectorgl/shaders"
 )
 
-target_link_libraries(vectorgl PRIVATE glad)
+add_dependencies(vectorgl vectorgl_glad)
 
 target_compile_features(vectorgl PUBLIC cxx_std_20)
 
@@ -99,16 +101,6 @@ install(TARGETS vectorgl
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-)
-
-# Export the exact generated OpenGL loader used by the static library. It stays
-# an implementation dependency but remains available to resolve static symbols
-# for installed consumers.
-install(TARGETS glad
-    EXPORT vectorglTargets
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
 install(FILES ${VECTORGL_PUBLIC_HEADERS}

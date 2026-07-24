@@ -30,7 +30,15 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(glfw glad stb)
 
-if(NOT TARGET glad)
-	glad_add_library(glad REPRODUCIBLE LOADER API gl:core=3.3)
+set(VECTORGL_GLAD_DIR "${CMAKE_CURRENT_BINARY_DIR}/gladsources/vectorgl_glad")
+if(NOT TARGET vectorgl_glad)
+	glad_add_library(
+		vectorgl_glad
+		STATIC
+		REPRODUCIBLE
+		LOADER
+		LOCATION "${VECTORGL_GLAD_DIR}"
+		API gl:core=3.3
+	)
 endif()
 

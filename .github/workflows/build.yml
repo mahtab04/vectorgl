@@ -23,8 +23,10 @@ jobs:
         include:
           - name: Linux GCC
             os: ubuntu-latest
+            cmake_config: -DCMAKE_BUILD_TYPE=Release
           - name: Windows MSVC
             os: windows-latest
+            cmake_config: ""
 
     runs-on: ${{ matrix.os }}
 
@@ -47,7 +49,7 @@ jobs:
       - name: Configure
         run: >
           cmake -S . -B build
-          -DCMAKE_BUILD_TYPE=Release
+          ${{ matrix.cmake_config }}
           -DVECTORGL_BUILD_EXAMPLES=OFF
           -DVECTORGL_BUILD_TESTS=ON
 
@@ -56,4 +58,3 @@ jobs:
 
       - name: Test
         run: ctest --test-dir build -C Release --output-on-failure
-

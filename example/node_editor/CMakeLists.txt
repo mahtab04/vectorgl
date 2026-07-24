@@ -26,4 +26,4 @@ target_include_directories(vectorgl_node_editor PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-target_link_libraries(vectorgl_node_editor PRIVATE vectorgl glfw glad)
+target_link_libraries(vectorgl_node_editor PRIVATE vectorgl glfw)
