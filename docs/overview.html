@@ -1,0 +1,61 @@
+
+
+VectorGL
+Theme Overview Guides API Examples
+
+On this site
+Overview Guides API Reference Examples
+
+Overview
+Understand the architecture before you pick an API.
+VectorGL exposes two complementary layers: Canvas for immediate-mode drawing and Scene for retained-mode composition. Both sit on top of the same Renderer and require an OpenGL 3.3 context.
+
+Core Concepts
+Choose the right layer
+
+Getting Started
+Build, initialize, and render a first frame
+
+Build and link
+VectorGL targets OpenGL 3.3 Core and a C++20 toolchain. Create the OpenGL context first, then initialize Canvas or Renderer only after the context is current.
+Copy
+terminal
+cmake -S vectorgl -B build
+cmake --build build --config Debug
+
+Minimal Canvas loop
+Copy
+canvas_example.cpp
+#include <vectorgl/canvas.hpp>
+
+vectorgl::Canvas canvas;
+canvas.init();
+
+canvas.beginFrame(fbWidth, fbHeight);
+canvas.setFillColor(vectorgl::Color::hex(0x1E88E5));
+canvas.fillRoundedRect(40.0f, 40.0f, 240.0f, 120.0f, 16.0f);
+canvas.endFrame();
+
+canvas.destroy();
+
+Scene-based loop
+Copy
+scene_example.cpp
+vectorgl::Canvas canvas;
+canvas.init();
+
+vectorgl::Scene scene(canvas.renderer());
+auto card = scene.roundedRect(120.0f, 120.0f, 240.0f, 140.0f, 16.0f);
+card->setFill(vectorgl::Color::hex(0x0F172A));
+
+scene.update(dt);
+canvas.beginFrame(fbWidth, fbHeight);
+scene.render();
+canvas.endFrame();
+Toggle theme
+On this page
+Intro Core concepts Getting started
+
+Overview
+Use this page as the architectural entry point before diving into usage guides or individual API groups.
+Guides API Examples

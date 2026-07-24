@@ -1,0 +1,19 @@
+# Build and install outputs
+/build/
+/out/
+/generated/
+
+# IDE and compiler artifacts
+/.vs/
+/.vscode/
+*.user
+*.suo
+compile_commands.json
+
+# Generated document mirrors and QA output
+*.docx
+/.docx_qa/
+
+# Platform files
+.DS_Store
+Thumbs.db
