@@ -89,8 +89,6 @@ target_compile_definitions(vectorgl PRIVATE
     VECTORGL_INSTALL_SHADER_DIR="${CMAKE_INSTALL_FULL_DATADIR}/vectorgl/shaders"
 )
 
-add_dependencies(vectorgl vectorgl_glad)
-
 target_compile_features(vectorgl PUBLIC cxx_std_20)
 
 setup_clang_tooling(vectorgl)

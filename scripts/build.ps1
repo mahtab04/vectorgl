@@ -6,7 +6,6 @@ param(
     [switch]$Clean,
     [switch]$SkipTests,
     [switch]$SkipExamples,
-    [switch]$SkipPythonDependencies,
 
     [string]$Generator = ""
 )
@@ -32,49 +31,6 @@ function Invoke-Checked {
     if ($LASTEXITCODE -ne 0) {
         throw "'$Command' exited with code $LASTEXITCODE."
     }
-}
-
-function Find-Python {
-    $candidates = @(
-        @{ Command = "py"; Prefix = @("-3") },
-        @{ Command = "python"; Prefix = @() },
-        @{ Command = "python3"; Prefix = @() }
-    )
-
-    foreach ($candidate in $candidates) {
-        if (-not (Get-Command $candidate.Command -ErrorAction SilentlyContinue)) {
-            continue
-        }
-
-        $previousErrorAction = $ErrorActionPreference
-        $ErrorActionPreference = "Continue"
-        $executable = & $candidate.Command @($candidate.Prefix) -c "import sys; print(sys.executable)" 2>$null
-        $pythonExitCode = $LASTEXITCODE
-        $ErrorActionPreference = $previousErrorAction
-        if ($pythonExitCode -eq 0 -and $executable) {
-            $selectedExecutable = [string](@($executable)[-1])
-            return $selectedExecutable.Trim()
-        }
-    }
-
-    throw "Python 3 was not found. Install Python 3.8 or newer and add it to PATH."
-}
-
-function Test-PythonModule {
-    param(
-        [Parameter(Mandatory)]
-        [string]$Python,
-
-        [Parameter(Mandatory)]
-        [string]$Module
-    )
-
-    $previousErrorAction = $ErrorActionPreference
-    $ErrorActionPreference = "Continue"
-    & $Python -c "import $Module" 2>$null
-    $moduleExitCode = $LASTEXITCODE
-    $ErrorActionPreference = $previousErrorAction
-    return $moduleExitCode -eq 0
 }
 
 function Find-CMakeGenerator {
@@ -133,22 +89,6 @@ if (-not (Get-Command cmake -ErrorAction SilentlyContinue)) {
 $cmakeVersion = cmake --version | Select-Object -First 1
 Write-Host "[VectorGL] $cmakeVersion"
 
-$pythonExecutable = Find-Python
-Write-Host "[VectorGL] Python: $pythonExecutable"
-
-if (-not $SkipPythonDependencies) {
-    if (-not (Test-PythonModule -Python $pythonExecutable -Module "jinja2")) {
-        Write-Step "Installing the GLAD generator dependency (Jinja2)"
-        Invoke-Checked -Command $pythonExecutable -Arguments @(
-            "-m", "pip", "install", "--disable-pip-version-check", "jinja2>=3,<4"
-        )
-    }
-}
-
-if (-not (Test-PythonModule -Python $pythonExecutable -Module "jinja2")) {
-    throw "Jinja2 is unavailable to '$pythonExecutable'. Run: `"$pythonExecutable`" -m pip install `"jinja2>=3,<4`""
-}
-
 if ($Clean -and (Test-Path -LiteralPath $buildDirectory)) {
     $resolvedBuildDirectory = (Resolve-Path -LiteralPath $buildDirectory).Path
     $expectedPrefix = (Join-Path $projectRoot "build") + [IO.Path]::DirectorySeparatorChar
@@ -169,7 +109,6 @@ $configureArguments = @(
     "-S", $projectRoot,
     "-B", $buildDirectory,
     "-G", $cmakeGenerator,
-    "-DPython_EXECUTABLE=$pythonExecutable",
     "-DVECTORGL_BUILD_EXAMPLES=$buildExamples",
     "-DVECTORGL_BUILD_TESTS=$buildTests",
     "-DCMAKE_BUILD_TYPE=$Configuration"

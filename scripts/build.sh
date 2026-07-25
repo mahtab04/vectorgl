@@ -6,9 +6,7 @@ configuration="Debug"
 clean=0
 skip_tests=0
 skip_examples=0
-skip_python_dependencies=0
 generator=""
-python_executable=""
 
 usage() {
     cat <<'EOF'
@@ -22,9 +20,7 @@ Options:
   --clean                          Remove the selected build directory first
   --skip-tests                     Do not build or run tests
   --skip-examples                  Do not build example applications
-  --skip-python-dependencies       Do not try to install Jinja2
   --generator <name>               Override CMake generator detection
-  --python <path>                  Use a specific Python interpreter
   -h, --help                       Show this help
 EOF
 }
@@ -57,18 +53,9 @@ while (($#)); do
             skip_examples=1
             shift
             ;;
-        --skip-python-dependencies)
-            skip_python_dependencies=1
-            shift
-            ;;
         --generator)
             (($# >= 2)) || fail "--generator requires a value"
             generator="$2"
-            shift 2
-            ;;
-        --python)
-            (($# >= 2)) || fail "--python requires a value"
-            python_executable="$2"
             shift 2
             ;;
         -h|--help)
@@ -94,30 +81,7 @@ project_root="$(cd -- "$script_dir/.." && pwd -P)"
 configuration_name="$(printf '%s' "$configuration" | tr '[:upper:]' '[:lower:]')"
 build_directory="$project_root/build/local-$configuration_name"
 
-if [[ -z "$python_executable" ]]; then
-    for candidate in python3 python; do
-        if command -v "$candidate" >/dev/null 2>&1 &&
-            "$candidate" -c 'import sys; assert sys.version_info >= (3, 8)' >/dev/null 2>&1; then
-            python_executable="$("$candidate" -c 'import sys; print(sys.executable)')"
-            break
-        fi
-    done
-fi
-
-[[ -n "$python_executable" && -x "$python_executable" ]] ||
-    fail "Python 3.8 or newer was not found; pass --python /path/to/python"
-
 printf '[VectorGL] %s\n' "$(cmake --version | head -n 1)"
-printf '[VectorGL] Python: %s\n' "$python_executable"
-
-if ! "$python_executable" -c 'import jinja2' >/dev/null 2>&1; then
-    if ((skip_python_dependencies)); then
-        fail "Jinja2 is missing; run '$python_executable -m pip install \"jinja2>=3,<4\"'"
-    fi
-
-    step "Installing the GLAD generator dependency (Jinja2)"
-    "$python_executable" -m pip install --disable-pip-version-check 'jinja2>=3,<4'
-fi
 
 if [[ -z "$generator" ]]; then
     if command -v ninja >/dev/null 2>&1 &&
@@ -159,7 +123,6 @@ configure_arguments=(
     -B "$build_directory"
     -G "$generator"
     "-DCMAKE_BUILD_TYPE=$configuration"
-    "-DPython_EXECUTABLE=$python_executable"
     "-DVECTORGL_BUILD_EXAMPLES=$build_examples"
     "-DVECTORGL_BUILD_TESTS=$build_tests"
 )

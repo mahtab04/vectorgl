@@ -88,6 +88,10 @@ function(setup_clang_tooling TARGET_NAME)
             continue()
         endif()
 
+        if(_source_real MATCHES "^${_project_source_regex}/third_party(/|$)")
+            continue()
+        endif()
+
         if(_source_real MATCHES "\\.(c|cc|cpp|cxx|h|hh|hpp|hxx)$")
             list(APPEND _format_sources "${_source_real}")
         endif()

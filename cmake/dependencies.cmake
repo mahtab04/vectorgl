@@ -16,29 +16,14 @@ set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 
 FetchContent_Declare(
-	glad
-	GIT_REPOSITORY https://github.com/Dav1dde/glad.git
-	GIT_TAG v2.0.8
-	SOURCE_SUBDIR cmake
-)
-
-FetchContent_Declare(
 	stb
 	GIT_REPOSITORY https://github.com/nothings/stb.git
 	GIT_TAG 31c1ad37456438565541f4919958214b6e762fb4
 )
 
-FetchContent_MakeAvailable(glfw glad stb)
+FetchContent_MakeAvailable(glfw stb)
 
-set(VECTORGL_GLAD_DIR "${CMAKE_CURRENT_BINARY_DIR}/gladsources/vectorgl_glad")
-if(NOT TARGET vectorgl_glad)
-	glad_add_library(
-		vectorgl_glad
-		STATIC
-		REPRODUCIBLE
-		LOADER
-		LOCATION "${VECTORGL_GLAD_DIR}"
-		API gl:core=3.3
-	)
-endif()
+# GLAD is generated once and committed to the repository so consumers do not
+# need Python, Jinja2, or network access to generate the OpenGL loader.
+set(VECTORGL_GLAD_DIR "${PROJECT_SOURCE_DIR}/third_party/glad")
 

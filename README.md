@@ -56,14 +56,14 @@ It also includes an SVG loader, TrueType font rendering, and a post-processing e
 | Dependency | Version | Purpose |
 |---|---|---|
 | [GLFW](https://www.glfw.org/) | 3.3.8 | Window/context management *(examples only)* |
-| [glad](https://github.com/Dav1dde/glad) | 2.0.8 | OpenGL loader |
+| [glad](https://github.com/Dav1dde/glad) | 2.0.8 | Vendored OpenGL 3.3 loader |
 | [stb](https://github.com/nothings/stb) | latest | Image loading (`stb_image`) and font rasterization (`stb_truetype`) |
 
 ---
 
 ## 🏗️ Building
 
-For prerequisites, GLAD/Python setup, troubleshooting, and contribution steps,
+For prerequisites, troubleshooting, and contribution steps,
 see [Building and Contributing](CONTRIBUTING.md).
 
 ### Windows helper
@@ -72,8 +72,8 @@ see [Building and Contributing](CONTRIBUTING.md).
 scripts\build.bat -Configuration Debug
 ```
 
-The helper works from PowerShell or Command Prompt. It verifies Python and
-Jinja2, passes the selected interpreter to CMake, builds examples, and runs
+The helper works from PowerShell or Command Prompt. It detects the available
+toolchain, builds examples, deploys MinGW runtime DLLs when needed, and runs
 tests. See the contribution guide for direct PowerShell usage and options.
 
 Linux and macOS users can run:

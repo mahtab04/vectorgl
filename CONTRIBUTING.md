@@ -1,8 +1,7 @@
 # Building and Contributing to VectorGL
 
 Thank you for helping improve VectorGL. This guide covers the supported local
-build workflow, the Python requirement used by GLAD, testing, formatting, and
-the expected contribution process.
+build workflow, testing, formatting, and the expected contribution process.
 
 ## Prerequisites
 
@@ -10,37 +9,19 @@ the expected contribution process.
 |---|---:|---|
 | C++ compiler | MSVC 2022, GCC 12, or Clang 15 | Must support C++20 |
 | CMake | 3.20 | CMake 3.23 or newer is recommended for presets |
-| Python | 3.8 | Required by the GLAD source generator |
 | Git | Current stable | CMake downloads dependencies with FetchContent |
 | GPU/driver | OpenGL 3.3 | Required to run graphical examples |
 
 On Windows, install the **Desktop development with C++** workload in Visual
-Studio 2022. On Linux, install a compiler, CMake, Ninja, Python, and the
+Studio 2022. On Linux, install a compiler, CMake, Ninja, and the
 development packages required by GLFW.
 
-## Why the build needs Python
+## Vendored OpenGL loader
 
-VectorGL uses GLAD 2.0.8 to generate its OpenGL 3.3 loader at build time. GLAD
-is a Python program and requires Jinja2. If Jinja2 is missing, the build fails
-with:
-
-```text
-ModuleNotFoundError: No module named 'jinja2'
-```
-
-Install the dependency with the same Python interpreter CMake uses:
-
-```bash
-python -m pip install "jinja2>=3,<4"
-```
-
-If multiple Python installations are present, pass the interpreter explicitly:
-
-```bash
-cmake -S . -B build -DPython_EXECUTABLE="C:/Path/To/python.exe"
-```
-
-The supplied Windows build helpers perform both checks automatically.
+VectorGL vendors its GLAD 2.0.8 OpenGL 3.3 Core loader under
+`third_party/glad`. Normal builds do not require Python, Jinja2, or network
+access for GLAD generation. See `third_party/glad/README.md` for the exact
+generation settings and `third_party/glad/LICENSE` for license information.
 
 ## Recommended Windows build
 
@@ -70,9 +51,6 @@ scripts\build.bat -Configuration Release -Clean
 
 # Build the library without examples or tests
 scripts\build.bat -SkipExamples -SkipTests
-
-# Do not attempt to install Jinja2
-scripts\build.bat -SkipPythonDependencies
 
 # Override automatic CMake generator detection
 scripts\build.bat -Generator Ninja
@@ -132,12 +110,10 @@ Common options:
 # Explicit compiler environment and generator
 CC=clang CXX=clang++ ./scripts/build.sh --generator Ninja
 
-# Select a particular Python installation
-./scripts/build.sh --python /usr/bin/python3
 ```
 
 The script chooses Ninja when available and otherwise uses Unix Makefiles. It
-checks Python and Jinja2 before configuring GLAD, then builds and runs CTest.
+then configures the project, builds it, and runs CTest.
 
 ## Continuous integration
 
@@ -154,9 +130,7 @@ GNU compiler compatibility is tested independently from the Linux GCC jobs.
 ## Manual CMake build
 
 ```bash
-python -m pip install "jinja2>=3,<4"
 cmake -S . -B build/local \
-  -DPython_EXECUTABLE=/path/to/python \
   -DVECTORGL_BUILD_EXAMPLES=ON \
   -DVECTORGL_BUILD_TESTS=ON
 cmake --build build/local --config Debug --parallel
@@ -168,7 +142,6 @@ For a single-configuration generator such as Ninja:
 ```bash
 cmake -S . -B build/local -G Ninja \
   -DCMAKE_BUILD_TYPE=Debug \
-  -DPython_EXECUTABLE=/path/to/python \
   -DVECTORGL_BUILD_EXAMPLES=ON \
   -DVECTORGL_BUILD_TESTS=ON
 cmake --build build/local --parallel
@@ -185,8 +158,7 @@ cmake --preset windows-release
 cmake --build --preset windows-release
 ```
 
-Linux users can replace `windows` with `linux`. Install Jinja2 before using a
-preset because presets do not install Python packages.
+Linux users can replace `windows` with `linux`.
 
 ## Formatting and static analysis
 
@@ -211,31 +183,11 @@ code.
 
 ## Troubleshooting
 
-### GLAD cannot import Jinja2
-
-Confirm that pip and CMake use the same interpreter:
-
-```bash
-python -c "import sys; print(sys.executable)"
-python -c "import jinja2; print(jinja2.__version__)"
-```
-
-Delete the build directory after changing Python interpreters. CMake caches the
-interpreter path and GLAD generation commands.
-
-### GLAD reports that `gl.c` does not exist
-
-This is usually a secondary error after GLAD generation failed. Find the first
-Python or Jinja2 error earlier in the log, fix it, then perform a clean build:
-
-```powershell
-scripts\build.bat -Clean
-```
-
 ### Dependency downloads fail
 
-GLFW, GLAD, and stb are fetched during initial configuration. Verify that Git
-can access GitHub and that a proxy or firewall is not blocking CMake.
+GLFW and stb are fetched during initial configuration. GLAD is vendored and
+does not require a download. Verify that Git can access GitHub and that a proxy
+or firewall is not blocking CMake.
 
 ### Windows uses the wrong build configuration
 
