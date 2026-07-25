@@ -236,6 +236,11 @@ public:
 
     int fbWidth_ = 0;
     int fbHeight_ = 0;
+    int clipX_ = 0;
+    int clipY_ = 0;
+    int clipWidth_ = 0;
+    int clipHeight_ = 0;
+    bool clipEnabled_ = false;
 
     int32_t sdfLoc_viewSize_ = -1;
     int32_t pathLoc_viewSize_ = -1;
@@ -266,6 +271,18 @@ public:
         if (!frameActive_)
             throw std::logic_error(std::string("Renderer::") + operation +
                                    " must be called between beginFrame() and endFrame()");
+    }
+
+    void applyClip() const
+    {
+        if (!clipEnabled_)
+        {
+            glDisable(GL_SCISSOR_TEST);
+            return;
+        }
+
+        glEnable(GL_SCISSOR_TEST);
+        glScissor(clipX_, fbHeight_ - (clipY_ + clipHeight_), clipWidth_, clipHeight_);
     }
 
     void initSDF()
@@ -447,6 +464,11 @@ public:
         initialized_ = false;
         fbWidth_ = 0;
         fbHeight_ = 0;
+        clipEnabled_ = false;
+        clipX_ = 0;
+        clipY_ = 0;
+        clipWidth_ = 0;
+        clipHeight_ = 0;
         sdfBatch_.clear();
     }
 
@@ -466,6 +488,8 @@ public:
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glDisable(GL_DEPTH_TEST);
         glDisable(GL_CULL_FACE);
+        glDisable(GL_SCISSOR_TEST);
+        clipEnabled_ = false;
         sdfBatch_.clear();
     }
 
@@ -475,7 +499,36 @@ public:
         if (effectPassActive_)
             throw std::logic_error("Renderer::endFrame() cannot end while an effect pass is active");
         flushSDF();
+        glDisable(GL_SCISSOR_TEST);
+        clipEnabled_ = false;
         frameActive_ = false;
+    }
+
+    void setClipRect(int x, int y, int width, int height)
+    {
+        requireFrame("setClipRect()");
+        if (width < 0 || height < 0)
+            throw std::invalid_argument("Renderer::setClipRect() requires non-negative dimensions");
+
+        flushSDF();
+        const int left = std::clamp(x, 0, fbWidth_);
+        const int top = std::clamp(y, 0, fbHeight_);
+        const int right = std::clamp(x + width, 0, fbWidth_);
+        const int bottom = std::clamp(y + height, 0, fbHeight_);
+        clipX_ = left;
+        clipY_ = top;
+        clipWidth_ = std::max(0, right - left);
+        clipHeight_ = std::max(0, bottom - top);
+        clipEnabled_ = true;
+        applyClip();
+    }
+
+    void clearClip()
+    {
+        requireFrame("clearClip()");
+        flushSDF();
+        clipEnabled_ = false;
+        glDisable(GL_SCISSOR_TEST);
     }
 
     void drawSDFRect(Vec2 pos, Vec2 size, const NodeStyle& style, const Mat3x3& transform)
@@ -871,6 +924,7 @@ public:
             throw std::invalid_argument("Renderer::beginEffectPass() requires positive dimensions");
 
         flushSDF();
+        glDisable(GL_SCISSOR_TEST);
         (void)x;
         (void)y;
         ensureEffectFBOs(static_cast<int>(w), static_cast<int>(h));
@@ -891,6 +945,7 @@ public:
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glViewport(0, 0, fbWidth_, fbHeight_);
         effectPassActive_ = false;
+        applyClip();
     }
 
     void blurEffectTexture(float radius)
@@ -1050,6 +1105,16 @@ void Renderer::beginFrame(int fbWidth, int fbHeight)
 void Renderer::endFrame()
 {
     impl_->endFrame();
+}
+
+void Renderer::setClipRect(int x, int y, int width, int height)
+{
+    impl_->setClipRect(x, y, width, height);
+}
+
+void Renderer::clearClip()
+{
+    impl_->clearClip();
 }
 
 void Renderer::drawSDFRect(Vec2 pos, Vec2 size, const NodeStyle& style, const Mat3x3& transform)

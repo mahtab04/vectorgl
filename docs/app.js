@@ -82,6 +82,25 @@ const homePageCards = [
 
 const guides = [
     {
+        title: "Clip drawing to a region",
+        text: "Use clipRect() to constrain subsequent drawing to a transformed rectangular region. Nested clips intersect automatically, and save()/restore() makes clipping convenient for reusable widgets.",
+        bullets: [
+            "Clip coordinates use VectorGL's top-left coordinate system.",
+            "The current transform is applied when the clip is created.",
+            "Call resetClip() to remove all clipping without restoring state."
+        ],
+        code: `canvas.save();
+canvas.clipRect(40.0f, 40.0f, 280.0f, 160.0f);
+
+canvas.setFillColor(vectorgl::Color::hex(0x38BDF8));
+canvas.fillCircle(300.0f, 120.0f, 100.0f);
+
+canvas.clipRect(120.0f, 70.0f, 140.0f, 90.0f);
+canvas.setFillColor(vectorgl::Color::hex(0xA78BFA));
+canvas.fillRect(80.0f, 40.0f, 240.0f, 150.0f);
+canvas.restore();`
+    },
+    {
         title: "Draw standard shapes",
         text: "Use Canvas primitive methods when the shape is a rectangle, rounded rectangle, circle, or ellipse. These go through the SDF pipeline and are the most efficient route for common UI geometry.",
         bullets: [
@@ -301,6 +320,22 @@ to.mask = vectorgl::AnimTarget::Opacity;
 animator.emplace<vectorgl::TweenAnimation>(
     dot->id(), from, to, duration, vectorgl::Ease::InOutQuad,
     vectorgl::LoopMode::PingPong);`
+    },
+    {
+        title: "clipping_demo.cpp",
+        text: "A focused clipping showcase with animated overflow, nested intersections, a scrolling feed, and clip state restored through save()/restore().",
+        bullets: [
+            "Best reference for clipRect() and resetClip().",
+            "Demonstrates nested clips intersecting predictably.",
+            "Shows how clipping supports cards, viewports, and scrollable UI."
+        ],
+        code: `canvas.save();
+canvas.clipRect(panelX, panelY, panelWidth, panelHeight);
+drawAnimatedContent(canvas, time);
+
+canvas.clipRect(innerX, innerY, innerWidth, innerHeight);
+drawNestedContent(canvas);
+canvas.restore();`
     }
 ];
 
@@ -330,10 +365,12 @@ const apiReference = [
             {
                 title: "Transform stack and state",
                 methods: [
-                    { signature: "void save() / void restore()", description: "Pushes and pops the current drawing state including transform, fill color, stroke color, and line width.", notes: ["Use these when rendering nested widgets or SVG content.", "restore() only undoes changes made after the matching save()."] },
+                    { signature: "void save() / void restore()", description: "Pushes and pops the current drawing state including transform, colors, line width, and clipping region.", notes: ["Use these when rendering nested widgets or SVG content.", "restore() only undoes changes made after the matching save()."] },
                     { signature: "void translate(float x, float y)", description: "Applies a translation to the current transform." },
                     { signature: "void rotate(float angle)", description: "Applies clockwise rotation in radians to the current transform." },
                     { signature: "void scale(float x, float y)", description: "Applies non-uniform scaling to the current transform." },
+                    { signature: "void clipRect(float x, float y, float width, float height)", description: "Intersects the active clipping region with a transformed rectangle. Rotated rectangles use their transformed axis-aligned bounds.", notes: ["Width and height must be non-negative.", "Clipping affects only subsequent drawing and is restored by restore()."] },
+                    { signature: "void resetClip()", description: "Removes the active clipping region for subsequent drawing." },
                     { signature: "void setFillColor(Color c)", description: "Sets the active fill color for fillRect(), fillCircle(), fill(), fillText(), and other fill operations." },
                     { signature: "void setStrokeColor(Color c)", description: "Sets the active stroke color for strokeRect(), strokeCircle(), stroke(), and other stroke operations." },
                     { signature: "void setLineWidth(float w)", description: "Sets the current stroke width in pixels." },
@@ -445,6 +482,13 @@ const apiReference = [
                     { signature: "void beginFrame(int fbWidth, int fbHeight)", description: "Starts a frame and resets batching state for the given framebuffer size." },
                     { signature: "void endFrame()", description: "Completes the frame and flushes remaining batched SDF primitives." },
                     { signature: "int fbWidth() const / int fbHeight() const", description: "Returns the current framebuffer size tracked by the renderer." }
+                ]
+            },
+            {
+                title: "Clipping",
+                methods: [
+                    { signature: "void setClipRect(int x, int y, int width, int height)", description: "Sets a framebuffer-space scissor rectangle using VectorGL's top-left coordinate system. Pending SDF work is flushed before the state change." },
+                    { signature: "void clearClip()", description: "Disables scissor clipping after flushing pending SDF work." }
                 ]
             },
             {

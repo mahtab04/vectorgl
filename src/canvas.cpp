@@ -4,6 +4,7 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <stdexcept>
 
 namespace vectorgl
 {
@@ -95,9 +96,72 @@ void Canvas::restore()
 {
     if (!stateStack_.empty())
     {
+        const bool clipChanged = currentState_.clip.enabled != stateStack_.back().clip.enabled ||
+          currentState_.clip.x != stateStack_.back().clip.x || currentState_.clip.y != stateStack_.back().clip.y ||
+          currentState_.clip.width != stateStack_.back().clip.width ||
+          currentState_.clip.height != stateStack_.back().clip.height;
         currentState_ = stateStack_.back();
         stateStack_.pop_back();
+        if (clipChanged)
+            applyClipState();
     }
+}
+
+void Canvas::clipRect(float x, float y, float width, float height)
+{
+    if (width < 0.0f || height < 0.0f)
+        throw std::invalid_argument("Canvas::clipRect() requires non-negative dimensions");
+
+    const Vec2 corners[] = {
+        currentState_.transform.transformPoint({x, y}),
+        currentState_.transform.transformPoint({x + width, y}),
+        currentState_.transform.transformPoint({x, y + height}),
+        currentState_.transform.transformPoint({x + width, y + height}),
+    };
+
+    float left = corners[0].x;
+    float top = corners[0].y;
+    float right = corners[0].x;
+    float bottom = corners[0].y;
+    for (const auto& corner : corners)
+    {
+        left = std::min(left, corner.x);
+        top = std::min(top, corner.y);
+        right = std::max(right, corner.x);
+        bottom = std::max(bottom, corner.y);
+    }
+
+    if (currentState_.clip.enabled)
+    {
+        left = std::max(left, currentState_.clip.x);
+        top = std::max(top, currentState_.clip.y);
+        right = std::min(right, currentState_.clip.x + currentState_.clip.width);
+        bottom = std::min(bottom, currentState_.clip.y + currentState_.clip.height);
+    }
+
+    currentState_.clip = {left, top, std::max(0.0f, right - left), std::max(0.0f, bottom - top), true};
+    applyClipState();
+}
+
+void Canvas::resetClip()
+{
+    currentState_.clip = {};
+    applyClipState();
+}
+
+void Canvas::applyClipState()
+{
+    if (!currentState_.clip.enabled)
+    {
+        renderer_.clearClip();
+        return;
+    }
+
+    const int left = static_cast<int>(std::floor(currentState_.clip.x));
+    const int top = static_cast<int>(std::floor(currentState_.clip.y));
+    const int right = static_cast<int>(std::ceil(currentState_.clip.x + currentState_.clip.width));
+    const int bottom = static_cast<int>(std::ceil(currentState_.clip.y + currentState_.clip.height));
+    renderer_.setClipRect(left, top, std::max(0, right - left), std::max(0, bottom - top));
 }
 
 void Canvas::translate(float x, float y)

@@ -41,6 +41,7 @@ It also includes an SVG loader, TrueType font rendering, and a post-processing e
 | **Post-Processing** | FBO-based Gaussian blur, drop shadows, and outer glow — composable via a fluent `EffectChain` API. |
 | **Scene Graph** | Parent/child hierarchy with transform inheritance, dirty tracking, and z-index ordering. |
 | **Paint System** | Solid colors, linear/radial gradients, and texture patterns. |
+| **Nested Clipping** | Transformed rectangular clipping with intersection, reset, and automatic `save()` / `restore()` state. |
 
 ---
 

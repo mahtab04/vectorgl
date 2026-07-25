@@ -22,6 +22,14 @@ int fail(const char* message)
     return 1;
 }
 
+bool pixelIs(const std::array<unsigned char, 4>& pixel, int red, int green, int blue)
+{
+    constexpr int tolerance = 45;
+    return std::abs(static_cast<int>(pixel[0]) - red) <= tolerance &&
+      std::abs(static_cast<int>(pixel[1]) - green) <= tolerance &&
+      std::abs(static_cast<int>(pixel[2]) - blue) <= tolerance && pixel[3] >= 200;
+}
+
 void glfwErrorCallback(int error, const char* description)
 {
     std::cerr << "[vectorgl_gpu_tests/GLFW] error " << error << ": "
@@ -110,8 +118,28 @@ int main()
         if (!throws<std::logic_error>([&] { canvas.renderer().endEffectPass(); }))
             result = fail("endEffectPass without an active pass did not fail");
 
+        if (!throws<std::invalid_argument>([&] { canvas.clipRect(0.0f, 0.0f, -1.0f, 10.0f); }))
+            result = fail("negative clip dimensions did not fail");
+
+        // The first draw must flush before clipping changes, otherwise it
+        // would incorrectly inherit the later scissor rectangle.
         canvas.setFillColor({1.0f, 0.0f, 0.0f, 1.0f});
-        canvas.fillRect(24.0f, 24.0f, 80.0f, 80.0f);
+        canvas.fillRect(0.0f, 0.0f, 128.0f, 128.0f);
+
+        canvas.save();
+        canvas.clipRect(32.0f, 32.0f, 64.0f, 64.0f);
+        canvas.setFillColor({0.0f, 1.0f, 0.0f, 1.0f});
+        canvas.fillRect(0.0f, 0.0f, 128.0f, 128.0f);
+
+        canvas.save();
+        canvas.clipRect(48.0f, 48.0f, 16.0f, 16.0f);
+        canvas.setFillColor({0.0f, 0.0f, 1.0f, 1.0f});
+        canvas.fillRect(0.0f, 0.0f, 128.0f, 128.0f);
+        canvas.restore();
+
+        canvas.setFillColor({1.0f, 1.0f, 0.0f, 1.0f});
+        canvas.fillRect(80.0f, 80.0f, 40.0f, 20.0f);
+        canvas.restore();
         canvas.endFrame();
         if (canvas.renderer().isFrameActive())
             result = fail("renderer kept frame active after endFrame");
@@ -120,13 +148,25 @@ int main()
 
         glFinish();
 
-        std::array<unsigned char, 4> pixel{};
-        glReadPixels(kFramebufferSize / 2, kFramebufferSize / 2, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixel.data());
+        const auto readPixel = [](int x, int y)
+        {
+            std::array<unsigned char, 4> pixel{};
+            glReadPixels(x, kFramebufferSize - 1 - y, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixel.data());
+            return pixel;
+        };
 
         if (glGetError() != GL_NO_ERROR)
             result = fail("OpenGL reported an error after rendering");
-        else if (pixel[0] < 200 || pixel[1] > 40 || pixel[2] > 40 || pixel[3] < 200)
-            result = fail("rendered center pixel was not opaque red");
+        else if (!pixelIs(readPixel(16, 16), 255, 0, 0))
+            result = fail("pre-clip batch did not remain red outside the clip");
+        else if (!pixelIs(readPixel(40, 40), 0, 255, 0))
+            result = fail("outer clip did not render green");
+        else if (!pixelIs(readPixel(56, 56), 0, 0, 255))
+            result = fail("nested clip did not render blue");
+        else if (!pixelIs(readPixel(90, 90), 255, 255, 0))
+            result = fail("restored outer clip did not render yellow");
+        else if (!pixelIs(readPixel(110, 90), 255, 0, 0))
+            result = fail("restored outer clip leaked beyond its boundary");
 
         canvas.destroy();
         if (canvas.renderer().isInitialized())

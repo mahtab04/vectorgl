@@ -8,6 +8,9 @@ target_link_libraries(vectorgl_demo PRIVATE vectorgl glfw)
 add_executable(vectorgl_showcase showcase.cpp)
 target_link_libraries(vectorgl_showcase PRIVATE vectorgl glfw)
 
+add_executable(vectorgl_clipping clipping_demo.cpp)
+target_link_libraries(vectorgl_clipping PRIVATE vectorgl glfw)
+
 
 add_executable(vectorgl_svg svg_demo.cpp)
 target_link_libraries(vectorgl_svg PRIVATE vectorgl glfw)

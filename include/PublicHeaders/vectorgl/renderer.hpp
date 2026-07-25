@@ -49,6 +49,16 @@ public:
     /*! @brief Ends the frame and flushes remaining batches. */
     void endFrame();
 
+    /*! @brief Enables an axis-aligned scissor rectangle in framebuffer coordinates.
+     *
+     *  The rectangle uses VectorGL's top-left origin. Pending SDF batches are
+     *  flushed before the GPU scissor state changes.
+     */
+    void setClipRect(int x, int y, int width, int height);
+
+    /*! @brief Disables the active scissor rectangle after flushing pending work. */
+    void clearClip();
+
     /*! @brief Returns whether GPU resources have been initialized. */
     [[nodiscard]] bool isInitialized() const noexcept;
 

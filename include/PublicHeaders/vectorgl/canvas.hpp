@@ -72,6 +72,23 @@ public:
      */
     void restore();
 
+    /*! @brief Intersects drawing with an axis-aligned rectangular clip.
+     *
+     *  The rectangle is transformed by the current transform and intersected
+     *  with the existing clip. Clips participate in save()/restore().
+     *  Rotated rectangles use their transformed axis-aligned bounding box.
+     *
+     *  @param[in] x       Rectangle left edge.
+     *  @param[in] y       Rectangle top edge.
+     *  @param[in] width   Non-negative rectangle width.
+     *  @param[in] height  Non-negative rectangle height.
+     *  @throws std::invalid_argument if width or height is negative.
+     */
+    void clipRect(float x, float y, float width, float height);
+
+    /*! @brief Removes the active clip without changing other Canvas state. */
+    void resetClip();
+
     /*! @brief Translates the current transform.
      *  @param[in] x  Horizontal offset in pixels.
      *  @param[in] y  Vertical offset in pixels.
@@ -266,11 +283,23 @@ public:
 private:
     struct State
     {
+        struct ClipRect
+        {
+            float x = 0.0f;
+            float y = 0.0f;
+            float width = 0.0f;
+            float height = 0.0f;
+            bool enabled = false;
+        };
+
         Color fillColor{Color::Black};
         Color strokeColor{Color::Black};
         float lineWidth = 1.0f;
         Mat3x3 transform = Mat3x3::identity();
+        ClipRect clip{};
     };
+
+    void applyClipState();
 
     Renderer renderer_;
     Path2D currentPath_;

@@ -51,7 +51,7 @@ Both routes eventually submit work to `Renderer`.
 
 | Class | Responsibility | Owns GPU resources |
 |---|---|---:|
-| `Canvas` | Drawing state, transform stack, paths, text, images, and frame API | Through `Renderer`, fonts, and images |
+| `Canvas` | Drawing state, transform and clip stack, paths, text, images, and frame API | Through `Renderer`, fonts, and images |
 | `Scene` | Node ownership, traversal, world-transform updates, and rendering | No |
 | `Node` | Persistent geometry, style, transform, children, and effects | No |
 | `Animator` | Tween, spring, and keyframe progression | No |
@@ -87,6 +87,13 @@ sequenceDiagram
 `beginFrame()` resets Canvas drawing state and establishes framebuffer
 dimensions. SDF primitives are accumulated and flushed when the batch fills,
 rendering state changes, an effect begins, or the frame ends.
+
+Rectangular clipping is part of Canvas state. `clipRect()` transforms the four
+corners, intersects the resulting axis-aligned bounds with any existing clip,
+and sends the result to Renderer as an OpenGL scissor rectangle. Changing clip
+state flushes pending SDF instances first, preserving command order. Effect
+passes temporarily disable scissoring while capturing off-screen content and
+restore it before compositing.
 
 ## Retained-mode scene flow
 
