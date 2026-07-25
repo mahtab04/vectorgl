@@ -44,6 +44,11 @@ constexpr PaletteItem kPaletteItems[] = {
     {"template_output", "Output", Color::hex(0x8B5CF6)},
 };
 
+float centeredTextY(const Canvas& canvas, float top, float height)
+{
+    return top + std::max(0.0f, (height - canvas.lineHeight()) * 0.5f);
+}
+
 } // namespace
 
 Vec2 GraphRenderer::applyCamera(const Vec2& point, const Camera2D& camera) const
@@ -149,7 +154,7 @@ void GraphRenderer::drawToolbar(Canvas& canvas, const GraphModel& model, const E
     canvas.setFillColor(theme.accentColor);
     canvas.fillRoundedRect(18.0f, 14.0f, 36.0f, 36.0f, 10.0f);
     canvas.setFillColor(Color::hex(0x07111F));
-    canvas.fillText("N", 29.0f, 22.0f);
+    canvas.fillText("N", 29.0f, centeredTextY(canvas, 14.0f, 36.0f));
     canvas.setFillColor(theme.titleColor);
     canvas.fillText("VECTORGL NODE LAB", 68.0f, 22.0f);
     canvas.setFillColor(theme.bodyTextColor);
@@ -158,7 +163,7 @@ void GraphRenderer::drawToolbar(Canvas& canvas, const GraphModel& model, const E
     canvas.setFillColor(theme.panelColor);
     canvas.fillRoundedRect(916.0f, 14.0f, 344.0f, 36.0f, 10.0f);
     canvas.setFillColor(theme.bodyTextColor);
-    canvas.fillText("R  Reset     Del  Remove     MMB  Pan", 934.0f, 37.0f);
+    canvas.fillText("R  Reset     Del  Remove     MMB  Pan", 934.0f, centeredTextY(canvas, 14.0f, 36.0f));
 
     (void)model;
     (void)state;
@@ -182,7 +187,7 @@ void GraphRenderer::drawMiniMap(Canvas& canvas, const GraphModel& model, const E
     canvas.setLineWidth(1.5f);
     canvas.strokeRoundedRect(mapX, mapY, mapWidth, mapHeight, 14.0f);
     canvas.setFillColor(theme.bodyTextColor);
-    canvas.fillText("MINIMAP", mapX + 14.0f, mapY + 23.0f);
+    canvas.fillText("MINIMAP", mapX + 14.0f, centeredTextY(canvas, mapY, 34.0f));
 
     for (const auto& node : model.graph().nodes)
     {
@@ -209,9 +214,9 @@ void GraphRenderer::drawStatusBar(Canvas& canvas, const GraphModel& model, const
     canvas.setFillColor(theme.bodyTextColor);
     canvas.fillText(std::to_string(model.graph().nodes.size()) + " nodes   " +
                       std::to_string(model.graph().edges.size()) + " connections",
-                    18.0f, top + 8.0f);
+                    18.0f, centeredTextY(canvas, top, kStatusBarHeight));
     canvas.fillText("Zoom " + std::to_string(static_cast<int>(state.camera.zoom * 100.0f)) + "%", 1160.0f,
-                    top + 8.0f);
+                    centeredTextY(canvas, top, kStatusBarHeight));
 }
 
 void GraphRenderer::drawEdge(Canvas& canvas, const GraphModel& model, const Edge& edge, const EditorState& state,
@@ -284,7 +289,8 @@ void GraphRenderer::drawPalette(Canvas& canvas, const EditorState& state, const 
     canvas.strokeRoundedRect(kPalettePanelX, kPalettePanelY, kPalettePanelWidth, panelHeight, 18.0f);
 
     canvas.setFillColor(theme.titleColor);
-    canvas.fillText("Node Palette", kPalettePanelX + 16.0f, kPalettePanelY + 27.0f);
+    canvas.fillText("Node Palette", kPalettePanelX + 16.0f,
+                    centeredTextY(canvas, kPalettePanelY, kPaletteHeaderHeight));
 
     float itemY = kPalettePanelY + kPaletteHeaderHeight + kPaletteItemInset;
     const float itemX = kPalettePanelX + kPaletteItemInset;
@@ -305,7 +311,7 @@ void GraphRenderer::drawPalette(Canvas& canvas, const EditorState& state, const 
         canvas.fillRoundedRect(itemX + 8.0f, itemY + 8.0f, 28.0f, 40.0f, 10.0f);
 
         canvas.setFillColor(theme.titleColor);
-        canvas.fillText(item.label, itemX + 48.0f, itemY + 31.0f);
+        canvas.fillText(item.label, itemX + 48.0f, centeredTextY(canvas, itemY, kPaletteItemHeight));
 
         itemY += kPaletteItemHeight + kPaletteItemGap;
     }
@@ -340,7 +346,8 @@ void GraphRenderer::drawPorts(Canvas& canvas, const Node& node, const std::vecto
 
         canvas.setFillColor(theme.bodyTextColor);
         const float textX = isInput ? center.x + applyZoom(14.0f, state.camera) : center.x - applyZoom(56.0f, state.camera);
-        const float textY = center.y + applyZoom(4.0f, state.camera);
+        const float portRowHeight = applyZoom(28.0f, state.camera);
+        const float textY = centeredTextY(canvas, center.y - portRowHeight * 0.5f, portRowHeight);
         canvas.fillText(port.name, textX, textY);
     }
 }
@@ -375,7 +382,8 @@ void GraphRenderer::drawNode(Canvas& canvas, const Node& node, const EditorState
     canvas.fillRoundedRect(position.x, position.y, width, headerHeight, radius);
 
     canvas.setFillColor(theme.titleColor);
-    canvas.fillText(node.title, position.x + applyZoom(14.0f, state.camera), position.y + applyZoom(24.0f, state.camera));
+    canvas.fillText(node.title, position.x + applyZoom(14.0f, state.camera),
+                    centeredTextY(canvas, position.y, headerHeight));
 
     drawPorts(canvas, node, node.inputs, state, theme, true);
     drawPorts(canvas, node, node.outputs, state, theme, false);
