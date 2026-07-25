@@ -26,25 +26,30 @@ jobs:
             configuration: Debug
             cmake_config: -DCMAKE_BUILD_TYPE=Debug
             toolchain: gcc
+            consumer_config: -DCMAKE_BUILD_TYPE=Debug
           - name: Linux GCC Release
             os: ubuntu-latest
             configuration: Release
             cmake_config: -DCMAKE_BUILD_TYPE=Release
             toolchain: gcc
+            consumer_config: -DCMAKE_BUILD_TYPE=Release
           - name: Windows MSVC Debug
             os: windows-latest
             configuration: Debug
             cmake_config: ""
             toolchain: msvc
+            consumer_config: ""
           - name: Windows MSVC Release
             os: windows-latest
             configuration: Release
             cmake_config: ""
             toolchain: msvc
+            consumer_config: ""
           - name: Windows MinGW GCC Debug
             os: windows-latest
             configuration: Debug
             toolchain: mingw
+            consumer_config: -G Ninja -DCMAKE_BUILD_TYPE=Debug
             cmake_config: >-
               -G Ninja
               -DCMAKE_BUILD_TYPE=Debug
@@ -55,6 +60,7 @@ jobs:
             os: windows-latest
             configuration: Release
             toolchain: mingw
+            consumer_config: -G Ninja -DCMAKE_BUILD_TYPE=Release
             cmake_config: >-
               -G Ninja
               -DCMAKE_BUILD_TYPE=Release
@@ -67,18 +73,6 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v6
-
-      - name: Install Linux OpenGL dependencies
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes \
-            libgl1-mesa-dev \
-            libx11-dev \
-            libxcursor-dev \
-            libxi-dev \
-            libxinerama-dev \
-            libxrandr-dev
 
       - name: Verify Windows MinGW toolchain
         if: matrix.toolchain == 'mingw'
@@ -100,3 +94,28 @@ jobs:
 
       - name: Test
         run: ctest --test-dir build -C ${{ matrix.configuration }} --output-on-failure
+
+      - name: Install
+        run: cmake --install build --config ${{ matrix.configuration }} --prefix staging
+
+      - name: Configure installed-package consumer
+        run: >
+          cmake
+          -S tests/package_consumer
+          -B package-consumer-build
+          ${{ matrix.consumer_config }}
+          -DCMAKE_PREFIX_PATH=${{ github.workspace }}/staging
+
+      - name: Build installed-package consumer
+        run: >
+          cmake
+          --build package-consumer-build
+          --config ${{ matrix.configuration }}
+          --parallel
+
+      - name: Test installed-package consumer
+        run: >
+          ctest
+          --test-dir package-consumer-build
+          -C ${{ matrix.configuration }}
+          --output-on-failure

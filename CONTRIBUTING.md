@@ -126,6 +126,8 @@ configurations:
 
 The MinGW jobs explicitly select `gcc`, `g++`, and Ninja, so Windows-specific
 GNU compiler compatibility is tested independently from the Linux GCC jobs.
+Each job also installs VectorGL and builds a separate project through
+`find_package(vectorgl CONFIG REQUIRED)`, verifying the exported CMake package.
 
 ## Manual CMake build
 

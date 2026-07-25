@@ -90,6 +90,7 @@ target_compile_definitions(vectorgl PRIVATE
 )
 
 target_compile_features(vectorgl PUBLIC cxx_std_20)
+target_link_libraries(vectorgl PRIVATE ${CMAKE_DL_LIBS})
 
 setup_clang_tooling(vectorgl)
 
