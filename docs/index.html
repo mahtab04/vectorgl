@@ -61,7 +61,7 @@
             <a class="docs-nav-link" href="overview.html">Overview</a>
             <a class="docs-nav-link" href="guides.html">Guides</a>
             <a class="docs-nav-link" href="api.html">API</a>
-            <a class="docs-nav-link" href="examples.html">Examples</a>
+            <a class="docs-nav-link" href="examples.html">Showcase</a>
           </div>
           <div class="nav-actions">
             <button class="theme-toggle" type="button" data-theme-toggle aria-label="Toggle color theme">Theme</button>
@@ -88,13 +88,16 @@
             <span>hello_vectorgl.cpp</span>
             <span class="code-language">C++</span>
           </div>
-          <pre class="code-block"><code><span class="token-keyword">vectorgl::</span>Canvas canvas(renderer);
+          <pre class="code-block"><code><span class="token-keyword">vectorgl::</span>Canvas canvas;
+canvas.<span class="token-function">init</span>();
 
-canvas.<span class="token-function">beginFrame</span>();
-canvas.<span class="token-function">fill</span>({<span class="token-number">0.27f</span>, <span class="token-number">0.52f</span>, <span class="token-number">0.96f</span>, <span class="token-number">1.0f</span>});
-canvas.<span class="token-function">roundedRect</span>({
-  <span class="token-number">32.0f</span>, <span class="token-number">32.0f</span>, <span class="token-number">240.0f</span>, <span class="token-number">96.0f</span>
-}, <span class="token-number">18.0f</span>);
+canvas.<span class="token-function">beginFrame</span>(width, height);
+canvas.<span class="token-function">setFillColor</span>({
+  <span class="token-number">0.27f</span>, <span class="token-number">0.52f</span>, <span class="token-number">0.96f</span>, <span class="token-number">1.0f</span>
+});
+canvas.<span class="token-function">fillRoundedRect</span>(
+  <span class="token-number">32.0f</span>, <span class="token-number">32.0f</span>, <span class="token-number">240.0f</span>, <span class="token-number">96.0f</span>, <span class="token-number">18.0f</span>
+);
 canvas.<span class="token-function">endFrame</span>();</code></pre>
         </div>
       </div>
@@ -102,11 +105,25 @@ canvas.<span class="token-function">endFrame</span>();</code></pre>
         <div class="stat-item"><strong>2</strong><span>Rendering APIs</span></div>
         <div class="stat-item"><strong>22</strong><span>Easing curves</span></div>
         <div class="stat-item"><strong>3</strong><span>Asset formats</span></div>
-        <div class="stat-item"><strong>4</strong><span>CI configurations</span></div>
+        <div class="stat-item"><strong>8</strong><span>CI jobs</span></div>
       </div>
     </header>
 
     <main class="main-layout">
+      <section class="site-container docs-section showcase-intro">
+        <div class="section-heading">
+          <div><span class="section-kicker">Rendered with VectorGL</span><h2>See the library, not just the feature list</h2></div>
+          <p class="section-copy">Every pixel below comes from the standalone C++ showcase executable. Explore more real programs for paths, animation, SVG, text, stress testing, and node editing.</p>
+        </div>
+        <a class="showcase-hero-card" href="examples.html#showcase" aria-label="Open the VectorGL showcase gallery">
+          <img src="images/vectorgl-showcase.png" width="1280" height="680" alt="VectorGL rendering a modern GPU vector interface" fetchpriority="high">
+          <span class="showcase-hero-caption">
+            <span><strong>Flagship showcase</strong><small>SDF primitives · Bézier paths · Oklab color · animation</small></span>
+            <span class="showcase-arrow">Explore gallery →</span>
+          </span>
+        </a>
+      </section>
+
       <section class="site-container docs-section" id="install">
         <div class="section-heading">
           <div>
