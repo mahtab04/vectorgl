@@ -121,6 +121,7 @@ Every push and pull request runs the build and test suite in these
 configurations:
 
 - Linux GCC Debug and Release
+- Linux GCC Debug with AddressSanitizer and UndefinedBehaviorSanitizer
 - Windows MSVC Debug and Release
 - Windows MinGW GCC with Ninja, Debug and Release
 
@@ -130,7 +131,26 @@ Each job also installs VectorGL and builds a separate project through
 `find_package(vectorgl CONFIG REQUIRED)`, verifying the exported CMake package.
 The main test suite includes a hidden-window GPU integration test that loads
 OpenGL through GLAD, compiles the production shaders, renders with Canvas, and
-checks a read-back pixel. Linux runs this test through Mesa and Xvfb.
+checks a read-back pixel. It runs through Mesa and Xvfb on Linux. GitHub-hosted
+Windows runners do not provide a reliable desktop OpenGL 3.3 context, so the
+Windows jobs run the CPU and installed-package tests but do not enable this GPU
+test. You can still enable and run it on a Windows machine with a suitable
+graphics driver.
+
+The sanitizer job instruments the library with AddressSanitizer and
+UndefinedBehaviorSanitizer and runs the CPU and installed-package tests. To run
+the same checks locally with GCC or Clang:
+
+```bash
+cmake -S . -B build/sanitize \
+  -DCMAKE_BUILD_TYPE=Debug \
+  -DENABLE_SANITIZERS=ON \
+  -DENABLE_CLANG_TIDY=OFF \
+  -DVECTORGL_BUILD_EXAMPLES=OFF \
+  -DVECTORGL_BUILD_TESTS=ON
+cmake --build build/sanitize --parallel
+ctest --test-dir build/sanitize --output-on-failure
+```
 
 ## Manual CMake build
 

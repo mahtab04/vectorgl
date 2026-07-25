@@ -27,24 +27,43 @@ jobs:
             cmake_config: -DCMAKE_BUILD_TYPE=Debug
             toolchain: gcc
             consumer_config: -DCMAKE_BUILD_TYPE=Debug
+            gpu_tests: ON
+            sanitizers: false
           - name: Linux GCC Release
             os: ubuntu-latest
             configuration: Release
             cmake_config: -DCMAKE_BUILD_TYPE=Release
             toolchain: gcc
             consumer_config: -DCMAKE_BUILD_TYPE=Release
+            gpu_tests: ON
+            sanitizers: false
+          - name: Linux GCC Sanitizers
+            os: ubuntu-latest
+            configuration: Debug
+            cmake_config: >-
+              -DCMAKE_BUILD_TYPE=Debug
+              -DENABLE_SANITIZERS=ON
+              -DENABLE_CLANG_TIDY=OFF
+            toolchain: gcc
+            consumer_config: -DCMAKE_BUILD_TYPE=Debug
+            gpu_tests: OFF
+            sanitizers: true
           - name: Windows MSVC Debug
             os: windows-latest
             configuration: Debug
             cmake_config: ""
             toolchain: msvc
             consumer_config: ""
+            gpu_tests: OFF
+            sanitizers: false
           - name: Windows MSVC Release
             os: windows-latest
             configuration: Release
             cmake_config: ""
             toolchain: msvc
             consumer_config: ""
+            gpu_tests: OFF
+            sanitizers: false
           - name: Windows MinGW GCC Debug
             os: windows-latest
             configuration: Debug
@@ -56,6 +75,8 @@ jobs:
               -DCMAKE_C_COMPILER=gcc
               -DCMAKE_CXX_COMPILER=g++
               -DENABLE_CLANG_TIDY=OFF
+            gpu_tests: OFF
+            sanitizers: false
           - name: Windows MinGW GCC Release
             os: windows-latest
             configuration: Release
@@ -67,6 +88,8 @@ jobs:
               -DCMAKE_C_COMPILER=gcc
               -DCMAKE_CXX_COMPILER=g++
               -DENABLE_CLANG_TIDY=OFF
+            gpu_tests: OFF
+            sanitizers: false
 
     runs-on: ${{ matrix.os }}
 
@@ -75,7 +98,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Install Linux GPU test dependencies
-        if: runner.os == 'Linux'
+        if: matrix.gpu_tests == 'ON'
         run: |
           sudo apt-get update
           sudo apt-get install --yes \
@@ -102,10 +125,17 @@ jobs:
           ${{ matrix.cmake_config }}
           -DVECTORGL_BUILD_EXAMPLES=OFF
           -DVECTORGL_BUILD_TESTS=ON
-          -DVECTORGL_BUILD_GPU_TESTS=ON
+          -DVECTORGL_BUILD_GPU_TESTS=${{ matrix.gpu_tests }}
 
       - name: Build
         run: cmake --build build --config ${{ matrix.configuration }} --parallel
+
+      - name: Configure sanitizer runtime
+        if: matrix.sanitizers
+        shell: bash
+        run: |
+          echo "ASAN_OPTIONS=detect_leaks=1:halt_on_error=1:strict_string_checks=1" >> "$GITHUB_ENV"
+          echo "UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1" >> "$GITHUB_ENV"
 
       - name: Test
         run: ctest --test-dir build -C ${{ matrix.configuration }} --output-on-failure

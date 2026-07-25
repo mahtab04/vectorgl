@@ -2,6 +2,7 @@ include_guard(GLOBAL)
 
 option(ENABLE_CLANG_TIDY "Run clang-tidy during build" ON)
 option(ENABLE_FORMAT_CHECK "Run clang-format check during build" ON)
+option(ENABLE_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 
 find_program(CLANG_TIDY_EXE NAMES clang-tidy
     HINTS
@@ -41,6 +42,24 @@ endfunction()
 function(setup_clang_tooling TARGET_NAME)
     if(NOT TARGET ${TARGET_NAME})
         message(FATAL_ERROR "setup_clang_tooling called for unknown target '${TARGET_NAME}'")
+    endif()
+
+    if(ENABLE_SANITIZERS)
+        if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+            target_compile_options(${TARGET_NAME} PRIVATE
+                -fsanitize=address,undefined
+                -fno-omit-frame-pointer
+            )
+            # PUBLIC ensures executables linking the static library also link
+            # the sanitizer runtimes, including installed-package consumers.
+            target_link_options(${TARGET_NAME} PUBLIC
+                -fsanitize=address,undefined
+            )
+        else()
+            message(FATAL_ERROR
+                "ENABLE_SANITIZERS requires a GCC or Clang toolchain"
+            )
+        endif()
     endif()
 
     file(REAL_PATH "${PROJECT_SOURCE_DIR}" _project_source_dir)

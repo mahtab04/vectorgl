@@ -22,6 +22,12 @@ int fail(const char* message)
     return 1;
 }
 
+void glfwErrorCallback(int error, const char* description)
+{
+    std::cerr << "[vectorgl_gpu_tests/GLFW] error " << error << ": "
+              << (description ? description : "no description") << '\n';
+}
+
 template <typename Exception, typename Function> bool throws(Function&& function)
 {
     try
@@ -39,6 +45,8 @@ template <typename Exception, typename Function> bool throws(Function&& function
 
 int main()
 {
+    glfwSetErrorCallback(glfwErrorCallback);
+
     if (glfwInit() != GLFW_TRUE)
         return fail("GLFW initialization failed");
 
@@ -51,6 +59,10 @@ int main()
         glfwCreateWindow(kFramebufferSize, kFramebufferSize, "VectorGL GPU integration test", nullptr, nullptr);
     if (!window)
     {
+        const char* description = nullptr;
+        const int error = glfwGetError(&description);
+        std::cerr << "[vectorgl_gpu_tests] GLFW error " << error << ": "
+                  << (description ? description : "no description") << '\n';
         glfwTerminate();
         return fail("hidden OpenGL 3.3 window creation failed");
     }
