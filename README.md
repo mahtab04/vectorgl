@@ -85,6 +85,9 @@ Linux and macOS users can run:
 Visual Studio is optional on Windows: the helper also detects MinGW-w64,
 Ninja with GCC/Clang, and NMake developer environments.
 
+GitHub Actions tests both Debug and Release with Windows MSVC and Windows
+MinGW GCC/Ninja, in addition to Linux GCC.
+
 ### Standard CMake
 
 ```bash

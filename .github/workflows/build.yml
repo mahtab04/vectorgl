@@ -25,18 +25,42 @@ jobs:
             os: ubuntu-latest
             configuration: Debug
             cmake_config: -DCMAKE_BUILD_TYPE=Debug
+            toolchain: gcc
           - name: Linux GCC Release
             os: ubuntu-latest
             configuration: Release
             cmake_config: -DCMAKE_BUILD_TYPE=Release
+            toolchain: gcc
           - name: Windows MSVC Debug
             os: windows-latest
             configuration: Debug
             cmake_config: ""
+            toolchain: msvc
           - name: Windows MSVC Release
             os: windows-latest
             configuration: Release
             cmake_config: ""
+            toolchain: msvc
+          - name: Windows MinGW GCC Debug
+            os: windows-latest
+            configuration: Debug
+            toolchain: mingw
+            cmake_config: >-
+              -G Ninja
+              -DCMAKE_BUILD_TYPE=Debug
+              -DCMAKE_C_COMPILER=gcc
+              -DCMAKE_CXX_COMPILER=g++
+              -DENABLE_CLANG_TIDY=OFF
+          - name: Windows MinGW GCC Release
+            os: windows-latest
+            configuration: Release
+            toolchain: mingw
+            cmake_config: >-
+              -G Ninja
+              -DCMAKE_BUILD_TYPE=Release
+              -DCMAKE_C_COMPILER=gcc
+              -DCMAKE_CXX_COMPILER=g++
+              -DENABLE_CLANG_TIDY=OFF
 
     runs-on: ${{ matrix.os }}
 
@@ -61,6 +85,14 @@ jobs:
             libxi-dev \
             libxinerama-dev \
             libxrandr-dev
+
+      - name: Verify Windows MinGW toolchain
+        if: matrix.toolchain == 'mingw'
+        shell: pwsh
+        run: |
+          gcc --version
+          g++ --version
+          ninja --version
 
       - name: Install glad generator dependencies
         run: python -m pip install --disable-pip-version-check "jinja2>=3,<4"

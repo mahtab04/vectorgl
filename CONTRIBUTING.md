@@ -134,6 +134,18 @@ CC=clang CXX=clang++ ./scripts/build.sh --generator Ninja
 The script chooses Ninja when available and otherwise uses Unix Makefiles. It
 checks Python and Jinja2 before configuring GLAD, then builds and runs CTest.
 
+## Continuous integration
+
+Every push and pull request runs the build and test suite in these
+configurations:
+
+- Linux GCC Debug and Release
+- Windows MSVC Debug and Release
+- Windows MinGW GCC with Ninja, Debug and Release
+
+The MinGW jobs explicitly select `gcc`, `g++`, and Ninja, so Windows-specific
+GNU compiler compatibility is tested independently from the Linux GCC jobs.
+
 ## Manual CMake build
 
 ```bash
