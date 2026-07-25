@@ -15,6 +15,11 @@
 
 > A GPU-accelerated 2D vector graphics library for C++20, built on OpenGL 3.3 Core.
 
+[![VectorGL showcase rendered by the library](docs/images/vectorgl-showcase.png)](example/showcase.cpp)
+
+_The scene above is rendered in real time by the standalone
+[`vectorgl_showcase`](example/showcase.cpp) example._
+
 VectorGL provides two complementary APIs:
 
 - **Canvas** — an immediate-mode, HTML5 Canvas-style drawing surface with SDF-accelerated shape primitives.
@@ -98,8 +103,8 @@ cmake -S vectorgl -B build
 # Build
 cmake --build build --config Debug
 
-# Build examples
-cmake --build build --config Debug --target vectorgl_demo
+# Build the flagship showcase
+cmake --build build --config Debug --target vectorgl_showcase
 ```
 
 ### Using CMake Presets
