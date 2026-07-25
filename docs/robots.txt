@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://mahtab04.github.io/vectorgl/sitemap.xml
