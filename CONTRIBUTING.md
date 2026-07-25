@@ -128,6 +128,9 @@ The MinGW jobs explicitly select `gcc`, `g++`, and Ninja, so Windows-specific
 GNU compiler compatibility is tested independently from the Linux GCC jobs.
 Each job also installs VectorGL and builds a separate project through
 `find_package(vectorgl CONFIG REQUIRED)`, verifying the exported CMake package.
+The main test suite includes a hidden-window GPU integration test that loads
+OpenGL through GLAD, compiles the production shaders, renders with Canvas, and
+checks a read-back pixel. Linux runs this test through Mesa and Xvfb.
 
 ## Manual CMake build
 
@@ -138,6 +141,20 @@ cmake -S . -B build/local \
 cmake --build build/local --config Debug --parallel
 ctest --test-dir build/local -C Debug --output-on-failure
 ```
+
+To include the hidden-window OpenGL integration test:
+
+```bash
+cmake -S . -B build/gpu-tests \
+  -DVECTORGL_BUILD_TESTS=ON \
+  -DVECTORGL_BUILD_GPU_TESTS=ON
+cmake --build build/gpu-tests --parallel
+ctest --test-dir build/gpu-tests --output-on-failure
+```
+
+This option requires GLFW and a working OpenGL environment. On headless Linux,
+install Xvfb; CMake automatically runs the GPU test through `xvfb-run` when it
+is available.
 
 For a single-configuration generator such as Ninja:
 

@@ -9,6 +9,7 @@ include(CMakePackageConfigHelpers)
 
 option(VECTORGL_BUILD_EXAMPLES "Build vectorgl example applications" ${PROJECT_IS_TOP_LEVEL})
 option(VECTORGL_BUILD_TESTS "Build vectorgl regression tests" ${PROJECT_IS_TOP_LEVEL})
+option(VECTORGL_BUILD_GPU_TESTS "Build OpenGL integration tests (requires GLFW and a display)" OFF)
 
 add_subdirectory(include/PublicHeaders)
 add_subdirectory(include/InternalHeaders)
