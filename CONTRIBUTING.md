@@ -220,6 +220,12 @@ cmake -S . -B build/local \
 Do not disable these checks merely to submit unformatted or warning-producing
 code.
 
+The checked-in `.clang-tidy` policy intentionally focuses CI on correctness,
+static-analyzer, portability, and performance findings. Broad opinionated style
+families are not enabled because VectorGL's public graphics API naturally uses
+short coordinate and color names, public value types, and established enum
+naming that those generic rules would report repeatedly.
+
 ## Troubleshooting
 
 ### Dependency downloads fail
