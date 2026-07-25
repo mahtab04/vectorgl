@@ -107,6 +107,11 @@ Make sure the compiler, its runtime DLLs, and the selected build tool come from
 the same toolchain installation. Mixing standalone MinGW, MSYS2, and another
 Ninja installation can produce compiler detection or linking failures.
 
+After a MinGW build, the Windows helper copies the required GCC,
+libstdc++, and winpthreads runtime DLLs beside every generated executable.
+This allows examples and tests to be launched from Explorer without adding the
+MinGW `bin` directory to the permanent system `PATH`.
+
 ## Linux and macOS build helper
 
 Run the portable shell helper from the repository root:

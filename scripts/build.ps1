@@ -187,6 +187,29 @@ Invoke-Checked -Command "cmake" -Arguments @(
     "--build", $buildDirectory, "--config", $Configuration, "--parallel"
 )
 
+if ($cmakeGenerator -eq "MinGW Makefiles" -or
+    ($cmakeGenerator -eq "Ninja" -and (Get-Command g++.exe -ErrorAction SilentlyContinue))) {
+    $compiler = Get-Command g++.exe -ErrorAction SilentlyContinue
+    if ($compiler) {
+        $runtimeDirectory = Split-Path -Parent $compiler.Source
+        $runtimeFiles = @(
+            Get-ChildItem -LiteralPath $runtimeDirectory -Filter "libgcc_s_*.dll" -File
+            Get-ChildItem -LiteralPath $runtimeDirectory -Filter "libstdc++-6.dll" -File
+            Get-ChildItem -LiteralPath $runtimeDirectory -Filter "libwinpthread-1.dll" -File
+        )
+        $executableDirectories = Get-ChildItem -LiteralPath $buildDirectory -Filter "*.exe" -File -Recurse |
+            Select-Object -ExpandProperty DirectoryName -Unique
+
+        foreach ($runtimeFile in $runtimeFiles) {
+            foreach ($executableDirectory in $executableDirectories) {
+                Copy-Item -LiteralPath $runtimeFile.FullName -Destination $executableDirectory -Force
+            }
+        }
+
+        Write-Host "[VectorGL] Deployed MinGW runtime DLLs beside built executables."
+    }
+}
+
 if (-not $SkipTests) {
     Write-Step "Running tests"
     Invoke-Checked -Command "ctest" -Arguments @(
