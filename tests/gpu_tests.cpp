@@ -1,13 +1,13 @@
 #define GLFW_INCLUDE_NONE
 
 #include <glad/gl.h>
+
 #include <GLFW/glfw3.h>
 
 #include <array>
 #include <exception>
 #include <iostream>
 #include <stdexcept>
-
 #include <vectorgl/canvas.hpp>
 #include <vectorgl/color.hpp>
 
@@ -26,14 +26,14 @@ bool pixelIs(const std::array<unsigned char, 4>& pixel, int red, int green, int 
 {
     constexpr int tolerance = 45;
     return std::abs(static_cast<int>(pixel[0]) - red) <= tolerance &&
-      std::abs(static_cast<int>(pixel[1]) - green) <= tolerance &&
-      std::abs(static_cast<int>(pixel[2]) - blue) <= tolerance && pixel[3] >= 200;
+           std::abs(static_cast<int>(pixel[1]) - green) <= tolerance &&
+           std::abs(static_cast<int>(pixel[2]) - blue) <= tolerance && pixel[3] >= 200;
 }
 
 void glfwErrorCallback(int error, const char* description)
 {
-    std::cerr << "[vectorgl_gpu_tests/GLFW] error " << error << ": "
-              << (description ? description : "no description") << '\n';
+    std::cerr << "[vectorgl_gpu_tests/GLFW] error " << error << ": " << (description ? description : "no description")
+              << '\n';
 }
 
 template <typename Exception, typename Function> bool throws(Function&& function)
@@ -61,6 +61,7 @@ int main()
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_STENCIL_BITS, 8);
     glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
 
     GLFWwindow* window =
@@ -167,6 +168,43 @@ int main()
             result = fail("restored outer clip did not render yellow");
         else if (!pixelIs(readPixel(110, 90), 255, 0, 0))
             result = fail("restored outer clip leaked beyond its boundary");
+
+        glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+        canvas.beginFrame(kFramebufferSize, kFramebufferSize);
+
+        if (!throws<std::invalid_argument>([&] { canvas.clipRoundedRect(0.0f, 0.0f, 10.0f, 10.0f, -1.0f); }))
+            result = fail("negative rounded clip radius did not fail");
+
+        canvas.save();
+        canvas.clipRoundedRect(16.0f, 16.0f, 96.0f, 96.0f, 24.0f);
+        canvas.setFillColor({0.0f, 1.0f, 0.0f, 1.0f});
+        canvas.fillRect(0.0f, 0.0f, 128.0f, 128.0f);
+
+        canvas.save();
+        canvas.clipRoundedRect(48.0f, 48.0f, 48.0f, 48.0f, 14.0f);
+        canvas.setFillColor({0.0f, 0.0f, 1.0f, 1.0f});
+        canvas.fillRect(0.0f, 0.0f, 128.0f, 128.0f);
+        canvas.restore();
+
+        canvas.setFillColor({1.0f, 1.0f, 0.0f, 1.0f});
+        canvas.fillRect(80.0f, 24.0f, 24.0f, 16.0f);
+        canvas.restore();
+        canvas.endFrame();
+        glFinish();
+
+        if (glGetError() != GL_NO_ERROR)
+            result = fail("OpenGL reported an error after rounded clipping");
+        else if (!pixelIs(readPixel(18, 18), 255, 0, 0))
+            result = fail("rounded clip included a pixel outside its corner");
+        else if (!pixelIs(readPixel(24, 64), 0, 255, 0))
+            result = fail("rounded clip did not render its interior");
+        else if (!pixelIs(readPixel(64, 64), 0, 0, 255))
+            result = fail("nested rounded clip did not render its intersection");
+        else if (!pixelIs(readPixel(88, 30), 255, 255, 0))
+            result = fail("restored rounded clip did not render");
+        else if (!pixelIs(readPixel(118, 64), 255, 0, 0))
+            result = fail("rounded clip leaked outside its bounds");
 
         canvas.destroy();
         if (canvas.renderer().isInitialized())

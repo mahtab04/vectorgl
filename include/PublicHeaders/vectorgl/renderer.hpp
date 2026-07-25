@@ -21,6 +21,14 @@ namespace vectorgl
 class Renderer
 {
 public:
+    struct RoundedClip
+    {
+        Vec2 position{};
+        Vec2 size{};
+        float radius = 0.0f;
+        Mat3x3 transform = Mat3x3::identity();
+    };
+
     Renderer();
     ~Renderer();
     Renderer(Renderer&&) noexcept;
@@ -55,6 +63,14 @@ public:
      *  flushed before the GPU scissor state changes.
      */
     void setClipRect(int x, int y, int width, int height);
+
+    /*! @brief Replaces the active nested rounded-rectangle clip stack.
+     *
+     *  Rounded clips are rendered into the stencil buffer in order, producing
+     *  their geometric intersection. The current framebuffer must provide a
+     *  stencil buffer.
+     */
+    void setRoundedClips(const std::vector<RoundedClip>& clips);
 
     /*! @brief Disables the active scissor rectangle after flushing pending work. */
     void clearClip();

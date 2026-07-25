@@ -241,6 +241,7 @@ public:
     int clipWidth_ = 0;
     int clipHeight_ = 0;
     bool clipEnabled_ = false;
+    std::vector<Renderer::RoundedClip> roundedClips_;
 
     int32_t sdfLoc_viewSize_ = -1;
     int32_t pathLoc_viewSize_ = -1;
@@ -276,13 +277,22 @@ public:
     void applyClip() const
     {
         if (!clipEnabled_)
-        {
             glDisable(GL_SCISSOR_TEST);
-            return;
+        else
+        {
+            glEnable(GL_SCISSOR_TEST);
+            glScissor(clipX_, fbHeight_ - (clipY_ + clipHeight_), clipWidth_, clipHeight_);
         }
 
-        glEnable(GL_SCISSOR_TEST);
-        glScissor(clipX_, fbHeight_ - (clipY_ + clipHeight_), clipWidth_, clipHeight_);
+        if (roundedClips_.empty())
+            glDisable(GL_STENCIL_TEST);
+        else
+        {
+            glEnable(GL_STENCIL_TEST);
+            glStencilMask(0x00);
+            glStencilFunc(GL_EQUAL, static_cast<GLint>(roundedClips_.size()), 0xFF);
+            glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+        }
     }
 
     void initSDF()
@@ -469,6 +479,7 @@ public:
         clipY_ = 0;
         clipWidth_ = 0;
         clipHeight_ = 0;
+        roundedClips_.clear();
         sdfBatch_.clear();
     }
 
@@ -489,7 +500,12 @@ public:
         glDisable(GL_DEPTH_TEST);
         glDisable(GL_CULL_FACE);
         glDisable(GL_SCISSOR_TEST);
+        glDisable(GL_STENCIL_TEST);
         clipEnabled_ = false;
+        roundedClips_.clear();
+        glClearStencil(0);
+        glStencilMask(0xFF);
+        glClear(GL_STENCIL_BUFFER_BIT);
         sdfBatch_.clear();
     }
 
@@ -500,7 +516,9 @@ public:
             throw std::logic_error("Renderer::endFrame() cannot end while an effect pass is active");
         flushSDF();
         glDisable(GL_SCISSOR_TEST);
+        glDisable(GL_STENCIL_TEST);
         clipEnabled_ = false;
+        roundedClips_.clear();
         frameActive_ = false;
     }
 
@@ -529,6 +547,45 @@ public:
         flushSDF();
         clipEnabled_ = false;
         glDisable(GL_SCISSOR_TEST);
+    }
+
+    void setRoundedClips(const std::vector<Renderer::RoundedClip>& clips)
+    {
+        requireFrame("setRoundedClips()");
+        flushSDF();
+
+        if (!clips.empty())
+        {
+            constexpr std::size_t kMaximumStencilDepth = 255;
+            if (clips.size() > kMaximumStencilDepth)
+                throw std::invalid_argument("Renderer::setRoundedClips() exceeds the framebuffer stencil depth");
+        }
+
+        roundedClips_ = clips;
+        glDisable(GL_SCISSOR_TEST);
+        glEnable(GL_STENCIL_TEST);
+        glStencilMask(0xFF);
+        glClearStencil(0);
+        glClear(GL_STENCIL_BUFFER_BIT);
+
+        glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+        NodeStyle maskStyle;
+        maskStyle.fillColor = Color::White;
+        maskStyle.strokeColor = Color::Transparent;
+        maskStyle.strokeWidth = 0.0f;
+
+        for (std::size_t depth = 0; depth < roundedClips_.size(); ++depth)
+        {
+            const auto& clip = roundedClips_[depth];
+            glStencilFunc(GL_EQUAL, static_cast<GLint>(depth), 0xFF);
+            glStencilOp(GL_KEEP, GL_KEEP, GL_INCR);
+            const std::array<float, 4> radii = {clip.radius, clip.radius, clip.radius, clip.radius};
+            drawSDFRoundedRect(clip.position, clip.size, radii, maskStyle, clip.transform);
+            flushSDF();
+        }
+
+        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+        applyClip();
     }
 
     void drawSDFRect(Vec2 pos, Vec2 size, const NodeStyle& style, const Mat3x3& transform)
@@ -925,6 +982,7 @@ public:
 
         flushSDF();
         glDisable(GL_SCISSOR_TEST);
+        glDisable(GL_STENCIL_TEST);
         (void)x;
         (void)y;
         ensureEffectFBOs(static_cast<int>(w), static_cast<int>(h));
@@ -952,6 +1010,8 @@ public:
     {
         if (radius <= 0 || !effectCaptured_)
             return;
+        glDisable(GL_SCISSOR_TEST);
+        glDisable(GL_STENCIL_TEST);
         const float quad[] = {-1, -1, 0, 0, 1, -1, 1, 0, 1, 1, 1, 1, -1, -1, 0, 0, 1, 1, 1, 1, -1, 1, 0, 1};
         glUseProgram(blurProgram_);
         glUniform1f(blurLoc_radius_, radius);
@@ -972,6 +1032,7 @@ public:
         glDrawArrays(GL_TRIANGLES, 0, 6);
         glBindVertexArray(0);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        applyClip();
     }
 
     void compositeEffect(Vec2 offset, Color tint)
@@ -1115,6 +1176,11 @@ void Renderer::setClipRect(int x, int y, int width, int height)
 void Renderer::clearClip()
 {
     impl_->clearClip();
+}
+
+void Renderer::setRoundedClips(const std::vector<RoundedClip>& clips)
+{
+    impl_->setRoundedClips(clips);
 }
 
 void Renderer::drawSDFRect(Vec2 pos, Vec2 size, const NodeStyle& style, const Mat3x3& transform)

@@ -88,12 +88,18 @@ sequenceDiagram
 dimensions. SDF primitives are accumulated and flushed when the batch fills,
 rendering state changes, an effect begins, or the frame ends.
 
-Rectangular clipping is part of Canvas state. `clipRect()` transforms the four
-corners, intersects the resulting axis-aligned bounds with any existing clip,
-and sends the result to Renderer as an OpenGL scissor rectangle. Changing clip
-state flushes pending SDF instances first, preserving command order. Effect
-passes temporarily disable scissoring while capturing off-screen content and
-restore it before compositing.
+Clipping is part of Canvas state. `clipRect()` transforms the four corners,
+intersects the resulting axis-aligned bounds with any existing clip, and sends
+the result to Renderer as an OpenGL scissor rectangle. `clipRoundedRect()`
+adds an exact SDF-shaped mask to a nested stencil stack and also contributes a
+coarse scissor bound. Restoring Canvas state rebuilds that stack, so sibling
+clips cannot inherit stale stencil values.
+
+Changing clip state flushes pending SDF instances first, preserving command
+order. Effect passes temporarily disable scissor and stencil tests while
+capturing off-screen content and restore both before compositing. Applications
+using rounded clipping must request a stencil buffer for their default
+framebuffer; the examples use `glfwWindowHint(GLFW_STENCIL_BITS, 8)`.
 
 ## Retained-mode scene flow
 

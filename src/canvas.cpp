@@ -96,14 +96,9 @@ void Canvas::restore()
 {
     if (!stateStack_.empty())
     {
-        const bool clipChanged = currentState_.clip.enabled != stateStack_.back().clip.enabled ||
-          currentState_.clip.x != stateStack_.back().clip.x || currentState_.clip.y != stateStack_.back().clip.y ||
-          currentState_.clip.width != stateStack_.back().clip.width ||
-          currentState_.clip.height != stateStack_.back().clip.height;
         currentState_ = stateStack_.back();
         stateStack_.pop_back();
-        if (clipChanged)
-            applyClipState();
+        applyClipState();
     }
 }
 
@@ -143,25 +138,40 @@ void Canvas::clipRect(float x, float y, float width, float height)
     applyClipState();
 }
 
+void Canvas::clipRoundedRect(float x, float y, float width, float height, float radius)
+{
+    if (width < 0.0f || height < 0.0f || radius < 0.0f)
+        throw std::invalid_argument("Canvas::clipRoundedRect() requires non-negative dimensions and radius");
+
+    const float clampedRadius = std::min(radius, std::min(width, height) * 0.5f);
+    currentState_.roundedClips.push_back(
+        {{x + width * 0.5f, y + height * 0.5f}, {width, height}, clampedRadius, currentState_.transform});
+
+    // The transformed bounds are also useful as a coarse scissor. The stencil
+    // buffer retains the exact rounded and transformed boundary.
+    clipRect(x, y, width, height);
+}
+
 void Canvas::resetClip()
 {
     currentState_.clip = {};
+    currentState_.roundedClips.clear();
     applyClipState();
 }
 
 void Canvas::applyClipState()
 {
     if (!currentState_.clip.enabled)
-    {
         renderer_.clearClip();
-        return;
+    else
+    {
+        const int left = static_cast<int>(std::floor(currentState_.clip.x));
+        const int top = static_cast<int>(std::floor(currentState_.clip.y));
+        const int right = static_cast<int>(std::ceil(currentState_.clip.x + currentState_.clip.width));
+        const int bottom = static_cast<int>(std::ceil(currentState_.clip.y + currentState_.clip.height));
+        renderer_.setClipRect(left, top, std::max(0, right - left), std::max(0, bottom - top));
     }
-
-    const int left = static_cast<int>(std::floor(currentState_.clip.x));
-    const int top = static_cast<int>(std::floor(currentState_.clip.y));
-    const int right = static_cast<int>(std::ceil(currentState_.clip.x + currentState_.clip.width));
-    const int bottom = static_cast<int>(std::ceil(currentState_.clip.y + currentState_.clip.height));
-    renderer_.setClipRect(left, top, std::max(0, right - left), std::max(0, bottom - top));
+    renderer_.setRoundedClips(currentState_.roundedClips);
 }
 
 void Canvas::translate(float x, float y)

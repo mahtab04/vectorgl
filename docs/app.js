@@ -83,19 +83,20 @@ const homePageCards = [
 const guides = [
     {
         title: "Clip drawing to a region",
-        text: "Use clipRect() to constrain subsequent drawing to a transformed rectangular region. Nested clips intersect automatically, and save()/restore() makes clipping convenient for reusable widgets.",
+        text: "Use clipRect() for fast rectangular clipping or clipRoundedRect() for an exact stencil-backed rounded mask. Nested clips intersect automatically, and save()/restore() makes clipping convenient for reusable widgets.",
         bullets: [
             "Clip coordinates use VectorGL's top-left coordinate system.",
             "The current transform is applied when the clip is created.",
+            "Rounded clipping requires a stencil buffer, such as GLFW_STENCIL_BITS = 8.",
             "Call resetClip() to remove all clipping without restoring state."
         ],
         code: `canvas.save();
-canvas.clipRect(40.0f, 40.0f, 280.0f, 160.0f);
+canvas.clipRoundedRect(40.0f, 40.0f, 280.0f, 160.0f, 20.0f);
 
 canvas.setFillColor(vectorgl::Color::hex(0x38BDF8));
 canvas.fillCircle(300.0f, 120.0f, 100.0f);
 
-canvas.clipRect(120.0f, 70.0f, 140.0f, 90.0f);
+canvas.clipRoundedRect(120.0f, 70.0f, 140.0f, 90.0f, 14.0f);
 canvas.setFillColor(vectorgl::Color::hex(0xA78BFA));
 canvas.fillRect(80.0f, 40.0f, 240.0f, 150.0f);
 canvas.restore();`
@@ -325,15 +326,15 @@ animator.emplace<vectorgl::TweenAnimation>(
         title: "clipping_demo.cpp",
         text: "A focused clipping showcase with animated overflow, nested intersections, a scrolling feed, and clip state restored through save()/restore().",
         bullets: [
-            "Best reference for clipRect() and resetClip().",
+            "Best reference for clipRect(), clipRoundedRect(), and resetClip().",
             "Demonstrates nested clips intersecting predictably.",
             "Shows how clipping supports cards, viewports, and scrollable UI."
         ],
         code: `canvas.save();
-canvas.clipRect(panelX, panelY, panelWidth, panelHeight);
+canvas.clipRoundedRect(panelX, panelY, panelWidth, panelHeight, 18.0f);
 drawAnimatedContent(canvas, time);
 
-canvas.clipRect(innerX, innerY, innerWidth, innerHeight);
+canvas.clipRoundedRect(innerX, innerY, innerWidth, innerHeight, 12.0f);
 drawNestedContent(canvas);
 canvas.restore();`
     }
@@ -370,6 +371,7 @@ const apiReference = [
                     { signature: "void rotate(float angle)", description: "Applies clockwise rotation in radians to the current transform." },
                     { signature: "void scale(float x, float y)", description: "Applies non-uniform scaling to the current transform." },
                     { signature: "void clipRect(float x, float y, float width, float height)", description: "Intersects the active clipping region with a transformed rectangle. Rotated rectangles use their transformed axis-aligned bounds.", notes: ["Width and height must be non-negative.", "Clipping affects only subsequent drawing and is restored by restore()."] },
+                    { signature: "void clipRoundedRect(float x, float y, float width, float height, float radius)", description: "Intersects drawing with an exact transformed rounded rectangle using the stencil buffer.", notes: ["Dimensions and radius must be non-negative.", "Request a stencil buffer when creating the OpenGL context.", "Nested rounded and rectangular clips may be combined."] },
                     { signature: "void resetClip()", description: "Removes the active clipping region for subsequent drawing." },
                     { signature: "void setFillColor(Color c)", description: "Sets the active fill color for fillRect(), fillCircle(), fill(), fillText(), and other fill operations." },
                     { signature: "void setStrokeColor(Color c)", description: "Sets the active stroke color for strokeRect(), strokeCircle(), stroke(), and other stroke operations." },
@@ -488,6 +490,7 @@ const apiReference = [
                 title: "Clipping",
                 methods: [
                     { signature: "void setClipRect(int x, int y, int width, int height)", description: "Sets a framebuffer-space scissor rectangle using VectorGL's top-left coordinate system. Pending SDF work is flushed before the state change." },
+                    { signature: "void setRoundedClips(const std::vector<RoundedClip>& clips)", description: "Replaces the ordered stencil-backed rounded clip stack and rebuilds its geometric intersection." },
                     { signature: "void clearClip()", description: "Disables scissor clipping after flushing pending SDF work." }
                 ]
             },

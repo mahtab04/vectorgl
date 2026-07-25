@@ -5,7 +5,6 @@
 #include <cmath>
 #include <iostream>
 #include <string>
-
 #include <vectorgl/canvas.hpp>
 
 namespace
@@ -55,7 +54,7 @@ void drawOverflowGallery(Canvas& canvas, float time, bool hasFont)
     drawPanel(canvas, x, y, width, height, "Overflow hidden", hasFont);
 
     canvas.save();
-    canvas.clipRect(x + 14.0f, y + 54.0f, width - 28.0f, height - 70.0f);
+    canvas.clipRoundedRect(x + 14.0f, y + 54.0f, width - 28.0f, height - 70.0f, 14.0f);
     for (int index = -2; index < 9; ++index)
     {
         const float phase = static_cast<float>(index) * 0.65f + time;
@@ -77,7 +76,7 @@ void drawNestedClip(Canvas& canvas, float time, bool hasFont)
     drawPanel(canvas, x, y, width, height, "Nested intersections", hasFont);
 
     canvas.save();
-    canvas.clipRect(x + 18.0f, y + 54.0f, width - 36.0f, height - 72.0f);
+    canvas.clipRoundedRect(x + 18.0f, y + 54.0f, width - 36.0f, height - 72.0f, 16.0f);
     for (int stripe = 0; stripe < 7; ++stripe)
     {
         const float amount = static_cast<float>(stripe) / 6.0f;
@@ -87,7 +86,7 @@ void drawNestedClip(Canvas& canvas, float time, bool hasFont)
 
     canvas.save();
     const float inset = 30.0f + 10.0f * std::sin(time * 1.4f);
-    canvas.clipRect(x + 80.0f + inset, y + 78.0f, 130.0f, 88.0f);
+    canvas.clipRoundedRect(x + 80.0f + inset, y + 78.0f, 130.0f, 88.0f, 22.0f);
     canvas.setFillColor(Color::hex(0xF8FAFC, 0.92f));
     for (int row = 0; row < 5; ++row)
     {
@@ -110,13 +109,13 @@ void drawScrollingFeed(Canvas& canvas, float time, bool hasFont)
     drawPanel(canvas, x, y, width, height, "Scrollable content", hasFont);
 
     canvas.save();
-    canvas.clipRect(x + 14.0f, y + 54.0f, width - 28.0f, height - 72.0f);
+    canvas.clipRoundedRect(x + 14.0f, y + 54.0f, width - 28.0f, height - 72.0f, 14.0f);
     const float scroll = std::fmod(time * 42.0f, 104.0f);
     for (int index = -1; index < 7; ++index)
     {
         const float cardY = y + 62.0f + static_cast<float>(index) * 104.0f - scroll;
         const Color accent =
-          Color::lerpOklab(Color::hex(0x34D399), Color::hex(0x60A5FA), static_cast<float>(index + 1) / 7.0f);
+            Color::lerpOklab(Color::hex(0x34D399), Color::hex(0x60A5FA), static_cast<float>(index + 1) / 7.0f);
         canvas.setFillColor(Color::hex(0x18243D));
         canvas.fillRoundedRect(x + 18.0f, cardY, width - 36.0f, 86.0f, 13.0f);
         canvas.setFillColor(accent);
@@ -169,6 +168,7 @@ int main()
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_STENCIL_BITS, 8);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
     GLFWwindow* window = glfwCreateWindow(kWindowWidth, kWindowHeight, "VectorGL - Clipping", nullptr, nullptr);
@@ -200,9 +200,9 @@ int main()
         if (hasFont)
         {
             canvas.setFillColor(Color::hex(0xF1F5FF));
-            canvas.fillText("RECTANGULAR CLIPPING", 40.0f, 48.0f);
+            canvas.fillText("NESTED CLIPPING", 40.0f, 48.0f);
             canvas.setFillColor(Color::hex(0x8292AF));
-            canvas.fillText("Nested, transformed, batched, and restored with Canvas state", 40.0f, 85.0f);
+            canvas.fillText("Rectangular and rounded masks, restored with Canvas state", 40.0f, 85.0f);
         }
 
         const float time = static_cast<float>(glfwGetTime());

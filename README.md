@@ -41,7 +41,7 @@ It also includes an SVG loader, TrueType font rendering, and a post-processing e
 | **Post-Processing** | FBO-based Gaussian blur, drop shadows, and outer glow — composable via a fluent `EffectChain` API. |
 | **Scene Graph** | Parent/child hierarchy with transform inheritance, dirty tracking, and z-index ordering. |
 | **Paint System** | Solid colors, linear/radial gradients, and texture patterns. |
-| **Nested Clipping** | Transformed rectangular clipping with intersection, reset, and automatic `save()` / `restore()` state. |
+| **Nested Clipping** | Transformed rectangular and rounded clipping with intersection, reset, and automatic `save()` / `restore()` state. |
 
 ---
 
@@ -52,7 +52,7 @@ It also includes an SVG loader, TrueType font rendering, and a post-processing e
 | C++ Standard | C++20 |
 | Compiler | MSVC 2022, GCC 12+, or Clang 15+ |
 | CMake | 3.20+ |
-| GPU | OpenGL 3.3 capable |
+| GPU | OpenGL 3.3 capable; 8-bit stencil buffer for rounded clipping |
 
 > All other dependencies are fetched automatically via **CMake FetchContent**.
 

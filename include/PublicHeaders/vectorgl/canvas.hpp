@@ -62,7 +62,7 @@ public:
     /*! @brief Ends the current frame and flushes all pending draw commands. */
     void endFrame();
 
-    /*! @brief Pushes the current state (transform, fill, stroke, line width) onto the stack.
+    /*! @brief Pushes the current state (transform, paint, line width, and clips) onto the stack.
      *  @sa restore
      */
     void save();
@@ -85,6 +85,21 @@ public:
      *  @throws std::invalid_argument if width or height is negative.
      */
     void clipRect(float x, float y, float width, float height);
+
+    /*! @brief Intersects drawing with a transformed rounded rectangle.
+     *
+     *  Rounded clips are exact for translation, rotation, and scale, may be
+     *  nested with rectangular or rounded clips, and participate in
+     *  save()/restore().
+     *
+     *  @param[in] x       Rectangle left edge.
+     *  @param[in] y       Rectangle top edge.
+     *  @param[in] width   Non-negative rectangle width.
+     *  @param[in] height  Non-negative rectangle height.
+     *  @param[in] radius  Non-negative corner radius.
+     *  @throws std::invalid_argument if a dimension or radius is negative.
+     */
+    void clipRoundedRect(float x, float y, float width, float height, float radius);
 
     /*! @brief Removes the active clip without changing other Canvas state. */
     void resetClip();
@@ -297,6 +312,7 @@ private:
         float lineWidth = 1.0f;
         Mat3x3 transform = Mat3x3::identity();
         ClipRect clip{};
+        std::vector<Renderer::RoundedClip> roundedClips;
     };
 
     void applyClipState();
