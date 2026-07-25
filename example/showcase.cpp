@@ -84,7 +84,7 @@ void drawHeroCopy(Canvas& canvas, bool hasFont)
     if (hasFont)
     {
         canvas.setFillColor({0.33f, 0.86f, 1.0f, 1.0f});
-        canvas.fillText("OPENGL 3.3 / C++20", 76.0f, 156.0f);
+        canvas.fillText("OPENGL 3.3 / C++20", 76.0f, 139.0f);
 
         canvas.setFillColor({0.95f, 0.97f, 1.0f, 1.0f});
         canvas.fillText("FAST 2D GRAPHICS.", 58.0f, 220.0f);
@@ -95,7 +95,7 @@ void drawHeroCopy(Canvas& canvas, bool hasFont)
         canvas.fillText("through one expressive canvas API.", 58.0f, 345.0f);
 
         canvas.setFillColor({0.03f, 0.09f, 0.15f, 1.0f});
-        canvas.fillText("EXPLORE VECTORGL", 83.0f, 407.0f);
+        canvas.fillText("EXPLORE VECTORGL", 83.0f, 387.0f);
     }
 }
 
