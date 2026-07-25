@@ -57,17 +57,22 @@ void GraphModel::loadDemoGraph()
 {
     clear();
 
-    Node inputColor = makeNodeFromTemplate("template_input_color", "node_input_color", {120.0f, 140.0f});
-    Node blend = makeNodeFromTemplate("template_blend", "node_blend", {420.0f, 180.0f});
-    Node output = makeNodeFromTemplate("template_output", "node_output", {760.0f, 220.0f});
+    Node inputColor = makeNodeFromTemplate("template_input_color", "node_input_color", {300.0f, 150.0f});
+    inputColor.title = "Base Color";
+    Node detailColor = makeNodeFromTemplate("template_input_color", "node_detail_color", {300.0f, 330.0f});
+    detailColor.title = "Detail Color";
+    Node blend = makeNodeFromTemplate("template_blend", "node_blend", {610.0f, 210.0f});
+    Node output = makeNodeFromTemplate("template_output", "node_output", {950.0f, 250.0f});
 
     graph_.nodes.push_back(inputColor);
+    graph_.nodes.push_back(detailColor);
     graph_.nodes.push_back(blend);
     graph_.nodes.push_back(output);
 
     graph_.edges.push_back({"edge_input_to_blend", "node_input_color", "port_out", "node_blend", "port_color_a"});
+    graph_.edges.push_back({"edge_detail_to_blend", "node_detail_color", "port_out", "node_blend", "port_color_b"});
     graph_.edges.push_back({"edge_blend_to_output", "node_blend", "port_result", "node_output", "port_surface"});
-    nextNodeSerial_ = 4;
+    nextNodeSerial_ = 5;
 }
 
 Node* GraphModel::addNodeFromTemplate(const std::string& templateId, Vec2 position)

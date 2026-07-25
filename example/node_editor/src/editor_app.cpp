@@ -9,6 +9,7 @@ namespace vectorgl::node_editor
 
 void EditorApp::init()
 {
+    state_ = {};
     model_.loadDemoGraph();
 }
 

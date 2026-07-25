@@ -6,17 +6,24 @@
 
 #include <vectorgl/canvas.hpp>
 
+#include <algorithm>
+#include <cmath>
+#include <string>
+
 namespace vectorgl::node_editor
 {
 
 namespace
 {
 
-constexpr float kCanvasExtent = 4000.0f;
+constexpr float kCanvasWidth = 1280.0f;
+constexpr float kCanvasHeight = 680.0f;
+constexpr float kToolbarHeight = 64.0f;
+constexpr float kStatusBarHeight = 34.0f;
 constexpr float kHeaderHeight = 38.0f;
 constexpr float kEdgeHandleLength = 80.0f;
 constexpr float kPalettePanelX = 16.0f;
-constexpr float kPalettePanelY = 16.0f;
+constexpr float kPalettePanelY = 80.0f;
 constexpr float kPalettePanelWidth = 220.0f;
 constexpr float kPaletteHeaderHeight = 42.0f;
 constexpr float kPaletteItemHeight = 56.0f;
@@ -51,11 +58,13 @@ float GraphRenderer::applyZoom(float value, const Camera2D& camera) const
 
 Color GraphRenderer::accentForNode(const Node& node, const Theme& theme) const
 {
-    if (node.id == "node_input_color")
+    if (node.title == "Input Color" || node.title == "Base Color" || node.title == "Detail Color")
         return Color::hex(0x22C55E);
-    if (node.id == "node_blend")
+    if (node.title == "Blend")
         return Color::hex(0xF97316);
-    if (node.id == "node_output")
+    if (node.title == "Multiply")
+        return Color::hex(0xFACC15);
+    if (node.title == "Output")
         return Color::hex(0x8B5CF6);
 
     return theme.accentColor;
@@ -99,21 +108,110 @@ void GraphRenderer::drawGrid(Canvas& canvas, const EditorState& state, const The
     canvas.setStrokeColor(theme.gridColor);
     canvas.setLineWidth(1.0f);
 
-    for (float x = 0.0f; x <= kCanvasExtent; x += spacing)
+    float originX = std::fmod(state.camera.offset.x * state.camera.zoom, spacing);
+    float originY = std::fmod(state.camera.offset.y * state.camera.zoom, spacing);
+    if (originX < 0.0f)
+        originX += spacing;
+    if (originY < 0.0f)
+        originY += spacing;
+
+    for (float x = originX; x <= kCanvasWidth; x += spacing)
     {
         canvas.beginPath();
-        canvas.moveTo(x, 0.0f);
-        canvas.lineTo(x, kCanvasExtent);
+        canvas.moveTo(x, kToolbarHeight);
+        canvas.lineTo(x, kCanvasHeight - kStatusBarHeight);
         canvas.stroke();
     }
 
-    for (float y = 0.0f; y <= kCanvasExtent; y += spacing)
+    for (float y = originY; y <= kCanvasHeight - kStatusBarHeight; y += spacing)
     {
+        if (y < kToolbarHeight)
+            continue;
         canvas.beginPath();
         canvas.moveTo(0.0f, y);
-        canvas.lineTo(kCanvasExtent, y);
+        canvas.lineTo(kCanvasWidth, y);
         canvas.stroke();
     }
+}
+
+void GraphRenderer::drawToolbar(Canvas& canvas, const GraphModel& model, const EditorState& state,
+                                const Theme& theme) const
+{
+    canvas.setFillColor(Color::hex(0x0D1528, 0.98f));
+    canvas.fillRect(0.0f, 0.0f, kCanvasWidth, kToolbarHeight);
+    canvas.setStrokeColor(theme.panelBorderColor.withAlpha(0.8f));
+    canvas.setLineWidth(1.0f);
+    canvas.beginPath();
+    canvas.moveTo(0.0f, kToolbarHeight);
+    canvas.lineTo(kCanvasWidth, kToolbarHeight);
+    canvas.stroke();
+
+    canvas.setFillColor(theme.accentColor);
+    canvas.fillRoundedRect(18.0f, 14.0f, 36.0f, 36.0f, 10.0f);
+    canvas.setFillColor(Color::hex(0x07111F));
+    canvas.fillText("N", 29.0f, 22.0f);
+    canvas.setFillColor(theme.titleColor);
+    canvas.fillText("VECTORGL NODE LAB", 68.0f, 22.0f);
+    canvas.setFillColor(theme.bodyTextColor);
+    canvas.fillText("Material Graph", 68.0f, 43.0f);
+
+    canvas.setFillColor(theme.panelColor);
+    canvas.fillRoundedRect(916.0f, 14.0f, 344.0f, 36.0f, 10.0f);
+    canvas.setFillColor(theme.bodyTextColor);
+    canvas.fillText("R  Reset     Del  Remove     MMB  Pan", 934.0f, 37.0f);
+
+    (void)model;
+    (void)state;
+}
+
+void GraphRenderer::drawMiniMap(Canvas& canvas, const GraphModel& model, const EditorState& state,
+                                const Theme& theme) const
+{
+    if (!state.showMiniMap)
+        return;
+
+    constexpr float mapX = 1032.0f;
+    constexpr float mapY = 480.0f;
+    constexpr float mapWidth = 228.0f;
+    constexpr float mapHeight = 150.0f;
+    constexpr float scale = 0.14f;
+
+    canvas.setFillColor(Color::hex(0x0A1122, 0.94f));
+    canvas.fillRoundedRect(mapX, mapY, mapWidth, mapHeight, 14.0f);
+    canvas.setStrokeColor(theme.panelBorderColor);
+    canvas.setLineWidth(1.5f);
+    canvas.strokeRoundedRect(mapX, mapY, mapWidth, mapHeight, 14.0f);
+    canvas.setFillColor(theme.bodyTextColor);
+    canvas.fillText("MINIMAP", mapX + 14.0f, mapY + 23.0f);
+
+    for (const auto& node : model.graph().nodes)
+    {
+        const Color accent = accentForNode(node, theme);
+        canvas.setFillColor(accent.withAlpha(node.selected ? 0.95f : 0.55f));
+        canvas.fillRoundedRect(mapX + 12.0f + node.position.x * scale, mapY + 48.0f + node.position.y * scale,
+                               std::max(12.0f, node.size.x * scale), std::max(8.0f, node.size.y * scale), 3.0f);
+    }
+
+    const float viewX = mapX + 12.0f - state.camera.offset.x * scale;
+    const float viewY = mapY + 48.0f - state.camera.offset.y * scale;
+    canvas.setStrokeColor(theme.selectionColor.withAlpha(0.85f));
+    canvas.setLineWidth(1.5f);
+    canvas.strokeRoundedRect(viewX, viewY, (kCanvasWidth / state.camera.zoom) * scale,
+                             ((kCanvasHeight - kToolbarHeight) / state.camera.zoom) * scale, 4.0f);
+}
+
+void GraphRenderer::drawStatusBar(Canvas& canvas, const GraphModel& model, const EditorState& state,
+                                  const Theme& theme) const
+{
+    const float top = kCanvasHeight - kStatusBarHeight;
+    canvas.setFillColor(Color::hex(0x0D1528, 0.98f));
+    canvas.fillRect(0.0f, top, kCanvasWidth, kStatusBarHeight);
+    canvas.setFillColor(theme.bodyTextColor);
+    canvas.fillText(std::to_string(model.graph().nodes.size()) + " nodes   " +
+                      std::to_string(model.graph().edges.size()) + " connections",
+                    18.0f, top + 8.0f);
+    canvas.fillText("Zoom " + std::to_string(static_cast<int>(state.camera.zoom * 100.0f)) + "%", 1160.0f,
+                    top + 8.0f);
 }
 
 void GraphRenderer::drawEdge(Canvas& canvas, const GraphModel& model, const Edge& edge, const EditorState& state,
@@ -286,7 +384,7 @@ void GraphRenderer::drawNode(Canvas& canvas, const Node& node, const EditorState
 void GraphRenderer::render(Canvas& canvas, const GraphModel& model, const EditorState& state, const Theme& theme) const
 {
     canvas.setFillColor(theme.backgroundColor);
-    canvas.fillRect(0.0f, 0.0f, kCanvasExtent, kCanvasExtent);
+    canvas.fillRect(0.0f, 0.0f, kCanvasWidth, kCanvasHeight);
 
     drawGrid(canvas, state, theme);
 
@@ -303,6 +401,9 @@ void GraphRenderer::render(Canvas& canvas, const GraphModel& model, const Editor
     }
 
     drawPalette(canvas, state, theme);
+    drawMiniMap(canvas, model, state, theme);
+    drawToolbar(canvas, model, state, theme);
+    drawStatusBar(canvas, model, state, theme);
 }
 
 } // namespace vectorgl::node_editor

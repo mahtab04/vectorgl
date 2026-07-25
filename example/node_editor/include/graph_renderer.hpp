@@ -31,6 +31,9 @@ private:
 	              const Theme& theme) const;
 	void drawPreviewEdge(Canvas& canvas, const GraphModel& model, const EditorState& state, const Theme& theme) const;
 	void drawPalette(Canvas& canvas, const EditorState& state, const Theme& theme) const;
+	void drawToolbar(Canvas& canvas, const GraphModel& model, const EditorState& state, const Theme& theme) const;
+	void drawMiniMap(Canvas& canvas, const GraphModel& model, const EditorState& state, const Theme& theme) const;
+	void drawStatusBar(Canvas& canvas, const GraphModel& model, const EditorState& state, const Theme& theme) const;
 	void drawPorts(Canvas& canvas, const Node& node, const std::vector<Port>& ports, const EditorState& state,
 	               const Theme& theme, bool isInput) const;
 	void drawNode(Canvas& canvas, const Node& node, const EditorState& state, const Theme& theme) const;

@@ -21,7 +21,7 @@ constexpr float kPortHitRadius = 14.0f;
 constexpr float kEdgeHitThreshold = 10.0f;
 constexpr int kEdgeSamples = 24;
 constexpr float kPalettePanelX = 16.0f;
-constexpr float kPalettePanelY = 16.0f;
+constexpr float kPalettePanelY = 80.0f;
 constexpr float kPalettePanelWidth = 220.0f;
 constexpr float kPaletteHeaderHeight = 42.0f;
 constexpr float kPaletteItemHeight = 56.0f;
@@ -403,9 +403,15 @@ void InputController::handlePointerUp(EditorState& state, GraphModel& model, flo
 
 			if (!duplicate)
 			{
+				// Input ports accept a single connection. Reconnecting replaces
+				// the previous source, matching common node-editor behavior.
+				auto& edges = model.graph().edges;
+				edges.erase(std::remove_if(edges.begin(), edges.end(), [&](const Edge& edge)
+				                           { return edge.toNodeId == targetNodeId && edge.toPortId == targetPort->id; }),
+				            edges.end());
 				const std::string edgeId = "edge_" + state.interaction.activeNodeId + "_" + targetNodeId + "_" +
-				  std::to_string(model.graph().edges.size());
-				model.graph().edges.push_back(
+				  std::to_string(edges.size());
+				edges.push_back(
 				  {edgeId, state.interaction.activeNodeId, state.interaction.activePortId, targetNodeId, targetPort->id});
 			}
 		}
@@ -437,14 +443,33 @@ void InputController::handleScroll(EditorState& state, float deltaX, float delta
 
 void InputController::deleteSelected(GraphModel& model, EditorState& state)
 {
-	if (state.selectedEdgeId.empty())
-		return;
+    auto& graph = model.graph();
 
-	auto& edges = model.graph().edges;
-	edges.erase(std::remove_if(edges.begin(), edges.end(), [&](const Edge& edge) { return edge.id == state.selectedEdgeId; }),
-	            edges.end());
-	state.selectedEdgeId.clear();
-	updateEdgeSelection(model, std::string{});
+    if (!state.selectedNodeId.empty())
+    {
+        const std::string nodeId = state.selectedNodeId;
+        graph.edges.erase(
+          std::remove_if(graph.edges.begin(), graph.edges.end(), [&](const Edge& edge)
+                         { return edge.fromNodeId == nodeId || edge.toNodeId == nodeId; }),
+          graph.edges.end());
+        graph.nodes.erase(std::remove_if(graph.nodes.begin(), graph.nodes.end(),
+                                        [&](const Node& node) { return node.id == nodeId; }),
+                          graph.nodes.end());
+        state.selectedNodeId.clear();
+        state.hoveredNodeId.clear();
+        state.interaction = {};
+        return;
+    }
+
+    if (!state.selectedEdgeId.empty())
+    {
+        graph.edges.erase(
+          std::remove_if(graph.edges.begin(), graph.edges.end(),
+                         [&](const Edge& edge) { return edge.id == state.selectedEdgeId; }),
+          graph.edges.end());
+        state.selectedEdgeId.clear();
+        updateEdgeSelection(model, std::string{});
+    }
 }
 
 } // namespace vectorgl::node_editor

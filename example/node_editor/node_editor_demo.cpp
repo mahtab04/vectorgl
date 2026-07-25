@@ -6,7 +6,7 @@
 #include <vectorgl/canvas.hpp>
 
 static constexpr int WIN_W = 1280;
-static constexpr int WIN_H = 950;
+static constexpr int WIN_H = 680;
 
 namespace
 {
@@ -76,6 +76,7 @@ int main()
     bool wasLeftDown = false;
     bool wasMiddleDown = false;
     bool wasDeleteDown = false;
+    bool wasResetDown = false;
     while (!glfwWindowShouldClose(window))
     {
         int fbW = 0;
@@ -119,13 +120,16 @@ int main()
         }
         wasMiddleDown = middleDown;
 
-                const bool deleteDown = glfwGetKey(window, GLFW_KEY_DELETE) == GLFW_PRESS ||
-                    glfwGetKey(window, GLFW_KEY_BACKSPACE) == GLFW_PRESS;
-                if (deleteDown && !wasDeleteDown)
-                {
-                        app.input().deleteSelected(app.model(), app.state());
-                }
-                wasDeleteDown = deleteDown;
+        const bool deleteDown = glfwGetKey(window, GLFW_KEY_DELETE) == GLFW_PRESS ||
+          glfwGetKey(window, GLFW_KEY_BACKSPACE) == GLFW_PRESS;
+        if (deleteDown && !wasDeleteDown)
+            app.input().deleteSelected(app.model(), app.state());
+        wasDeleteDown = deleteDown;
+
+        const bool resetDown = glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS;
+        if (resetDown && !wasResetDown)
+            app.init();
+        wasResetDown = resetDown;
 
         app.update(deltaTime);
 
