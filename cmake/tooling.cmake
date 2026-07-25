@@ -2,6 +2,7 @@ include_guard(GLOBAL)
 
 option(ENABLE_CLANG_TIDY "Run clang-tidy during build" ON)
 option(ENABLE_FORMAT_CHECK "Run clang-format check during build" ON)
+option(ENABLE_COMPILER_WARNINGS "Enable recommended compiler warnings" ON)
 option(ENABLE_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 
 find_program(CLANG_TIDY_EXE NAMES clang-tidy
@@ -42,6 +43,21 @@ endfunction()
 function(setup_clang_tooling TARGET_NAME)
     if(NOT TARGET ${TARGET_NAME})
         message(FATAL_ERROR "setup_clang_tooling called for unknown target '${TARGET_NAME}'")
+    endif()
+
+    if(ENABLE_COMPILER_WARNINGS)
+        if(MSVC)
+            target_compile_options(${TARGET_NAME} PRIVATE
+                $<$<COMPILE_LANGUAGE:CXX>:/W4>
+                $<$<COMPILE_LANGUAGE:CXX>:/permissive->
+            )
+        elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+            target_compile_options(${TARGET_NAME} PRIVATE
+                $<$<COMPILE_LANGUAGE:CXX>:-Wall>
+                $<$<COMPILE_LANGUAGE:CXX>:-Wextra>
+                $<$<COMPILE_LANGUAGE:CXX>:-Wpedantic>
+            )
+        endif()
     endif()
 
     if(ENABLE_SANITIZERS)

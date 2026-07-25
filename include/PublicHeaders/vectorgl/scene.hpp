@@ -141,7 +141,7 @@ private:
     Renderer* renderer_ = nullptr;
 
     void registerNode(std::shared_ptr<Node> node);
-    void collectNodes(Node* node, const Mat3x3& parentTransform, std::vector<Node*>& outList);
+    void collectNodes(Node* node, std::vector<Node*>& outList);
 };
 
 } // namespace vectorgl

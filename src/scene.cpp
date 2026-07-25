@@ -192,12 +192,11 @@ void Scene::collectRenderList(std::vector<Node*>& outList)
         if (root->parent() != nullptr)
             continue;
         registerNode(root);
-        Mat3x3 identity = Mat3x3::identity();
-        collectNodes(root.get(), identity, outList);
+        collectNodes(root.get(), outList);
     }
 }
 
-void Scene::collectNodes(Node* node, const Mat3x3& parentTransform, std::vector<Node*>& outList)
+void Scene::collectNodes(Node* node, std::vector<Node*>& outList)
 {
     if (!node->visible())
         return;
@@ -209,7 +208,7 @@ void Scene::collectNodes(Node* node, const Mat3x3& parentTransform, std::vector<
 
     for (auto& child : node->children())
     {
-        collectNodes(child.get(), node->worldTransform(), outList);
+        collectNodes(child.get(), outList);
     }
 }
 

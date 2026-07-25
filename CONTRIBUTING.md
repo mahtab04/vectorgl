@@ -124,9 +124,13 @@ configurations:
 - Linux GCC Debug with AddressSanitizer and UndefinedBehaviorSanitizer
 - Windows MSVC Debug and Release
 - Windows MinGW GCC with Ninja, Debug and Release
+- A dedicated Linux Clang job for clang-tidy and clang-format
 
 The MinGW jobs explicitly select `gcc`, `g++`, and Ninja, so Windows-specific
 GNU compiler compatibility is tested independently from the Linux GCC jobs.
+Clang-tidy and formatting are disabled in the build matrix and run once in the
+dedicated quality job, avoiding duplicate diagnostics from Debug, Release, and
+sanitizer builds.
 Each job also installs VectorGL and builds a separate project through
 `find_package(vectorgl CONFIG REQUIRED)`, verifying the exported CMake package.
 The main test suite includes a hidden-window GPU integration test that loads
@@ -225,6 +229,12 @@ static-analyzer, portability, and performance findings. Broad opinionated style
 families are not enabled because VectorGL's public graphics API naturally uses
 short coordinate and color names, public value types, and established enum
 naming that those generic rules would report repeatedly.
+
+Recommended compiler warnings are enabled independently of clang-tidy:
+`/W4 /permissive-` for MSVC and `-Wall -Wextra -Wpedantic` for GCC and Clang.
+They apply only while compiling VectorGL C++ sources, not vendored GLAD C code
+or separately built dependencies. They can be disabled for toolchain diagnosis
+with `-DENABLE_COMPILER_WARNINGS=OFF`.
 
 ## Troubleshooting
 

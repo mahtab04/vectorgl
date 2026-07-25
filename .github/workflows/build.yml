@@ -123,6 +123,8 @@ jobs:
         run: >
           cmake -S . -B build
           ${{ matrix.cmake_config }}
+          -DENABLE_CLANG_TIDY=OFF
+          -DENABLE_FORMAT_CHECK=OFF
           -DVECTORGL_BUILD_EXAMPLES=OFF
           -DVECTORGL_BUILD_TESTS=ON
           -DVECTORGL_BUILD_GPU_TESTS=${{ matrix.gpu_tests }}
@@ -164,3 +166,31 @@ jobs:
           --test-dir package-consumer-build
           -C ${{ matrix.configuration }}
           --output-on-failure
+
+  quality:
+    name: Clang-Tidy and Format
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Install Clang tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes clang clang-format clang-tidy
+
+      - name: Configure
+        run: >
+          cmake -S . -B build-quality
+          -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_C_COMPILER=clang
+          -DCMAKE_CXX_COMPILER=clang++
+          -DENABLE_CLANG_TIDY=ON
+          -DENABLE_FORMAT_CHECK=ON
+          -DVECTORGL_BUILD_EXAMPLES=OFF
+          -DVECTORGL_BUILD_TESTS=OFF
+          -DVECTORGL_BUILD_GPU_TESTS=OFF
+
+      - name: Analyze and check formatting
+        run: cmake --build build-quality --parallel

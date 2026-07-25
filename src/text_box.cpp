@@ -120,7 +120,7 @@ bool TextBox::handlePointerDown(float x, float y, Canvas& canvas)
     return true;
 }
 
-bool TextBox::handlePointerDrag(float x, float y, Canvas& canvas)
+bool TextBox::handlePointerDrag(float x, float /* y */, Canvas& canvas)
 {
     if (!focused_ || !ensureFont(canvas))
         return false;

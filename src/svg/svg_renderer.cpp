@@ -356,22 +356,6 @@ void renderShapeElement(const XmlElement& element, Canvas& canvas, const Style& 
     if (!style.fillRef.empty())
         fillGradient = ctx.findGradient(style.fillRef);
 
-    // Helper: fill a path (already built on canvas) with either solid or gradient
-    auto doFill = [&](const BBox& bbox)
-    {
-        if (fillGradient)
-        {
-            Paint paint = gradientToPaint(*fillGradient, bbox);
-            float opacity = style.fillOpacity * style.opacity;
-            canvas.fillWithPaint(paint, opacity);
-        }
-        else
-        {
-            applyFill(canvas, style);
-            canvas.fill();
-        }
-    };
-
     auto scoped = [&](auto drawFunc)
     {
         canvas.save();
