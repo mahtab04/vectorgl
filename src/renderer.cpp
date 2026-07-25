@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <iostream>
 #include <memory>
 #include <stdexcept>
 #include <utility>
@@ -163,6 +164,44 @@ void validateFramebuffer(const char* label)
     }
 }
 
+#ifndef NDEBUG
+const char* debugSeverityName(GLenum severity)
+{
+    switch (severity)
+    {
+    case GL_DEBUG_SEVERITY_HIGH:
+        return "high";
+    case GL_DEBUG_SEVERITY_MEDIUM:
+        return "medium";
+    case GL_DEBUG_SEVERITY_LOW:
+        return "low";
+    default:
+        return "notification";
+    }
+}
+
+void GLAD_API_PTR openGLDebugCallback(GLenum, GLenum type, GLuint id, GLenum severity, GLsizei, const GLchar* message,
+                                      const void*)
+{
+    if (severity == GL_DEBUG_SEVERITY_NOTIFICATION)
+        return;
+
+    std::cerr << "[VectorGL/OpenGL] severity=" << debugSeverityName(severity) << " type=0x" << std::hex << type
+              << " id=" << std::dec << id << ": " << (message ? message : "(no message)") << '\n';
+}
+
+void enableOpenGLDebugOutput()
+{
+    if (glad_glDebugMessageCallback == nullptr)
+        return;
+
+    glEnable(GL_DEBUG_OUTPUT);
+    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+    glDebugMessageCallback(openGLDebugCallback, nullptr);
+    glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_NOTIFICATION, 0, nullptr, GL_FALSE);
+}
+#endif
+
 } // namespace
 
 class Renderer::Impl
@@ -191,6 +230,9 @@ public:
     int effectW_ = 0;
     int effectH_ = 0;
     bool effectCaptured_ = false;
+    bool initialized_ = false;
+    bool frameActive_ = false;
+    bool effectPassActive_ = false;
 
     int fbWidth_ = 0;
     int fbHeight_ = 0;
@@ -211,6 +253,20 @@ public:
     int32_t blurLoc_radius_ = -1;
     int32_t blurLoc_direction_ = -1;
     int32_t blurLoc_texture_ = -1;
+
+    void requireInitialized(const char* operation) const
+    {
+        if (!initialized_)
+            throw std::logic_error(std::string("Renderer::") + operation + " requires init() first");
+    }
+
+    void requireFrame(const char* operation) const
+    {
+        requireInitialized(operation);
+        if (!frameActive_)
+            throw std::logic_error(std::string("Renderer::") + operation +
+                                   " must be called between beginFrame() and endFrame()");
+    }
 
     void initSDF()
     {
@@ -323,10 +379,29 @@ public:
 
     void init()
     {
-        initSDF();
-        initPath();
-        initTextured();
-        initEffects();
+        if (initialized_)
+            throw std::logic_error("Renderer::init() cannot be called more than once without destroy()");
+        if (glad_glGetString == nullptr)
+            throw std::runtime_error("Renderer::init() requires GLAD to be loaded first");
+        if (glGetString(GL_VERSION) == nullptr)
+            throw std::runtime_error("Renderer::init() requires a current OpenGL context");
+
+#ifndef NDEBUG
+        enableOpenGLDebugOutput();
+#endif
+
+        try
+        {
+            initSDF();
+            initPath();
+            initTextured();
+            initEffects();
+        }
+        catch (...)
+        {
+            destroy();
+            throw;
+        }
 
         sdfLoc_viewSize_ = glGetUniformLocation(sdfProgram_, "uViewSize");
         pathLoc_viewSize_ = glGetUniformLocation(pathProgram_, "uViewSize");
@@ -344,6 +419,7 @@ public:
         blurLoc_radius_ = glGetUniformLocation(blurProgram_, "uRadius");
         blurLoc_direction_ = glGetUniformLocation(blurProgram_, "uDirection");
         blurLoc_texture_ = glGetUniformLocation(blurProgram_, "uTexture");
+        initialized_ = true;
     }
 
     void destroy()
@@ -366,6 +442,9 @@ public:
         effectW_ = 0;
         effectH_ = 0;
         effectCaptured_ = false;
+        effectPassActive_ = false;
+        frameActive_ = false;
+        initialized_ = false;
         fbWidth_ = 0;
         fbHeight_ = 0;
         sdfBatch_.clear();
@@ -373,6 +452,13 @@ public:
 
     void beginFrame(int fbWidth, int fbHeight)
     {
+        requireInitialized("beginFrame()");
+        if (frameActive_)
+            throw std::logic_error("Renderer::beginFrame() cannot be nested");
+        if (fbWidth <= 0 || fbHeight <= 0)
+            throw std::invalid_argument("Renderer::beginFrame() requires positive framebuffer dimensions");
+
+        frameActive_ = true;
         fbWidth_ = fbWidth;
         fbHeight_ = fbHeight;
         glViewport(0, 0, fbWidth, fbHeight);
@@ -385,7 +471,11 @@ public:
 
     void endFrame()
     {
+        requireFrame("endFrame()");
+        if (effectPassActive_)
+            throw std::logic_error("Renderer::endFrame() cannot end while an effect pass is active");
         flushSDF();
+        frameActive_ = false;
     }
 
     void drawSDFRect(Vec2 pos, Vec2 size, const NodeStyle& style, const Mat3x3& transform)
@@ -774,6 +864,12 @@ public:
 
     void beginEffectPass(float x, float y, float w, float h)
     {
+        requireFrame("beginEffectPass()");
+        if (effectPassActive_)
+            throw std::logic_error("Renderer::beginEffectPass() cannot be nested");
+        if (w <= 0.0f || h <= 0.0f)
+            throw std::invalid_argument("Renderer::beginEffectPass() requires positive dimensions");
+
         flushSDF();
         (void)x;
         (void)y;
@@ -783,12 +879,18 @@ public:
         glClearColor(0, 0, 0, 0);
         glClear(GL_COLOR_BUFFER_BIT);
         effectCaptured_ = true;
+        effectPassActive_ = true;
     }
 
     void endEffectPass()
     {
+        requireFrame("endEffectPass()");
+        if (!effectPassActive_)
+            throw std::logic_error("Renderer::endEffectPass() requires an active effect pass");
+
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glViewport(0, 0, fbWidth_, fbHeight_);
+        effectPassActive_ = false;
     }
 
     void blurEffectTexture(float radius)
@@ -827,18 +929,27 @@ public:
 
     void applyBlur(float radius)
     {
+        requireFrame("applyBlur()");
+        if (effectPassActive_)
+            throw std::logic_error("Renderer::applyBlur() requires endEffectPass() first");
         blurEffectTexture(radius);
         compositeEffect({0, 0}, Color::White);
     }
 
     void applyShadow(float blur, Vec2 offset, Color color)
     {
+        requireFrame("applyShadow()");
+        if (effectPassActive_)
+            throw std::logic_error("Renderer::applyShadow() requires endEffectPass() first");
         blurEffectTexture(blur);
         compositeEffect(offset, color);
     }
 
     void applyGlow(float radius, Color color)
     {
+        requireFrame("applyGlow()");
+        if (effectPassActive_)
+            throw std::logic_error("Renderer::applyGlow() requires endEffectPass() first");
         blurEffectTexture(radius);
         compositeEffect({0, 0}, color);
     }
@@ -943,56 +1054,66 @@ void Renderer::endFrame()
 
 void Renderer::drawSDFRect(Vec2 pos, Vec2 size, const NodeStyle& style, const Mat3x3& transform)
 {
+    impl_->requireFrame("drawSDFRect()");
     impl_->drawSDFRect(pos, size, style, transform);
 }
 
 void Renderer::drawSDFCircle(Vec2 center, float radius, const NodeStyle& style, const Mat3x3& transform)
 {
+    impl_->requireFrame("drawSDFCircle()");
     impl_->drawSDFCircle(center, radius, style, transform);
 }
 
 void Renderer::drawSDFEllipse(Vec2 center, Vec2 radii, const NodeStyle& style, const Mat3x3& transform)
 {
+    impl_->requireFrame("drawSDFEllipse()");
     impl_->drawSDFEllipse(center, radii, style, transform);
 }
 
 void Renderer::drawSDFRoundedRect(Vec2 pos, Vec2 size, const std::array<float, 4>& cornerRadii, const NodeStyle& style,
                                   const Mat3x3& transform)
 {
+    impl_->requireFrame("drawSDFRoundedRect()");
     impl_->drawSDFRoundedRect(pos, size, cornerRadii, style, transform);
 }
 
 void Renderer::flushSDF()
 {
+    impl_->requireFrame("flushSDF()");
     impl_->flushSDF();
 }
 
 void Renderer::fillPath(const std::vector<std::vector<Vec2>>& subPaths, Color color, const Mat3x3& transform)
 {
+    impl_->requireFrame("fillPath()");
     impl_->fillPath(subPaths, color, transform);
 }
 
 void Renderer::fillPathWithPaint(const std::vector<std::vector<Vec2>>& subPaths, const Paint& paint, float opacity,
                                  const Mat3x3& transform)
 {
+    impl_->requireFrame("fillPathWithPaint()");
     impl_->fillPathWithPaint(subPaths, paint, opacity, transform);
 }
 
 void Renderer::strokePath(const std::vector<std::vector<Vec2>>& subPaths, Color color, float width,
                           const Mat3x3& transform)
 {
+    impl_->requireFrame("strokePath()");
     impl_->strokePath(subPaths, color, width, transform);
 }
 
 void Renderer::drawTexturedQuad(float x, float y, float w, float h, uint32_t texture, Color tint,
                                 const Mat3x3& transform)
 {
+    impl_->requireFrame("drawTexturedQuad()");
     impl_->drawTexturedQuad(x, y, w, h, texture, tint, transform);
 }
 
 void Renderer::drawGlyph(float x, float y, float w, float h, float u0, float v0, float u1, float v1, uint32_t texture,
                          Color color, const Mat3x3& transform)
 {
+    impl_->requireFrame("drawGlyph()");
     impl_->drawGlyph(x, y, w, h, u0, v0, u1, v1, texture, color, transform);
 }
 
@@ -1023,7 +1144,18 @@ void Renderer::applyGlow(float radius, Color color)
 
 void Renderer::renderNode(Node* node)
 {
+    impl_->requireFrame("renderNode()");
     impl_->renderNode(node);
+}
+
+bool Renderer::isInitialized() const noexcept
+{
+    return impl_ && impl_->initialized_;
+}
+
+bool Renderer::isFrameActive() const noexcept
+{
+    return impl_ && impl_->frameActive_;
 }
 
 int Renderer::fbWidth() const

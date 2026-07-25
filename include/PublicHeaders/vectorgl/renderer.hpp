@@ -28,7 +28,11 @@ public:
     Renderer(const Renderer&) = delete;
     Renderer& operator=(const Renderer&) = delete;
 
-    /*! @brief Initializes GPU resources (shaders, VAOs, FBOs). */
+    /*! @brief Initializes GPU resources (shaders, VAOs, FBOs).
+     *  GLAD must be loaded and a valid OpenGL context must be current.
+     *  @throws std::runtime_error if GLAD or the context is unavailable.
+     *  @throws std::logic_error if the renderer is already initialized.
+     */
     void init();
 
     /*! @brief Releases all GPU resources. */
@@ -37,11 +41,19 @@ public:
     /*! @brief Begins a new frame.
      *  @param[in] fbWidth   Framebuffer width in pixels.
      *  @param[in] fbHeight  Framebuffer height in pixels.
+     *  @throws std::logic_error if the renderer is uninitialized or a frame is already active.
+     *  @throws std::invalid_argument if either dimension is not positive.
      */
     void beginFrame(int fbWidth, int fbHeight);
 
     /*! @brief Ends the frame and flushes remaining batches. */
     void endFrame();
+
+    /*! @brief Returns whether GPU resources have been initialized. */
+    [[nodiscard]] bool isInitialized() const noexcept;
+
+    /*! @brief Returns whether a frame is currently being recorded. */
+    [[nodiscard]] bool isFrameActive() const noexcept;
 
     // --- SDF primitive rendering (GPU-evaluated shapes) ---
 

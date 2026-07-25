@@ -7,6 +7,7 @@
 [![OpenGL 3.3](https://img.shields.io/badge/OpenGL-3.3-5586A4?logo=opengl)](https://www.khronos.org/opengl/)
 
 [Documentation](https://mahtab04.github.io/vectorgl/) ·
+[Architecture](ARCHITECTURE.md) ·
 [Examples](https://mahtab04.github.io/vectorgl/examples.html) ·
 [API Reference](https://mahtab04.github.io/vectorgl/api.html) ·
 [Guides](https://mahtab04.github.io/vectorgl/guides.html) ·
