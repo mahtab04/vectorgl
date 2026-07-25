@@ -63,6 +63,19 @@ It also includes an SVG loader, TrueType font rendering, and a post-processing e
 
 ## 🏗️ Building
 
+For prerequisites, GLAD/Python setup, troubleshooting, and contribution steps,
+see [Building and Contributing](CONTRIBUTING.md).
+
+### Windows helper
+
+```bat
+scripts\build.bat -Configuration Debug
+```
+
+The helper works from PowerShell or Command Prompt. It verifies Python and
+Jinja2, passes the selected interpreter to CMake, builds examples, and runs
+tests. See the contribution guide for direct PowerShell usage and options.
+
 ### Standard CMake
 
 ```bash
