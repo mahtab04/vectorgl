@@ -80,6 +80,60 @@ scripts\build.bat -Generator Ninja
 
 Output is placed in `build/local-debug` or `build/local-release`.
 
+### Alternative Windows compilers
+
+Visual Studio is not required. The helper supports these Windows toolchains:
+
+| Toolchain | Automatic detection |
+|---|---|
+| Visual Studio with the C++ workload | Visual Studio CMake generator |
+| GCC or Clang with Ninja | Ninja generator |
+| MinGW-w64 with `mingw32-make` | MinGW Makefiles generator |
+| MSVC developer prompt | NMake Makefiles generator |
+
+For example, after adding an MSYS2 MinGW-w64 toolchain to `PATH`:
+
+```bat
+scripts\build.bat -Generator "MinGW Makefiles"
+```
+
+Or use GCC/Clang with Ninja:
+
+```bat
+scripts\build.bat -Generator Ninja
+```
+
+Make sure the compiler, its runtime DLLs, and the selected build tool come from
+the same toolchain installation. Mixing standalone MinGW, MSYS2, and another
+Ninja installation can produce compiler detection or linking failures.
+
+## Linux and macOS build helper
+
+Run the portable shell helper from the repository root:
+
+```bash
+./scripts/build.sh
+```
+
+Common options:
+
+```bash
+# Clean Release build
+./scripts/build.sh --configuration Release --clean
+
+# Library only
+./scripts/build.sh --skip-examples --skip-tests
+
+# Explicit compiler environment and generator
+CC=clang CXX=clang++ ./scripts/build.sh --generator Ninja
+
+# Select a particular Python installation
+./scripts/build.sh --python /usr/bin/python3
+```
+
+The script chooses Ninja when available and otherwise uses Unix Makefiles. It
+checks Python and Jinja2 before configuring GLAD, then builds and runs CTest.
+
 ## Manual CMake build
 
 ```bash

@@ -76,6 +76,15 @@ The helper works from PowerShell or Command Prompt. It verifies Python and
 Jinja2, passes the selected interpreter to CMake, builds examples, and runs
 tests. See the contribution guide for direct PowerShell usage and options.
 
+Linux and macOS users can run:
+
+```bash
+./scripts/build.sh
+```
+
+Visual Studio is optional on Windows: the helper also detects MinGW-w64,
+Ninja with GCC/Clang, and NMake developer environments.
+
 ### Standard CMake
 
 ```bash

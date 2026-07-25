@@ -82,6 +82,22 @@ function Find-CMakeGenerator {
         return $Generator
     }
 
+    if ((Get-Command ninja -ErrorAction SilentlyContinue) -and
+        ((Get-Command clang++ -ErrorAction SilentlyContinue) -or
+         (Get-Command g++ -ErrorAction SilentlyContinue) -or
+         (Get-Command cl -ErrorAction SilentlyContinue))) {
+        return "Ninja"
+    }
+
+    if ((Get-Command mingw32-make -ErrorAction SilentlyContinue) -and
+        (Get-Command g++ -ErrorAction SilentlyContinue)) {
+        return "MinGW Makefiles"
+    }
+
+    if (Get-Command cl -ErrorAction SilentlyContinue) {
+        return "NMake Makefiles"
+    }
+
     $vswhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"
     if (Test-Path -LiteralPath $vswhere) {
         $installationVersion = & $vswhere -latest -products * `
@@ -98,21 +114,11 @@ function Find-CMakeGenerator {
         }
     }
 
-    if ((Get-Command ninja -ErrorAction SilentlyContinue) -and
-        ((Get-Command clang++ -ErrorAction SilentlyContinue) -or
-         (Get-Command g++ -ErrorAction SilentlyContinue) -or
-         (Get-Command cl -ErrorAction SilentlyContinue))) {
-        return "Ninja"
-    }
-
-    if (Get-Command cl -ErrorAction SilentlyContinue) {
-        return "NMake Makefiles"
-    }
-
     throw @"
 No supported C++ build environment was found.
 Install the 'Desktop development with C++' workload in Visual Studio 2022 or
-newer, or install Ninja with GCC/Clang. Then reopen the terminal and retry.
+newer, install Ninja with GCC/Clang, or install MinGW-w64 with mingw32-make.
+Then reopen the terminal and retry.
 "@
 }
 
