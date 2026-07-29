@@ -5,6 +5,7 @@
 [![License](https://img.shields.io/github/license/mahtab04/vectorgl)](./LICENSE)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C?logo=cplusplus)](https://en.cppreference.com/w/cpp/20)
 [![OpenGL 3.3](https://img.shields.io/badge/OpenGL-3.3-5586A4?logo=opengl)](https://www.khronos.org/opengl/)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/mahtab04/vectorgl)
 
 [Documentation](https://mahtab04.github.io/vectorgl/) ·
 [Architecture](ARCHITECTURE.md) ·
