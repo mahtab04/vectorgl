@@ -119,6 +119,8 @@ public:
 
     /*! @brief Flushes all batched SDF instances to the GPU. */
     void flushSDF();
+    /*! @brief Flushes pending shapes and glyphs without ending the frame. */
+    void flush();
 
     // --- Complex path rendering ---
 
@@ -158,6 +160,7 @@ public:
     void drawTexturedQuad(float x, float y, float w, float h, uint32_t texture, Color tint, const Mat3x3& transform);
 
     /*! @brief Draws a single glyph quad from a font atlas.
+     *  Consecutive glyphs share a draw call. Keep the atlas alive until flush() or endFrame().
      *  @param[in] x,y       Position.     @param[in] w,h  Quad size.
      *  @param[in] u0,v0     Top-left UV.  @param[in] u1,v1  Bottom-right UV.
      *  @param[in] texture   Font atlas texture ID.

@@ -1,4 +1,5 @@
 #pragma once
+#include <list>
 #include <memory>
 #include <string>
 #include <vector>
@@ -274,6 +275,15 @@ public:
      */
     [[nodiscard]] float lineHeight() const;
 
+    /*! @brief Limits cached font atlases (default: 16). Must be at least one. */
+    void setFontCacheLimit(std::size_t maximumFonts);
+    /*! @brief Releases cached fonts and resets the active font. */
+    void clearFontCache();
+    [[nodiscard]] std::size_t fontCacheSize() const
+    {
+        return fonts_.size();
+    }
+
     // --- Images ---
 
     /*! @brief Loads a raster image from disk (PNG, JPG, BMP, TGA).
@@ -328,7 +338,8 @@ private:
         float size;
         Font font;
     };
-    std::vector<FontEntry> fonts_;
+    std::list<FontEntry> fonts_;
+    std::size_t fontCacheLimit_ = 16;
     Font* activeFont_ = nullptr;
 };
 

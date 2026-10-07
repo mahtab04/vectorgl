@@ -3,6 +3,7 @@
 // ============================================================================
 
 #include <cstring>
+#include <stdexcept>
 
 #include "svg_common.hpp"
 #include "vectorgl/detail/svg_parser.hpp"
@@ -16,6 +17,17 @@ namespace svg
 
 namespace
 {
+class XmlParseError : public std::runtime_error
+{
+public:
+    XmlParseError() : std::runtime_error("Invalid or excessively nested XML") {}
+};
+
+void requireXml(bool condition)
+{
+    if (!condition)
+        throw XmlParseError();
+}
 
 bool hasNonWhitespace(const std::string& value)
 {
@@ -43,6 +55,7 @@ std::string consumeAttributeValue(const char*& cursor)
     std::string value;
     while (*cursor && *cursor != quote)
     {
+        requireXml(*cursor != '<');
         if (*cursor == '&')
         {
             if (std::strncmp(cursor, "&amp;", 5) == 0)
@@ -80,13 +93,14 @@ std::string consumeAttributeValue(const char*& cursor)
             value += *cursor++;
         }
     }
-    if (*cursor == quote)
-        ++cursor;
+    requireXml(*cursor == quote);
+    ++cursor;
     return value;
 }
 
-bool parseElementRecursive(const char*& cursor, XmlElement& out)
+bool parseElementRecursive(const char*& cursor, XmlElement& out, std::size_t depth, std::size_t& nodeCount)
 {
+    requireXml(depth < 256 && ++nodeCount <= 100000);
     skipWhitespace(cursor);
     if (*cursor != '<')
         return false;
@@ -100,14 +114,14 @@ bool parseElementRecursive(const char*& cursor, XmlElement& out)
             cursor += 3;
             while (*cursor && !(cursor[0] == '-' && cursor[1] == '-' && cursor[2] == '>'))
                 ++cursor;
-            if (*cursor)
-                cursor += 3;
+            requireXml(*cursor != '\0');
+            cursor += 3;
             return false;
         }
         while (*cursor && *cursor != '>')
             ++cursor;
-        if (*cursor)
-            ++cursor;
+        requireXml(*cursor == '>');
+        ++cursor;
         return false;
     }
 
@@ -116,14 +130,13 @@ bool parseElementRecursive(const char*& cursor, XmlElement& out)
     {
         while (*cursor && !(cursor[0] == '?' && cursor[1] == '>'))
             ++cursor;
-        if (*cursor)
-            cursor += 2;
+        requireXml(*cursor != '\0');
+        cursor += 2;
         return false;
     }
 
     out.tag = consumeTagName(cursor);
-    if (out.tag.empty())
-        return false;
+    requireXml(!out.tag.empty());
 
     // Parse attributes
     while (true)
@@ -140,25 +153,18 @@ bool parseElementRecursive(const char*& cursor, XmlElement& out)
             ++cursor;
             break;
         }
-        if (!*cursor)
-            return false;
+        requireXml(*cursor != '\0');
 
         XmlAttribute attr;
         attr.name = consumeTagName(cursor);
+        requireXml(!attr.name.empty());
         skipWhitespace(cursor);
-        if (*cursor == '=')
-        {
-            ++cursor;
-            skipWhitespace(cursor);
-            if (*cursor == '"' || *cursor == '\'')
-            {
-                attr.value = consumeAttributeValue(cursor);
-            }
-        }
-        if (!attr.name.empty())
-        {
-            out.attrs.push_back(std::move(attr));
-        }
+        requireXml(*cursor == '=');
+        ++cursor;
+        skipWhitespace(cursor);
+        requireXml(*cursor == '"' || *cursor == '\'');
+        attr.value = consumeAttributeValue(cursor);
+        out.attrs.push_back(std::move(attr));
     }
 
     // Parse children until closing tag
@@ -171,17 +177,17 @@ bool parseElementRecursive(const char*& cursor, XmlElement& out)
         if (*cursor == '<' && *(cursor + 1) == '/')
         {
             cursor += 2;
-            while (*cursor && *cursor != '>')
-                ++cursor;
-            if (*cursor)
-                ++cursor;
+            const auto closingTag = consumeTagName(cursor);
+            skipWhitespace(cursor);
+            requireXml(closingTag == out.tag && *cursor == '>');
+            ++cursor;
             return true;
         }
 
         if (*cursor == '<')
         {
             XmlElement child;
-            if (parseElementRecursive(cursor, child))
+            if (parseElementRecursive(cursor, child, depth + 1, nodeCount))
             {
                 out.children.push_back(std::move(child));
             }
@@ -201,7 +207,7 @@ bool parseElementRecursive(const char*& cursor, XmlElement& out)
             }
         }
     }
-    return true;
+    throw XmlParseError();
 }
 
 } // anonymous namespace
@@ -210,24 +216,34 @@ XmlElement parseXml(const std::string& xml)
 {
     XmlElement root;
     root.tag = "__root__";
+    if (xml.size() > 16 * 1024 * 1024 || xml.find('\0') != std::string::npos)
+        return {};
     const char* cursor = xml.c_str();
-    while (*cursor)
+    std::size_t nodeCount = 0;
+    try
     {
-        skipWhitespace(cursor);
-        if (!*cursor)
-            break;
-        if (*cursor == '<')
+        while (*cursor)
         {
-            XmlElement child;
-            if (parseElementRecursive(cursor, child))
+            skipWhitespace(cursor);
+            if (!*cursor)
+                break;
+            if (*cursor == '<')
             {
-                root.children.push_back(std::move(child));
+                XmlElement child;
+                if (parseElementRecursive(cursor, child, 0, nodeCount))
+                {
+                    root.children.push_back(std::move(child));
+                }
+            }
+            else
+            {
+                ++cursor;
             }
         }
-        else
-        {
-            ++cursor;
-        }
+    }
+    catch (const XmlParseError&)
+    {
+        return {};
     }
     return root;
 }

@@ -219,6 +219,7 @@ void Node::markDirty(DirtyFlag flags)
     // Propagate transform dirty to children
     if (hasDirty(flags, DirtyFlag::TransformDirty))
     {
+        worldTransformDirty_ = true;
         for (auto& child : children_)
         {
             child->markDirty(DirtyFlag::TransformDirty);
@@ -239,8 +240,13 @@ void Node::recomputeLocalTransform()
 
 void Node::updateWorldTransform(const Mat3x3& parentTransform)
 {
-    recomputeLocalTransform();
-    worldTransform_ = parentTransform * localTransform_;
+    if (worldTransformDirty_ || cachedParentTransform_.m != parentTransform.m)
+    {
+        recomputeLocalTransform();
+        worldTransform_ = parentTransform * localTransform_;
+        cachedParentTransform_ = parentTransform;
+        worldTransformDirty_ = false;
+    }
     for (auto& child : children_)
     {
         child->updateWorldTransform(worldTransform_);

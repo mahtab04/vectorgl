@@ -16,6 +16,28 @@ namespace
 
 constexpr int kFramebufferSize = 128;
 
+PFNGLDRAWARRAYSPROC originalDrawArrays = nullptr;
+int drawArrayCalls = 0;
+void GLAD_API_PTR countDrawArrays(GLenum mode, GLint first, GLsizei count)
+{
+    ++drawArrayCalls;
+    originalDrawArrays(mode, first, count);
+}
+
+struct DrawArraySpy
+{
+    DrawArraySpy()
+    {
+        originalDrawArrays = glad_glDrawArrays;
+        glad_glDrawArrays = countDrawArrays;
+        drawArrayCalls = 0;
+    }
+    ~DrawArraySpy()
+    {
+        glad_glDrawArrays = originalDrawArrays;
+    }
+};
+
 int fail(const char* message)
 {
     std::cerr << "[vectorgl_gpu_tests] " << message << '\n';
@@ -205,6 +227,71 @@ int main()
             result = fail("restored rounded clip did not render");
         else if (!pixelIs(readPixel(118, 64), 255, 0, 0))
             result = fail("rounded clip leaked outside its bounds");
+
+        {
+            DrawArraySpy spy;
+            GLuint textures[2]{};
+            glGenTextures(2, textures);
+            const unsigned char white[] = {255, 255, 255, 255};
+            for (GLuint texture : textures)
+            {
+                glBindTexture(GL_TEXTURE_2D, texture);
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, white);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            }
+            glClearColor(0, 0, 0, 1);
+            glClear(GL_COLOR_BUFFER_BIT);
+            canvas.beginFrame(kFramebufferSize, kFramebufferSize);
+            const auto glyph = [&](GLuint texture, vectorgl::Color color, float x, float w)
+            { canvas.renderer().drawGlyph(x, 0, w, 128, 0, 0, 1, 1, texture, color, vectorgl::Mat3x3::identity()); };
+            for (int i = 0; i < 20; ++i)
+                glyph(textures[0], vectorgl::Color::Green, 0, 128);
+            if (drawArrayCalls != 0)
+                result = fail("consecutive glyphs were not deferred into one batch");
+            canvas.setFillColor(vectorgl::Color::Red);
+            canvas.fillRect(0, 0, 64, 128);
+            glyph(textures[0], vectorgl::Color::Blue, 64, 64);
+            canvas.clipRect(96, 0, 32, 128);
+            glyph(textures[0], {1, 1, 0, 1}, 0, 128);
+            canvas.endFrame();
+            glFinish();
+            if (drawArrayCalls != 3)
+                result = fail("glyphs did not batch across shape and clip boundaries correctly");
+            else if (!pixelIs(readPixel(32, 64), 255, 0, 0) || !pixelIs(readPixel(80, 64), 0, 0, 255) ||
+                     !pixelIs(readPixel(112, 64), 255, 255, 0))
+                result = fail("glyph batching changed drawing order or clipping");
+
+            drawArrayCalls = 0;
+            canvas.beginFrame(kFramebufferSize, kFramebufferSize);
+            glyph(textures[0], vectorgl::Color::White, 0, 16);
+            glyph(textures[1], vectorgl::Color::White, 16, 16);
+            canvas.endFrame();
+            if (drawArrayCalls != 2)
+                result = fail("atlas changes did not split glyph batches");
+
+            drawArrayCalls = 0;
+            canvas.beginFrame(kFramebufferSize, kFramebufferSize);
+            for (int i = 0; i < 1025; ++i)
+                glyph(textures[0], vectorgl::Color::White, 0, 16);
+            canvas.endFrame();
+            if (drawArrayCalls != 2)
+                result = fail("glyph batch size is not bounded at 1024 glyphs");
+
+            canvas.setFontCacheLimit(1);
+            canvas.beginFrame(kFramebufferSize, kFramebufferSize);
+            if (!canvas.setFont(VECTORGL_TEST_FONT, 16))
+                result = fail("test font failed to load into GPU cache");
+            canvas.fillText("?", 0, 0);
+            if (!canvas.setFont(VECTORGL_TEST_FONT, 18))
+                result = fail("second test font failed to load into GPU cache");
+            canvas.fillText("?", 32, 0);
+            canvas.clearFontCache();
+            canvas.endFrame();
+            if (glGetError() != GL_NO_ERROR)
+                result = fail("batched glyphs or cache eviction caused an OpenGL error");
+            glDeleteTextures(2, textures);
+        }
 
         canvas.destroy();
         if (canvas.renderer().isInitialized())

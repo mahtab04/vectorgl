@@ -214,6 +214,8 @@ public:
     detail::GLBuffer sdfVBO_;
     detail::GLBuffer sdfInstanceVBO_;
     std::vector<SDFInstance> sdfBatch_;
+    std::vector<float> glyphBatch_;
+    uint32_t glyphTexture_ = 0;
 
     detail::GLVAO pathVAO_;
     detail::GLBuffer pathVBO_;
@@ -449,6 +451,8 @@ public:
 
     void destroy()
     {
+        glyphBatch_.clear();
+        glyphTexture_ = 0;
         sdfVBO_.reset();
         sdfInstanceVBO_.reset();
         sdfVAO_.reset();
@@ -588,6 +592,7 @@ public:
 
     void drawSDFRect(Vec2 pos, Vec2 size, const NodeStyle& style, const Mat3x3& transform)
     {
+        flushGlyphs();
         Vec2 center = transform.transformPoint(pos);
         const auto components = decomposeTransform(transform);
         SDFInstance inst{};
@@ -612,6 +617,7 @@ public:
 
     void drawSDFCircle(Vec2 center, float radius, const NodeStyle& style, const Mat3x3& transform)
     {
+        flushGlyphs();
         Vec2 transformed = transform.transformPoint(center);
         const auto components = decomposeTransform(transform);
         SDFInstance inst{};
@@ -636,6 +642,7 @@ public:
 
     void drawSDFEllipse(Vec2 center, Vec2 radii, const NodeStyle& style, const Mat3x3& transform)
     {
+        flushGlyphs();
         Vec2 transformed = transform.transformPoint(center);
         const auto components = decomposeTransform(transform);
         SDFInstance inst{};
@@ -661,6 +668,7 @@ public:
     void drawSDFRoundedRect(Vec2 pos, Vec2 size, const std::array<float, 4>& cornerRadii, const NodeStyle& style,
                             const Mat3x3& transform)
     {
+        flushGlyphs();
         Vec2 center = transform.transformPoint(pos);
         const auto components = decomposeTransform(transform);
         const float radiusScale = 0.5f * (components.scaleX + components.scaleY);
@@ -688,6 +696,7 @@ public:
 
     void flushSDF()
     {
+        flushGlyphs();
         if (sdfBatch_.empty())
             return;
         glUseProgram(sdfProgram_);
@@ -946,7 +955,11 @@ public:
     void drawGlyph(float x, float y, float w, float h, float u0, float v0, float u1, float v1, uint32_t texture,
                    Color color, const Mat3x3& transform)
     {
-        flushSDF();
+        if (!sdfBatch_.empty())
+            flushSDF();
+        if (glyphTexture_ != texture || glyphBatch_.size() >= 1024 * 48)
+            flushGlyphs();
+        glyphTexture_ = texture;
         Vec2 tl = transform.transformPoint({x, y});
         Vec2 tr = transform.transformPoint({x + w, y});
         Vec2 bl = transform.transformPoint({x, y + h});
@@ -957,17 +970,27 @@ public:
             tr.x,    tr.y,    u1,      v0,      color.r, color.g, color.b, color.a, br.x,    br.y,    u1,      v1,
             color.r, color.g, color.b, color.a, bl.x,    bl.y,    u0,      v1,      color.r, color.g, color.b, color.a,
         };
+        glyphBatch_.insert(glyphBatch_.end(), std::begin(buffer), std::end(buffer));
+    }
+
+    void flushGlyphs()
+    {
+        if (glyphBatch_.empty())
+            return;
         glUseProgram(texturedProgram_);
         glUniform2f(texLoc_viewSize_, static_cast<float>(fbWidth_), static_cast<float>(fbHeight_));
         glUniform1i(texLoc_sdf_, 1);
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, texture);
+        glBindTexture(GL_TEXTURE_2D, glyphTexture_);
         glUniform1i(texLoc_texture_, 0);
         glBindVertexArray(texVAO_);
         glBindBuffer(GL_ARRAY_BUFFER, texVBO_);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(buffer), buffer, GL_STREAM_DRAW);
-        glDrawArrays(GL_TRIANGLES, 0, 6);
+        glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(glyphBatch_.size() * sizeof(float)), glyphBatch_.data(),
+                     GL_STREAM_DRAW);
+        glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(glyphBatch_.size() / 8));
         glBindVertexArray(0);
+        glyphBatch_.clear();
+        glyphTexture_ = 0;
     }
 
     void beginEffectPass(float x, float y, float w, float h)
@@ -1209,6 +1232,12 @@ void Renderer::drawSDFRoundedRect(Vec2 pos, Vec2 size, const std::array<float, 4
 void Renderer::flushSDF()
 {
     impl_->requireFrame("flushSDF()");
+    impl_->flushSDF();
+}
+
+void Renderer::flush()
+{
+    impl_->requireFrame("flush()");
     impl_->flushSDF();
 }
 

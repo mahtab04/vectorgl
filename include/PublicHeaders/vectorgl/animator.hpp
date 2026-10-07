@@ -105,6 +105,7 @@ class Animation
 {
 public:
     virtual ~Animation() = default;
+    // dt must be finite and non-negative; invalid timing throws std::invalid_argument.
     virtual bool update(float dt) = 0; // returns true when finished
     virtual void apply(Node& node) = 0;
     bool isFinished() const
@@ -140,6 +141,7 @@ public:
      *  @param[in] to        End property state.
      *  @param[in] duration  Duration in seconds.
      *  @param[in] easing    Easing function.
+     *  Duration must be finite and non-negative; zero uses a minimum duration of one microsecond.
      *  @param[in] loop      Loop behaviour (default: none).
      */
     TweenAnimation(uint32_t nodeId, AnimTarget from, AnimTarget to, float duration, Ease easing,
@@ -151,7 +153,7 @@ public:
 private:
     AnimTarget from_, to_;
     float duration_;
-    float elapsed_ = 0.0f;
+    double elapsed_ = 0.0;
     Ease easing_;
     LoopMode loop_;
     bool reverse_ = false;
@@ -198,6 +200,7 @@ public:
     /*! @brief Constructs a keyframe animation.
      *  @param[in] nodeId     Target node ID.
      *  @param[in] keyframes  Sorted list of keyframes.
+     *  Keyframe times must be finite, non-negative, and non-decreasing.
      *  @param[in] loop       Loop behaviour.
      */
     KeyframeAnimation(uint32_t nodeId, std::vector<Keyframe> keyframes, LoopMode loop = LoopMode::None);
@@ -207,7 +210,7 @@ public:
 
 private:
     std::vector<Keyframe> keyframes_;
-    float elapsed_ = 0.0f;
+    double elapsed_ = 0.0;
     float totalDuration_ = 0.0f;
     LoopMode loop_;
 };

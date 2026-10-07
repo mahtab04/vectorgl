@@ -204,10 +204,12 @@ void Canvas::setLineWidth(float w)
 
 bool Canvas::setFont(const std::string& fontPath, float size)
 {
-    for (auto& fe : fonts_)
+    for (auto it = fonts_.begin(); it != fonts_.end(); ++it)
     {
+        auto& fe = *it;
         if (fe.path == fontPath && fe.size == size)
         {
+            fonts_.splice(fonts_.end(), fonts_, it);
             activeFont_ = &fe.font;
             return true;
         }
@@ -217,7 +219,32 @@ bool Canvas::setFont(const std::string& fontPath, float size)
         return false;
     fonts_.push_back(std::move(entry));
     activeFont_ = &fonts_.back().font;
+    if (fonts_.size() > fontCacheLimit_)
+    {
+        if (renderer_.isFrameActive())
+            renderer_.flush();
+        fonts_.pop_front();
+    }
     return true;
+}
+
+void Canvas::setFontCacheLimit(std::size_t maximumFonts)
+{
+    if (maximumFonts == 0)
+        throw std::invalid_argument("Font cache limit must be at least one");
+    if (renderer_.isFrameActive())
+        renderer_.flush();
+    fontCacheLimit_ = maximumFonts;
+    while (fonts_.size() > fontCacheLimit_)
+        fonts_.pop_front();
+}
+
+void Canvas::clearFontCache()
+{
+    if (renderer_.isFrameActive())
+        renderer_.flush();
+    fonts_.clear();
+    activeFont_ = nullptr;
 }
 
 // ============================================================

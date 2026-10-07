@@ -2,7 +2,6 @@
 #include <cstdint>
 #include <string>
 #include <unordered_map>
-#include <vector>
 
 namespace vectorgl
 {
@@ -33,6 +32,7 @@ public:
     /*! @brief Loads a TrueType font from a `.ttf` file.
      *  @param[in] path  Filesystem path to the font file.
      *  @param[in] size  Desired font size in pixels.
+     *  Sizes above 256 pixels or glyph sets that exceed the fixed atlas are rejected.
      *  @return `true` if the font was loaded and atlas was generated.
      */
     [[nodiscard]] bool load(const std::string& path, float size);
@@ -74,7 +74,6 @@ private:
     float ascent_ = 0;
     float size_ = 0;
     float renderScale_ = 1.0f;
-    std::vector<uint8_t> fontData_;
 };
 
 } // namespace vectorgl
