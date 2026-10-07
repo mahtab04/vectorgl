@@ -1,6 +1,6 @@
 #include <memory>
+#include <type_traits>
 #include <vector>
-
 #include <vectorgl/scene.hpp>
 
 #include "test_utils.hpp"
@@ -8,9 +8,12 @@
 int main()
 {
     using namespace vectorgl;
+    static_assert(!std::is_copy_constructible_v<Node>);
+    static_assert(!std::is_copy_assignable_v<Node>);
+    static_assert(!std::is_move_constructible_v<Node>);
+    static_assert(!std::is_move_assignable_v<Node>);
 
-    const auto transform = Mat3x3::translation(10.0f, 20.0f) * Mat3x3::rotation(0.5f) *
-                           Mat3x3::scaling(2.0f, 3.0f);
+    const auto transform = Mat3x3::translation(10.0f, 20.0f) * Mat3x3::rotation(0.5f) * Mat3x3::scaling(2.0f, 3.0f);
     const auto origin = transform.transformPoint({0.0f, 0.0f});
     expectNear(origin.x, 10.0f, 0.0001f, "matrix translation x");
     expectNear(origin.y, 20.0f, 0.0001f, "matrix translation y");
@@ -42,4 +45,32 @@ int main()
     root->removeChild(child);
     expect(child->parent() == nullptr, "removeChild clears parent");
     expect(root->children().empty(), "removeChild updates child list");
+
+    std::weak_ptr<Node> removedChild = child;
+    child.reset();
+    expect(removedChild.expired(), "scene does not retain detached children after rendering");
+
+    auto survivor = std::make_shared<Node>();
+    {
+        auto parent = std::make_shared<Node>();
+        parent->addChild(survivor);
+        survivor->clearDirty();
+    }
+    expect(survivor->parent() == nullptr, "parent destruction detaches surviving children");
+    expect(hasDirty(survivor->dirtyFlags(), DirtyFlag::TransformDirty), "detachment invalidates world transform");
+    auto newParent = std::make_shared<Node>();
+    newParent->addChild(survivor);
+    expect(survivor->parent() == newParent.get(), "surviving child can be reparented safely");
+
+    Scene subtreeScene;
+    auto subtree = subtreeScene.group();
+    auto leaf = std::make_shared<Node>(ShapeType::Rect);
+    std::weak_ptr<Node> removedLeaf = leaf;
+    subtree->addChild(leaf);
+    std::vector<Node*> subtreeList;
+    subtreeScene.collectRenderList(subtreeList);
+    subtreeScene.removeRoot(subtree);
+    subtree.reset();
+    leaf.reset();
+    expect(removedLeaf.expired(), "removing a root releases its entire subtree without another render");
 }

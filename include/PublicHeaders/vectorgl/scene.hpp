@@ -1,6 +1,5 @@
 #pragma once
 #include <memory>
-#include <unordered_map>
 #include <vector>
 
 #include "vectorgl/animator.hpp"
@@ -136,11 +135,9 @@ public:
 
 private:
     std::vector<std::shared_ptr<Node>> roots_;
-    std::unordered_map<uint32_t, std::shared_ptr<Node>> nodeMap_;
     Animator animator_;
     Renderer* renderer_ = nullptr;
 
-    void registerNode(std::shared_ptr<Node> node);
     void collectNodes(Node* node, std::vector<Node*>& outList);
 };
 

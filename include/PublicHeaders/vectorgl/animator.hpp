@@ -229,8 +229,7 @@ public:
      *  @param[in] args  Constructor arguments forwarded to @p T.
      *  @return Reference to the stored animation.
      */
-    template <typename T, typename... Args>
-    T& emplace(Args&&... args)
+    template <typename T, typename... Args> T& emplace(Args&&... args)
     {
         static_assert(std::is_base_of_v<Animation, T>, "Animator::emplace requires an Animation-derived type");
 
@@ -246,6 +245,7 @@ public:
     void update(float dt);
 
     /*! @brief Applies current animation state to the nodes in a scene.
+     *  Animations whose target is no longer in the scene are removed.
      *  @param[in,out] scene  The scene whose nodes are updated.
      */
     void applyTo(class Scene& scene);

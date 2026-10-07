@@ -9,6 +9,8 @@
 #include <string>
 #include <vector>
 
+#include "vectorgl/detail/gl_handle.hpp"
+
 namespace vectorgl::detail
 {
 
@@ -93,7 +95,8 @@ std::string loadShaderSource(const char* shaderDirectory, const char* fileName)
 uint32_t compileShaderFromSource(uint32_t type, const std::string& source, const char* label)
 {
     const char* sourcePtr = source.c_str();
-    uint32_t shader = glCreateShader(type);
+    GLShader shader;
+    shader.adopt(glCreateShader(type));
     glShaderSource(shader, 1, &sourcePtr, nullptr);
     glCompileShader(shader);
 
@@ -101,37 +104,49 @@ uint32_t compileShaderFromSource(uint32_t type, const std::string& source, const
     glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
     if (status == GL_TRUE)
     {
-        return shader;
+        return shader.release();
     }
 
     const std::string infoLog = getShaderInfoLog(shader);
-    glDeleteShader(shader);
     throw std::runtime_error("Failed to compile " + shaderTypeName(type) + " shader '" + label + "'" +
                              (infoLog.empty() ? std::string() : "\n" + infoLog));
 }
 
 uint32_t linkShaderProgram(uint32_t vert, uint32_t frag, const char* label)
 {
-    uint32_t program = glCreateProgram();
+    GLShader vertexShader;
+    GLShader fragmentShader;
+    vertexShader.adopt(vert);
+    fragmentShader.adopt(frag);
+    GLProgram program;
+    program.adopt(glCreateProgram());
     glAttachShader(program, vert);
     glAttachShader(program, frag);
     glLinkProgram(program);
 
     GLint status = GL_FALSE;
     glGetProgramiv(program, GL_LINK_STATUS, &status);
-
-    glDeleteShader(vert);
-    glDeleteShader(frag);
+    glDetachShader(program, vert);
+    glDetachShader(program, frag);
 
     if (status == GL_TRUE)
     {
-        return program;
+        return program.release();
     }
 
     const std::string infoLog = getProgramInfoLog(program);
-    glDeleteProgram(program);
     throw std::runtime_error("Failed to link shader program '" + std::string(label) + "'" +
                              (infoLog.empty() ? std::string() : "\n" + infoLog));
+}
+
+uint32_t buildShaderProgramFromSource(const std::string& vertexSource, const std::string& fragmentSource,
+                                      const char* vertexLabel, const char* fragmentLabel, const char* programLabel)
+{
+    GLShader vertexShader;
+    vertexShader.adopt(compileShaderFromSource(GL_VERTEX_SHADER, vertexSource, vertexLabel));
+    GLShader fragmentShader;
+    fragmentShader.adopt(compileShaderFromSource(GL_FRAGMENT_SHADER, fragmentSource, fragmentLabel));
+    return linkShaderProgram(vertexShader.release(), fragmentShader.release(), programLabel);
 }
 
 } // namespace vectorgl::detail
