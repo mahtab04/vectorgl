@@ -58,9 +58,7 @@ uint32_t buildShaderProgram(const char* vertexFile, const char* fragmentFile, co
 {
     const std::string vertSource = detail::loadShaderSource(VECTORGL_SHADER_DIR, vertexFile);
     const std::string fragSource = detail::loadShaderSource(VECTORGL_SHADER_DIR, fragmentFile);
-    return detail::linkShaderProgram(detail::compileShaderFromSource(GL_VERTEX_SHADER, vertSource, vertexFile),
-                                     detail::compileShaderFromSource(GL_FRAGMENT_SHADER, fragSource, fragmentFile),
-                                     label);
+    return detail::buildShaderProgramFromSource(vertSource, fragSource, vertexFile, fragmentFile, label);
 }
 
 std::vector<Vec2> triangulatePolygon(const std::vector<Vec2>& polygon)

@@ -1,8 +1,8 @@
 {
-  "version": 6,
+  "version": 3,
   "cmakeMinimumRequired": {
     "major": 3,
-    "minor": 23,
+    "minor": 21,
     "patch": 0
   },
   "configurePresets": [
@@ -19,43 +19,35 @@
     {
       "name": "windows-debug",
       "displayName": "Windows Debug",
-      "description": "Configure a Debug build on Windows with the Visual Studio 2022 generator.",
+      "description": "Configure using the locally available default generator (Visual Studio 2022 or 2026).",
       "inherits": [
         "base"
       ],
-      "generator": "Visual Studio 17 2022",
-      "architecture": {
-        "value": "x64",
-        "strategy": "external"
-      },
       "condition": {
         "type": "equals",
         "lhs": "${hostSystemName}",
         "rhs": "Windows"
       },
       "cacheVariables": {
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/windows-debug"
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/windows-debug",
+        "CMAKE_BUILD_TYPE": "Debug"
       }
     },
     {
       "name": "windows-release",
       "displayName": "Windows Release",
-      "description": "Configure a Release build on Windows with the Visual Studio 2022 generator.",
+      "description": "Configure using the locally available default generator (Visual Studio 2022 or 2026).",
       "inherits": [
         "base"
       ],
-      "generator": "Visual Studio 17 2022",
-      "architecture": {
-        "value": "x64",
-        "strategy": "external"
-      },
       "condition": {
         "type": "equals",
         "lhs": "${hostSystemName}",
         "rhs": "Windows"
       },
       "cacheVariables": {
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/windows-release"
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/windows-release",
+        "CMAKE_BUILD_TYPE": "Release"
       }
     },
     {
@@ -93,6 +85,46 @@
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/linux-release"
       }
+    },
+    {
+      "name": "windows-mingw-debug",
+      "displayName": "Windows MinGW Debug",
+      "description": "Use MinGW-w64 gcc/g++ and mingw32-make from PATH.",
+      "inherits": [
+        "base"
+      ],
+      "generator": "MinGW Makefiles",
+      "condition": {
+        "lhs": "${hostSystemName}",
+        "type": "equals",
+        "rhs": "Windows"
+      },
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/windows-mingw-debug",
+        "CMAKE_CXX_COMPILER": "g++"
+      }
+    },
+    {
+      "name": "windows-mingw-release",
+      "displayName": "Windows MinGW Release",
+      "description": "Use MinGW-w64 gcc/g++ and mingw32-make from PATH.",
+      "inherits": [
+        "base"
+      ],
+      "generator": "MinGW Makefiles",
+      "condition": {
+        "lhs": "${hostSystemName}",
+        "type": "equals",
+        "rhs": "Windows"
+      },
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/windows-mingw-release",
+        "CMAKE_CXX_COMPILER": "g++"
+      }
     }
   ],
   "buildPresets": [
@@ -113,6 +145,82 @@
     {
       "name": "linux-release",
       "configurePreset": "linux-release"
+    },
+    {
+      "name": "windows-mingw-debug",
+      "configurePreset": "windows-mingw-debug",
+      "configuration": "Debug"
+    },
+    {
+      "name": "windows-mingw-release",
+      "configurePreset": "windows-mingw-release",
+      "configuration": "Release"
+    }
+  ],
+  "testPresets": [
+    {
+      "output": {
+        "outputOnFailure": true
+      },
+      "configuration": "Debug",
+      "name": "windows-debug",
+      "execution": {
+        "noTestsAction": "error"
+      },
+      "configurePreset": "windows-debug"
+    },
+    {
+      "output": {
+        "outputOnFailure": true
+      },
+      "configuration": "Release",
+      "name": "windows-release",
+      "execution": {
+        "noTestsAction": "error"
+      },
+      "configurePreset": "windows-release"
+    },
+    {
+      "output": {
+        "outputOnFailure": true
+      },
+      "name": "linux-debug",
+      "execution": {
+        "noTestsAction": "error"
+      },
+      "configurePreset": "linux-debug"
+    },
+    {
+      "output": {
+        "outputOnFailure": true
+      },
+      "name": "linux-release",
+      "execution": {
+        "noTestsAction": "error"
+      },
+      "configurePreset": "linux-release"
+    },
+    {
+      "output": {
+        "outputOnFailure": true
+      },
+      "configuration": "Debug",
+      "name": "windows-mingw-debug",
+      "execution": {
+        "noTestsAction": "error"
+      },
+      "configurePreset": "windows-mingw-debug"
+    },
+    {
+      "output": {
+        "outputOnFailure": true
+      },
+      "configuration": "Release",
+      "name": "windows-mingw-release",
+      "execution": {
+        "noTestsAction": "error"
+      },
+      "configurePreset": "windows-mingw-release"
     }
   ]
 }

@@ -130,6 +130,13 @@ class Node
 public:
     Node() = default;
     explicit Node(ShapeType type) : type_(type) {}
+    ~Node();
+
+    // Hierarchy links and node IDs require stable object identity.
+    Node(const Node&) = delete;
+    Node& operator=(const Node&) = delete;
+    Node(Node&&) = delete;
+    Node& operator=(Node&&) = delete;
 
     /*! @brief Returns the unique node identifier. */
     uint32_t id() const
@@ -174,6 +181,10 @@ public:
     float rotation() const
     {
         return rotation_;
+    }
+    Vec2 scale() const
+    {
+        return scale_;
     }
 
     // --- Style ---

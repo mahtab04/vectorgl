@@ -114,7 +114,17 @@ cmake --build build --config Debug --target vectorgl_showcase
 ```bash
 cmake --preset windows-debug
 cmake --build --preset windows-debug
+ctest --preset windows-debug
 ```
+
+The Windows presets let CMake select the installed Visual Studio version,
+including VS 2022 and VS 2026. VS 2026 requires CMake 4.2 or newer;
+VS 2022 and the presets require CMake 3.21 or newer.
+
+For MinGW-w64 with `gcc`, `g++`, and `mingw32-make` in PATH, use
+`windows-mingw-debug` or `windows-mingw-release` instead. The Windows helper
+also detects MinGW automatically and uses separate output directories for
+each generator/compiler combination.
 
 ---
 

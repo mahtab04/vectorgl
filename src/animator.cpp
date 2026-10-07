@@ -185,13 +185,12 @@ void TweenAnimation::apply(Node& node)
         node.setRotation(from_.rotation + (to_.rotation - from_.rotation) * t);
     if (mask & AnimTarget::ScaleX)
     {
-        float sy = (mask & AnimTarget::ScaleY) ? from_.scaleY + (to_.scaleY - from_.scaleY) * t
-                                               : node.position().y; // fallback if ScaleY not animated
+        float sy = (mask & AnimTarget::ScaleY) ? from_.scaleY + (to_.scaleY - from_.scaleY) * t : node.scale().y;
         node.setScale(from_.scaleX + (to_.scaleX - from_.scaleX) * t, sy);
     }
     else if (mask & AnimTarget::ScaleY)
     {
-        node.setScale(1.0f, from_.scaleY + (to_.scaleY - from_.scaleY) * t);
+        node.setScale(node.scale().x, from_.scaleY + (to_.scaleY - from_.scaleY) * t);
     }
 }
 
@@ -312,9 +311,16 @@ void KeyframeAnimation::apply(Node& node)
 
     if (to.mask & AnimTarget::Opacity)
         node.setOpacity(from.opacity + (to.opacity - from.opacity) * localT);
-    if (to.mask & AnimTarget::ScaleX)
-        node.setScale(from.scaleX + (to.scaleX - from.scaleX) * localT,
-                      from.scaleY + (to.scaleY - from.scaleY) * localT);
+    if (to.mask & (AnimTarget::ScaleX | AnimTarget::ScaleY))
+    {
+        float sx = node.scale().x;
+        float sy = node.scale().y;
+        if (to.mask & AnimTarget::ScaleX)
+            sx = from.scaleX + (to.scaleX - from.scaleX) * localT;
+        if (to.mask & AnimTarget::ScaleY)
+            sy = from.scaleY + (to.scaleY - from.scaleY) * localT;
+        node.setScale(sx, sy);
+    }
     {
         float px = node.position().x;
         float py = node.position().y;
@@ -344,18 +350,17 @@ void Animator::update(float dt)
 
 void Animator::applyTo(Scene& scene)
 {
-    for (auto& anim : animations_)
-    {
-        auto node = scene.findNode(anim->targetNodeId());
-        if (node)
-        {
-            anim->apply(*node);
-        }
-    }
     // Keep completed animations alive until their final state has been
     // applied. Removing them in update() skipped the endpoint frame.
     animations_.erase(std::remove_if(animations_.begin(), animations_.end(),
-                                     [](const auto& animation) { return animation->isFinished(); }),
+                                     [&scene](const auto& animation)
+                                     {
+                                         auto node = scene.findNode(animation->targetNodeId());
+                                         if (!node)
+                                             return true;
+                                         animation->apply(*node);
+                                         return animation->isFinished();
+                                     }),
                       animations_.end());
 }
 

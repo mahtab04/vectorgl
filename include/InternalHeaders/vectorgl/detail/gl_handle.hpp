@@ -36,6 +36,9 @@ struct GLFramebufferTag
 struct GLProgramTag
 {
 };
+struct GLShaderTag
+{
+};
 
 template <typename Tag> class GLHandle
 {
@@ -112,6 +115,10 @@ public:
         {
             glDeleteProgram(id_);
         }
+        else if constexpr (std::is_same_v<Tag, GLShaderTag>)
+        {
+            glDeleteShader(id_);
+        }
         id_ = 0;
     }
 
@@ -153,5 +160,6 @@ using GLVAO = GLHandle<GLVAOTag>;
 using GLTexture = GLHandle<GLTextureTag>;
 using GLFramebuffer = GLHandle<GLFramebufferTag>;
 using GLProgram = GLHandle<GLProgramTag>;
+using GLShader = GLHandle<GLShaderTag>;
 
 } // namespace vectorgl::detail

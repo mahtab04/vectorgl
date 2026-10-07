@@ -8,6 +8,18 @@ vectorgl_add_test(vectorgl_core_tests core_tests.cpp)
 vectorgl_add_test(vectorgl_path_tests path_tests.cpp)
 vectorgl_add_test(vectorgl_scene_tests scene_tests.cpp)
 vectorgl_add_test(vectorgl_animator_tests animator_tests.cpp)
+vectorgl_add_test(vectorgl_shader_tests shader_tests.cpp)
+target_include_directories(vectorgl_shader_tests PRIVATE ${VECTORGL_INTERNAL_INCLUDE_DIR})
+
+if(WIN32)
+    find_program(VECTORGL_POWERSHELL NAMES powershell pwsh)
+    if(VECTORGL_POWERSHELL)
+        add_test(NAME vectorgl_build_helper_tests
+            COMMAND ${VECTORGL_POWERSHELL} -NoProfile -ExecutionPolicy Bypass
+                -File ${CMAKE_CURRENT_SOURCE_DIR}/build_helper_tests.ps1
+        )
+    endif()
+endif()
 
 if(VECTORGL_BUILD_GPU_TESTS)
     if(NOT TARGET glfw)

@@ -55,6 +55,15 @@ Vec2 Mat3x3::transformPoint(Vec2 p) const
 
 // --- Node ---
 
+Node::~Node()
+{
+    for (auto& child : children_)
+    {
+        child->parent_ = nullptr;
+        child->markDirty(DirtyFlag::TransformDirty);
+    }
+}
+
 void Node::setPosition(float x, float y)
 {
     if (position_.x != x || position_.y != y)
@@ -173,9 +182,9 @@ void Node::addChild(std::shared_ptr<Node> child)
     if (child->parent_ != nullptr)
         return;
 
+    children_.push_back(child);
     child->parent_ = this;
     child->markDirty(DirtyFlag::TransformDirty);
-    children_.push_back(std::move(child));
 }
 
 void Node::removeChild(const std::shared_ptr<Node>& child)
@@ -184,6 +193,7 @@ void Node::removeChild(const std::shared_ptr<Node>& child)
     if (it != children_.end())
     {
         (*it)->parent_ = nullptr;
+        (*it)->markDirty(DirtyFlag::TransformDirty);
         children_.erase(it);
     }
 }

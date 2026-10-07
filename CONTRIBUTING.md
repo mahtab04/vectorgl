@@ -8,12 +8,12 @@ build workflow, testing, formatting, and the expected contribution process.
 | Tool | Minimum | Notes |
 |---|---:|---|
 | C++ compiler | MSVC 2022, GCC 12, or Clang 15 | Must support C++20 |
-| CMake | 3.20 | CMake 3.23 or newer is recommended for presets |
+| CMake | 3.20 | Presets / VS 2022: 3.21+; VS 2026: 4.2+ |
 | Git | Current stable | CMake downloads dependencies with FetchContent |
 | GPU/driver | OpenGL 3.3 | Required to run graphical examples |
 
 On Windows, install the **Desktop development with C++** workload in Visual
-Studio 2022. On Linux, install a compiler, CMake, Ninja, and the
+Studio 2022 or 2026. On Linux, install a compiler, CMake, Ninja, and the
 development packages required by GLFW.
 
 ## Vendored OpenGL loader
@@ -56,7 +56,11 @@ scripts\build.bat -SkipExamples -SkipTests
 scripts\build.bat -Generator Ninja
 ```
 
-Output is placed in `build/local-debug` or `build/local-release`.
+The Windows helper uses separate directories for each generator/compiler and
+configuration, for example `build/local-visual-studio-18-2026-debug` or
+`build/local-ninja-gcc-release`. Switching Visual Studio versions or moving
+between MSVC and MinGW therefore does not reuse an incompatible CMake cache.
+The helper prints the selected generator and output directory before building.
 
 ### Alternative Windows compilers
 
@@ -202,6 +206,34 @@ cmake --build --preset windows-release
 ```
 
 Linux users can replace `windows` with `linux`.
+
+The Windows presets use CMake's default generator discovery, so the same preset
+works with VS 2022 or VS 2026. Use CMake 4.2+ for VS 2026 and CMake 3.21+ for
+VS 2022. You can select a particular version explicitly:
+
+```powershell
+scripts\build.bat -Generator "Visual Studio 17 2022"
+scripts\build.bat -Generator "Visual Studio 18 2026"
+```
+
+For MinGW-w64, put `gcc`, `g++`, and `mingw32-make` in PATH, then run:
+
+```powershell
+cmake --preset windows-mingw-debug
+cmake --build --preset windows-mingw-debug
+ctest --preset windows-mingw-debug
+```
+
+Use the Windows helper for automatic fallback to MinGW or Ninja when Visual
+Studio is unavailable. Presets select CMake's default generator or an explicit
+MinGW generator; they do not execute the helper's compiler detection.
+
+If an existing preset build directory was configured with another generator,
+configure into a new directory (for example `cmake --preset windows-debug -B
+build/windows-vs2026`), then build that directory directly with
+`cmake --build build/windows-vs2026 --config Debug`. CMake cannot switch the
+generator of an existing build directory. The helper avoids this by using
+separate directories automatically.
 
 ## Formatting and static analysis
 
