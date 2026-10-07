@@ -7,6 +7,7 @@ endfunction()
 vectorgl_add_test(vectorgl_core_tests core_tests.cpp)
 vectorgl_add_test(vectorgl_path_tests path_tests.cpp)
 vectorgl_add_test(vectorgl_scene_tests scene_tests.cpp)
+vectorgl_add_test(vectorgl_picking_tests picking_tests.cpp)
 vectorgl_add_test(vectorgl_animator_tests animator_tests.cpp)
 vectorgl_add_test(vectorgl_shader_tests shader_tests.cpp)
 vectorgl_add_test(vectorgl_svg_tests svg_tests.cpp)
@@ -48,5 +49,18 @@ if(VECTORGL_BUILD_GPU_TESTS)
         )
     else()
         add_test(NAME vectorgl_gpu_tests COMMAND vectorgl_gpu_tests)
+    endif()
+
+    if(TARGET vectorgl_hit_testing)
+        if(XVFB_RUN_EXECUTABLE)
+            add_test(NAME vectorgl_hit_testing_demo_smoke
+                COMMAND ${XVFB_RUN_EXECUTABLE} -a $<TARGET_FILE:vectorgl_hit_testing> --smoke-test
+            )
+        else()
+            add_test(NAME vectorgl_hit_testing_demo_smoke
+                COMMAND vectorgl_hit_testing --smoke-test
+            )
+        endif()
+        set_tests_properties(vectorgl_hit_testing_demo_smoke PROPERTIES TIMEOUT 15)
     endif()
 endif()

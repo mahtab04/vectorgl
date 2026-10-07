@@ -1114,11 +1114,14 @@ public:
         case ShapeType::Path:
         {
             auto subPaths = node->path().getSubPaths();
+            Color fill = style.fillColor, stroke = style.strokeColor;
+            fill.a *= style.opacity;
+            stroke.a *= style.opacity;
             if (style.fillColor.a > 0)
-                fillPath(subPaths, style.fillColor, worldTransform);
+                fillPath(subPaths, fill, worldTransform);
             if (style.strokeWidth > 0 && style.strokeColor.a > 0)
             {
-                strokePath(subPaths, style.strokeColor, style.strokeWidth, worldTransform);
+                strokePath(subPaths, stroke, style.strokeWidth, worldTransform);
             }
             break;
         }
@@ -1126,7 +1129,9 @@ public:
         {
             float halfLength = size.x * 0.5f;
             std::vector<std::vector<Vec2>> paths = {{{-halfLength, 0}, {halfLength, 0}}};
-            strokePath(paths, style.strokeColor, style.strokeWidth > 0 ? style.strokeWidth : 1.0f, worldTransform);
+            Color stroke = style.strokeColor;
+            stroke.a *= style.opacity;
+            strokePath(paths, stroke, style.strokeWidth > 0 ? style.strokeWidth : 1.0f, worldTransform);
             break;
         }
         default:

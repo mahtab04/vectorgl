@@ -97,6 +97,18 @@ public:
      */
     std::shared_ptr<Node> findNode(uint32_t id) const;
 
+    /*! @brief Returns the topmost painted shape at a scene/framebuffer coordinate.
+     *  Supports rectangles, rounded rectangles, circles, ellipses, lines and
+     *  simple paths (each subpath fills independently, as in the renderer).
+     *  Uses render z-order (later traversal wins ties), visibility, fill/stroke
+     *  alpha and opacity. Groups are traversed but never returned.
+     *  Refreshes transforms without advancing animations; no GL context is needed.
+     *  Antialias fringes, effects and renderer clipping are excluded. Text and
+     *  image nodes are skipped until scene rendering supports them.
+     *  @return Shared pointer to the hit node, or nullptr when nothing is hit.
+     */
+    std::shared_ptr<Node> pick(float x, float y);
+
     /*! @brief Returns a reference to the built-in Animator.
      *  @sa Animator
      */

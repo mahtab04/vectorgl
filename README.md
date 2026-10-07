@@ -182,6 +182,32 @@ scene.update(dt);
 scene.render();
 ```
 
+### Scene Hit Testing
+
+Use `Scene::pick(x, y)` to select the topmost painted shape in framebuffer
+coordinates. It refreshes transforms without advancing animations and needs no
+OpenGL context:
+
+```cpp
+if (auto node = scene.pick(mouseX, mouseY)) {
+    node->setFill(vectorgl::Color::Red);
+}
+```
+
+Picking supports rectangles, rounded rectangles, circles, ellipses, lines and
+simple paths, with parent transforms, visibility, opacity, fills and strokes.
+Higher z-index wins; ties follow draw order. Empty outline interiors do not hit.
+Path subpaths are filled independently, matching the current renderer. Effects,
+antialias fringes, renderer clipping and the currently unrendered text/image node
+types are excluded.
+
+The [interactive example](example/hit_testing_demo.cpp) demonstrates selection,
+dragging, a rotated parent group, outlines, and overlapping shapes. Build the
+`vectorgl_hit_testing` target and run it from your build's `example` directory
+(the `Debug` subdirectory for Visual Studio). Click/drag to move, Up/Down to
+change z-index, R to reset, and Esc to close. Convert GLFW window cursor units to
+framebuffer pixels on high-DPI displays, as shown in the example.
+
 ### SVG Rendering
 
 ```cpp
