@@ -242,6 +242,18 @@ const exampleFlows = [
 
 const repoExampleCards = [
     {
+        title: "hit_testing_demo.cpp",
+        text: "Build vectorgl_hit_testing to select and drag painted scene shapes, including a child in a rotated group. Up/Down changes z-index, R resets positions and order, and Esc closes the window.",
+        bullets: [
+            "Uses Scene::pick() for fill and stroke geometry in draw order.",
+            "Converts GLFW cursor units to framebuffer pixels for high-DPI displays.",
+            "Converts dragging into parent coordinates for transformed children."
+        ],
+        code: `if (auto selected = scene.pick(mouseX, mouseY)) {
+    selected->setStroke(vectorgl::Color::White, 4.0f);
+}`
+    },
+    {
         title: "main.cpp",
         text: "Combines immediate-mode Canvas drawing with a retained Scene. It shows SDF primitives, animated nodes, grouped circles, and direct Canvas drawing layered on top of the scene.",
         bullets: [
@@ -459,6 +471,7 @@ const apiReference = [
                     { signature: "void addRoot(std::shared_ptr<Node> node)", description: "Adds a node to the scene root list." },
                     { signature: "void removeRoot(const std::shared_ptr<Node>& node)", description: "Removes a node from the root list and node lookup map." },
                     { signature: "std::shared_ptr<Node> findNode(uint32_t id) const", description: "Finds a node by its unique ID." },
+                    { signature: "std::shared_ptr<Node> pick(float x, float y)", description: "Returns the topmost painted rectangle, rounded rectangle, circle, ellipse, line or simple path at a framebuffer coordinate. Refreshes transforms without advancing animations; respects z-order, visibility, opacity and fill/stroke alpha. Groups are traversed. Excludes effects, antialias fringes, renderer clipping and unrendered text/image node types." },
                     { signature: "const std::vector<std::shared_ptr<Node>>& roots() const", description: "Returns the root node list." },
                     { signature: "void collectRenderList(std::vector<Node*>& outList)", description: "Flattens visible renderable nodes into a list, useful for inspection or custom debug flows." }
                 ]

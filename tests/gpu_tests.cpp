@@ -10,6 +10,7 @@
 #include <stdexcept>
 #include <vectorgl/canvas.hpp>
 #include <vectorgl/color.hpp>
+#include <vectorgl/scene.hpp>
 
 namespace
 {
@@ -291,6 +292,66 @@ int main()
             if (glGetError() != GL_NO_ERROR)
                 result = fail("batched glyphs or cache eviction caused an OpenGL error");
             glDeleteTextures(2, textures);
+        }
+
+        if (result == 0)
+        {
+            vectorgl::Scene scene;
+            auto group = scene.group();
+            group->setPosition(36, 34);
+            group->setRotation(0.3f);
+            group->setScale(1.2f, 0.8f);
+            auto rounded = scene.roundedRect(-22, -18, 44, 36, 9);
+            rounded->setFill(vectorgl::Color::White);
+            rounded->setRotation(0.45f);
+            rounded->setCornerRadii(2, 7, 12, 4);
+            group->addChild(rounded);
+            auto ellipse = scene.ellipse(92, 34, 22, 13);
+            ellipse->setStroke(vectorgl::Color::White, 6);
+            ellipse->setRotation(-0.4f);
+            auto line = scene.line(12, 85, 52, 106);
+            line->setStroke(vectorgl::Color::White, 7);
+            vectorgl::Path2D triangle;
+            triangle.moveTo(70, 80);
+            triangle.lineTo(115, 80);
+            triangle.lineTo(92, 115);
+            triangle.closePath();
+            auto path = scene.path(triangle);
+            path->setFill(vectorgl::Color::White);
+            scene.update(0);
+            glClearColor(0, 0, 0, 1);
+            glClear(GL_COLOR_BUFFER_BIT);
+            scene.render(canvas.renderer(), kFramebufferSize, kFramebufferSize);
+            glFinish();
+            for (int y = 2; y < kFramebufferSize - 2 && result == 0; y += 2)
+                for (int x = 2; x < kFramebufferSize - 2; x += 2)
+                {
+                    const auto pixel = readPixel(x, y);
+                    const bool picked = scene.pick(x + 0.5f, y + 0.5f) != nullptr;
+                    // Exclude a two-pixel boundary band: path AA fringes can
+                    // be almost opaque just outside the geometric stroke.
+                    bool nearEdge = false;
+                    for (int dy : {-2, 0, 2})
+                        for (int dx : {-2, 0, 2})
+                            if ((scene.pick(x + dx + 0.5f, y + dy + 0.5f) != nullptr) != picked)
+                                nearEdge = true;
+                    if (nearEdge)
+                        continue;
+                    if ((pixel[0] > 252 && !picked) || (pixel[0] < 3 && picked))
+                    {
+                        std::cerr << "Picking mismatch at " << x << ',' << y << ": red=" << static_cast<int>(pixel[0])
+                                  << " picked=" << picked << '\n';
+                        result = fail("scene picking disagrees with rendered shape geometry");
+                        break;
+                    }
+                }
+            path->setOpacity(0);
+            line->setOpacity(0);
+            glClear(GL_COLOR_BUFFER_BIT);
+            scene.render(canvas.renderer(), kFramebufferSize, kFramebufferSize);
+            glFinish();
+            if (!pixelIs(readPixel(92, 90), 0, 0, 0) || !pixelIs(readPixel(32, 95), 0, 0, 0))
+                result = fail("scene path or line ignored node opacity");
         }
 
         canvas.destroy();
