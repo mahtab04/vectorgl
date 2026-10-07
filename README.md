@@ -194,6 +194,24 @@ svg.render(canvas, 10.0f, 10.0f, 64.0f, 64.0f);
 
 ### Text Input & UI Widgets
 
+Font atlases use a least recently used cache, limited to 16 entries by default.
+Applications can tune or clear it:
+
+```cpp
+canvas.setFontCacheLimit(8);
+canvas.clearFontCache(); // flushes pending text before releasing its atlases
+```
+
+Font loading returns `false` if the size exceeds 256 pixels or the supported
+glyphs cannot fit the fixed atlas. Font-file bytes are released after atlas
+generation. Consecutive glyphs sharing an atlas are batched, with drawing order
+preserved across shapes, images, clipping, and effects. Low-level callers must
+keep an atlas alive until `renderer.flush()` or the end of the frame.
+
+Animation time steps must be finite and non-negative. Looping animations wrap
+time without repeatedly subtracting their duration, and tween/keyframe masks
+support position, size, rotation, scale, opacity, fill, and stroke color.
+
 VectorGL includes a small widget layer for common UI building blocks:
 
 - `vectorgl::TextBox` — single-line text editing

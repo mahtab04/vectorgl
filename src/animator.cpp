@@ -3,12 +3,55 @@
 #include <algorithm>
 #include <cmath>
 #include <numbers>
+#include <stdexcept>
 
 #include "vectorgl/node.hpp"
 #include "vectorgl/scene.hpp"
 
 namespace vectorgl
 {
+namespace
+{
+void validateDeltaTime(float dt)
+{
+    if (!std::isfinite(dt) || dt < 0.0f)
+        throw std::invalid_argument("Animation delta time must be finite and non-negative");
+}
+
+void applyProperties(Node& node, const AnimTarget& from, const AnimTarget& to, float t)
+{
+    const auto interpolate = [t](float a, float b) { return a + (b - a) * t; };
+    Vec2 position = node.position();
+    if (to.mask & AnimTarget::PosX)
+        position.x = interpolate(from.x, to.x);
+    if (to.mask & AnimTarget::PosY)
+        position.y = interpolate(from.y, to.y);
+    if (to.mask & (AnimTarget::PosX | AnimTarget::PosY))
+        node.setPosition(position.x, position.y);
+    Vec2 size = node.size();
+    if (to.mask & AnimTarget::Width)
+        size.x = interpolate(from.width, to.width);
+    if (to.mask & AnimTarget::Height)
+        size.y = interpolate(from.height, to.height);
+    if (to.mask & (AnimTarget::Width | AnimTarget::Height))
+        node.setSize(size.x, size.y);
+    Vec2 scale = node.scale();
+    if (to.mask & AnimTarget::ScaleX)
+        scale.x = interpolate(from.scaleX, to.scaleX);
+    if (to.mask & AnimTarget::ScaleY)
+        scale.y = interpolate(from.scaleY, to.scaleY);
+    if (to.mask & (AnimTarget::ScaleX | AnimTarget::ScaleY))
+        node.setScale(scale.x, scale.y);
+    if (to.mask & AnimTarget::Rotation)
+        node.setRotation(interpolate(from.rotation, to.rotation));
+    if (to.mask & AnimTarget::Opacity)
+        node.setOpacity(interpolate(from.opacity, to.opacity));
+    if (to.mask & AnimTarget::Fill)
+        node.setFill(Color::lerpOklab(from.fill, to.fill, t));
+    if (to.mask & AnimTarget::Stroke)
+        node.setStroke(Color::lerpOklab(from.stroke, to.stroke, t), node.style().strokeWidth);
+}
+} // namespace
 
 // --- Easing functions ---
 
@@ -126,11 +169,14 @@ TweenAnimation::TweenAnimation(uint32_t nodeId, AnimTarget from, AnimTarget to, 
                                LoopMode loop)
     : from_(from), to_(to), duration_(std::max(duration, 0.000001f)), easing_(easing), loop_(loop)
 {
+    if (!std::isfinite(duration) || duration < 0.0f)
+        throw std::invalid_argument("Tween duration must be finite and non-negative");
     nodeId_ = nodeId;
 }
 
 bool TweenAnimation::update(float dt)
 {
+    validateDeltaTime(dt);
     elapsed_ += dt;
 
     if (loop_ == LoopMode::None)
@@ -143,14 +189,12 @@ bool TweenAnimation::update(float dt)
     }
     else if (loop_ == LoopMode::Loop)
     {
-        while (elapsed_ >= duration_)
-            elapsed_ -= duration_;
+        elapsed_ = std::fmod(elapsed_, static_cast<double>(duration_));
     }
     else if (loop_ == LoopMode::PingPong)
     {
-        float cycle = duration_ * 2;
-        while (elapsed_ >= cycle)
-            elapsed_ -= cycle;
+        double cycle = static_cast<double>(duration_) * 2;
+        elapsed_ = std::fmod(elapsed_, cycle);
         reverse_ = elapsed_ > duration_;
     }
     return finished_;
@@ -158,40 +202,15 @@ bool TweenAnimation::update(float dt)
 
 void TweenAnimation::apply(Node& node)
 {
-    float rawT = duration_ > 0 ? elapsed_ / duration_ : 1.0f;
+    float rawT = static_cast<float>(elapsed_ / duration_);
     if (loop_ == LoopMode::PingPong && reverse_)
     {
-        rawT = 2.0f - (elapsed_ / duration_);
+        rawT = static_cast<float>(2.0 - (elapsed_ / duration_));
     }
     rawT = std::clamp(rawT, 0.0f, 1.0f);
     float t = evalEasing(easing_, rawT);
 
-    uint32_t mask = to_.mask;
-    {
-        float px = node.position().x;
-        float py = node.position().y;
-        if (mask & AnimTarget::PosX)
-            px = from_.x + (to_.x - from_.x) * t;
-        if (mask & AnimTarget::PosY)
-            py = from_.y + (to_.y - from_.y) * t;
-        if (mask & (AnimTarget::PosX | AnimTarget::PosY))
-            node.setPosition(px, py);
-    }
-    if (mask & AnimTarget::Opacity)
-        node.setOpacity(from_.opacity + (to_.opacity - from_.opacity) * t);
-    if (mask & AnimTarget::Fill)
-        node.setFill(Color::lerpOklab(from_.fill, to_.fill, t));
-    if (mask & AnimTarget::Rotation)
-        node.setRotation(from_.rotation + (to_.rotation - from_.rotation) * t);
-    if (mask & AnimTarget::ScaleX)
-    {
-        float sy = (mask & AnimTarget::ScaleY) ? from_.scaleY + (to_.scaleY - from_.scaleY) * t : node.scale().y;
-        node.setScale(from_.scaleX + (to_.scaleX - from_.scaleX) * t, sy);
-    }
-    else if (mask & AnimTarget::ScaleY)
-    {
-        node.setScale(node.scale().x, from_.scaleY + (to_.scaleY - from_.scaleY) * t);
-    }
+    applyProperties(node, from_, to_, t);
 }
 
 // --- SpringAnimation ---
@@ -204,6 +223,7 @@ SpringAnimation::SpringAnimation(uint32_t nodeId, AnimTarget target, float stiff
 
 bool SpringAnimation::update(float dt)
 {
+    validateDeltaTime(dt);
     if (!initialized_)
         return false;
 
@@ -248,12 +268,20 @@ KeyframeAnimation::KeyframeAnimation(uint32_t nodeId, std::vector<Keyframe> keyf
     nodeId_ = nodeId;
     if (!keyframes_.empty())
     {
+        float previous = 0.0f;
+        for (const auto& keyframe : keyframes_)
+        {
+            if (!std::isfinite(keyframe.time) || keyframe.time < previous)
+                throw std::invalid_argument("Keyframe times must be finite, non-negative, and sorted");
+            previous = keyframe.time;
+        }
         totalDuration_ = keyframes_.back().time;
     }
 }
 
 bool KeyframeAnimation::update(float dt)
 {
+    validateDeltaTime(dt);
     if (keyframes_.size() < 2 || totalDuration_ <= 0.0f)
     {
         finished_ = true;
@@ -268,14 +296,12 @@ bool KeyframeAnimation::update(float dt)
     }
     else if (loop_ == LoopMode::Loop)
     {
-        while (elapsed_ >= totalDuration_)
-            elapsed_ -= totalDuration_;
+        elapsed_ = std::fmod(elapsed_, static_cast<double>(totalDuration_));
     }
     else if (loop_ == LoopMode::PingPong)
     {
-        float cycle = totalDuration_ * 2;
-        while (elapsed_ >= cycle)
-            elapsed_ -= cycle;
+        double cycle = static_cast<double>(totalDuration_) * 2;
+        elapsed_ = std::fmod(elapsed_, cycle);
     }
     return finished_;
 }
@@ -285,10 +311,10 @@ void KeyframeAnimation::apply(Node& node)
     if (keyframes_.size() < 2)
         return;
 
-    float t = elapsed_;
+    double t = elapsed_;
     if (loop_ == LoopMode::PingPong && t > totalDuration_)
     {
-        t = totalDuration_ * 2 - t;
+        t = static_cast<double>(totalDuration_) * 2 - t;
     }
 
     // Find surrounding keyframes
@@ -303,34 +329,13 @@ void KeyframeAnimation::apply(Node& node)
 
     float segStart = keyframes_[i].time;
     float segEnd = keyframes_[i + 1].time;
-    float localT = (segEnd > segStart) ? (t - segStart) / (segEnd - segStart) : 1.0f;
+    float localT = (segEnd > segStart) ? static_cast<float>((t - segStart) / (segEnd - segStart)) : 1.0f;
     localT = std::clamp(localT, 0.0f, 1.0f);
 
     auto& from = keyframes_[i].target;
     auto& to = keyframes_[i + 1].target;
 
-    if (to.mask & AnimTarget::Opacity)
-        node.setOpacity(from.opacity + (to.opacity - from.opacity) * localT);
-    if (to.mask & (AnimTarget::ScaleX | AnimTarget::ScaleY))
-    {
-        float sx = node.scale().x;
-        float sy = node.scale().y;
-        if (to.mask & AnimTarget::ScaleX)
-            sx = from.scaleX + (to.scaleX - from.scaleX) * localT;
-        if (to.mask & AnimTarget::ScaleY)
-            sy = from.scaleY + (to.scaleY - from.scaleY) * localT;
-        node.setScale(sx, sy);
-    }
-    {
-        float px = node.position().x;
-        float py = node.position().y;
-        if (to.mask & AnimTarget::PosX)
-            px = from.x + (to.x - from.x) * localT;
-        if (to.mask & AnimTarget::PosY)
-            py = from.y + (to.y - from.y) * localT;
-        if (to.mask & (AnimTarget::PosX | AnimTarget::PosY))
-            node.setPosition(px, py);
-    }
+    applyProperties(node, from, to, localT);
 }
 
 // --- Animator ---
@@ -342,6 +347,7 @@ void Animator::add(std::unique_ptr<Animation> anim)
 
 void Animator::update(float dt)
 {
+    validateDeltaTime(dt);
     for (auto& anim : animations_)
     {
         anim->update(dt);

@@ -73,4 +73,24 @@ int main()
     subtree.reset();
     leaf.reset();
     expect(removedLeaf.expired(), "removing a root releases its entire subtree without another render");
+
+    Node transformed;
+    transformed.setPosition(3, 4);
+    transformed.clearDirty();
+    transformed.updateWorldTransform(Mat3x3::translation(10, 20));
+    expectNear(transformed.worldTransform().transformPoint({0, 0}).x, 13, 0.0001f,
+               "clearing rendering flags does not discard a pending transform update");
+    transformed.updateWorldTransform(Mat3x3::translation(30, 20));
+    expectNear(transformed.worldTransform().transformPoint({0, 0}).x, 33, 0.0001f,
+               "changed parent matrix invalidates cached world transform");
+    transformed.updateWorldTransform(Mat3x3::translation(30, 20));
+    expectNear(transformed.worldTransform().transformPoint({0, 0}).x, 33, 0.0001f,
+               "unchanged transform remains stable");
+    auto cachedChild = std::make_shared<Node>();
+    transformed.addChild(cachedChild);
+    transformed.updateWorldTransform(Mat3x3::identity());
+    cachedChild->setPosition(5, 0);
+    transformed.updateWorldTransform(Mat3x3::identity());
+    expectNear(cachedChild->worldTransform().transformPoint({0, 0}).x, 8, 0.0001f,
+               "dirty child updates under an unchanged parent");
 }

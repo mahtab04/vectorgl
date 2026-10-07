@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include <fstream>
+#include <vector>
 
 #define STB_TRUETYPE_IMPLEMENTATION
 #include "stb_truetype.h"
@@ -18,8 +19,7 @@ Font::~Font()
 
 Font::Font(Font&& other) noexcept
     : glyphs_(std::move(other.glyphs_)), atlasTexture_(other.atlasTexture_), lineHeight_(other.lineHeight_),
-      ascent_(other.ascent_), size_(other.size_), renderScale_(other.renderScale_),
-      fontData_(std::move(other.fontData_))
+      ascent_(other.ascent_), size_(other.size_), renderScale_(other.renderScale_)
 {
     other.atlasTexture_ = 0;
     other.lineHeight_ = 0;
@@ -40,7 +40,6 @@ Font& Font::operator=(Font&& other) noexcept
         ascent_ = other.ascent_;
         size_ = other.size_;
         renderScale_ = other.renderScale_;
-        fontData_ = std::move(other.fontData_);
         other.atlasTexture_ = 0;
         other.lineHeight_ = 0;
         other.ascent_ = 0;
@@ -54,7 +53,7 @@ Font& Font::operator=(Font&& other) noexcept
 bool Font::load(const std::string& path, float size)
 {
     destroy();
-    if (!(size > 0.0f) || !std::isfinite(size))
+    if (!(size > 0.0f) || !std::isfinite(size) || size > 256.0f)
         return false;
 
     std::ifstream file(path, std::ios::binary | std::ios::ate);
@@ -65,15 +64,14 @@ bool Font::load(const std::string& path, float size)
     if (fileSize <= 0)
         return false;
     file.seekg(0);
-    fontData_.resize(static_cast<size_t>(fileSize));
-    if (!file.read(reinterpret_cast<char*>(fontData_.data()), fileSize))
+    std::vector<uint8_t> fontData(static_cast<size_t>(fileSize));
+    if (!file.read(reinterpret_cast<char*>(fontData.data()), fileSize))
     {
-        fontData_.clear();
         return false;
     }
 
     stbtt_fontinfo fontInfo;
-    if (!stbtt_InitFont(&fontInfo, fontData_.data(), 0))
+    if (!stbtt_InitFont(&fontInfo, fontData.data(), 0))
         return false;
 
     // Generate atlas at higher internal resolution for better SDF precision,
@@ -115,6 +113,8 @@ bool Font::load(const std::string& path, float size)
         int gh = iy1 - iy0;
         int sdfW = gw + 2 * sdfPadding;
         int sdfH = gh + 2 * sdfPadding;
+        if (sdfW + 2 * sdfPadding >= atlasW || sdfH + 2 * sdfPadding >= atlasH)
+            return false;
 
         if (penX + sdfW >= atlasW)
         {
@@ -123,7 +123,7 @@ bool Font::load(const std::string& path, float size)
             rowHeight = 0;
         }
         if (penY + sdfH >= atlasH)
-            break;
+            return false;
 
         unsigned char* sdfBitmap = stbtt_GetGlyphSDF(&fontInfo, scale, glyph, sdfPadding, sdfOnEdge, sdfPixelDist,
                                                      &sdfW, &sdfH, nullptr, nullptr);
@@ -142,6 +142,8 @@ bool Font::load(const std::string& path, float size)
             }
             stbtt_FreeSDF(sdfBitmap, nullptr);
         }
+        else if (gw > 0 && gh > 0)
+            return false;
 
         int advW, lsb;
         stbtt_GetGlyphHMetrics(&fontInfo, glyph, &advW, &lsb);
@@ -163,8 +165,13 @@ bool Font::load(const std::string& path, float size)
         rowHeight = std::max(rowHeight, sdfH);
     }
 
+    if (!glyphs.contains('?'))
+        return false;
+
     uint32_t atlasTexture = 0;
     glGenTextures(1, &atlasTexture);
+    if (atlasTexture == 0)
+        return false;
     glBindTexture(GL_TEXTURE_2D, atlasTexture);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, atlasW, atlasH, 0, GL_RED, GL_UNSIGNED_BYTE, atlasData.data());
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -194,7 +201,6 @@ void Font::destroy()
     ascent_ = 0;
     size_ = 0;
     renderScale_ = 1.0f;
-    fontData_.clear();
 }
 
 const GlyphInfo* Font::getGlyph(int codepoint) const

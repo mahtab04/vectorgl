@@ -1,3 +1,6 @@
+#include <cmath>
+#include <limits>
+#include <stdexcept>
 #include <vector>
 #include <vectorgl/animator.hpp>
 #include <vectorgl/node.hpp>
@@ -98,4 +101,65 @@ int main()
     parent->removeChild(detached);
     scene.update(0.016f);
     expect(!scene.animator().hasActiveAnimations(), "initialized spring is removed after child detaches");
+
+    for (LoopMode loop : {LoopMode::Loop, LoopMode::PingPong})
+    {
+        TweenAnimation tiny(node->id(), from, to, 0.000001f, Ease::Linear, loop);
+        expect(!tiny.update(100.0f), "large time step wraps tiny tween without hanging");
+        tiny.apply(*node);
+        expect(std::isfinite(node->position().x), "wrapped tween produces finite position");
+        KeyframeAnimation tinyKeyframes(node->id(), {{0, from}, {0.000001f, to}}, loop);
+        expect(!tinyKeyframes.update(std::numeric_limits<float>::max()), "large keyframe step wraps without overflow");
+        tinyKeyframes.apply(*node);
+        expect(std::isfinite(node->position().x), "wrapped keyframes produce finite position");
+    }
+
+    AnimTarget allFrom, allTo;
+    allFrom.width = 10;
+    allFrom.height = 20;
+    allFrom.fill = Color::Red;
+    allFrom.stroke = Color::Blue;
+    allTo.width = 30;
+    allTo.height = 40;
+    allTo.rotation = 2;
+    allTo.fill = Color::Blue;
+    allTo.stroke = Color::Red;
+    allTo.mask = AnimTarget::Width | AnimTarget::Height | AnimTarget::Rotation | AnimTarget::Fill | AnimTarget::Stroke;
+    node->setStroke(Color::White, 3);
+    KeyframeAnimation complete(node->id(), {{0, allFrom}, {2, allTo}});
+    complete.update(1);
+    complete.apply(*node);
+    expectNear(node->rotation(), 1, 0.0001f, "keyframe rotation is interpolated");
+    expectNear(node->size().x, 20, 0.0001f, "keyframe width is interpolated");
+    expectNear(node->size().y, 30, 0.0001f, "keyframe height is interpolated");
+    const auto expectedFill = Color::lerpOklab(allFrom.fill, allTo.fill, 0.5f);
+    expectNear(node->style().fillColor.r, expectedFill.r, 0.0001f, "keyframe fill is interpolated");
+    const auto expectedStroke = Color::lerpOklab(allFrom.stroke, allTo.stroke, 0.5f);
+    expectNear(node->style().strokeColor.b, expectedStroke.b, 0.0001f, "keyframe stroke is interpolated");
+    expectNear(node->style().strokeWidth, 3, 0.0001f, "stroke animation preserves width");
+    TweenAnimation completeTween(node->id(), allFrom, allTo, 2, Ease::Linear);
+    completeTween.update(2);
+    completeTween.apply(*node);
+    expectNear(node->size().x, 30, 0.0001f, "tween supports width");
+    expectNear(node->size().y, 40, 0.0001f, "tween supports height");
+
+    const auto rejects = [](auto operation)
+    {
+        bool rejected = false;
+        try
+        {
+            operation();
+        }
+        catch (const std::invalid_argument&)
+        {
+            rejected = true;
+        }
+        expect(rejected, "invalid animation timing is rejected");
+    };
+    rejects([&] { completeTween.update(-1); });
+    rejects([&] { complete.update(std::numeric_limits<float>::infinity()); });
+    rejects([&] { scene.animator().update(std::numeric_limits<float>::quiet_NaN()); });
+    rejects([&] { TweenAnimation invalid(node->id(), {}, {}, std::numeric_limits<float>::infinity(), Ease::Linear); });
+    rejects([&] { KeyframeAnimation invalid(node->id(), {{1, from}, {0, to}}); });
+    rejects([&] { KeyframeAnimation invalid(node->id(), {{0, from}, {std::numeric_limits<float>::quiet_NaN(), to}}); });
 }

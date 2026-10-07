@@ -9,6 +9,12 @@ vectorgl_add_test(vectorgl_path_tests path_tests.cpp)
 vectorgl_add_test(vectorgl_scene_tests scene_tests.cpp)
 vectorgl_add_test(vectorgl_animator_tests animator_tests.cpp)
 vectorgl_add_test(vectorgl_shader_tests shader_tests.cpp)
+vectorgl_add_test(vectorgl_svg_tests svg_tests.cpp)
+vectorgl_add_test(vectorgl_font_tests font_tests.cpp)
+target_compile_definitions(vectorgl_font_tests PRIVATE
+    VECTORGL_TEST_FONT="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/box.ttf"
+)
+set_tests_properties(vectorgl_svg_tests vectorgl_animator_tests PROPERTIES TIMEOUT 10)
 target_include_directories(vectorgl_shader_tests PRIVATE ${VECTORGL_INTERNAL_INCLUDE_DIR})
 
 if(WIN32)
@@ -28,6 +34,9 @@ if(VECTORGL_BUILD_GPU_TESTS)
 
     add_executable(vectorgl_gpu_tests gpu_tests.cpp)
     target_link_libraries(vectorgl_gpu_tests PRIVATE vectorgl::vectorgl glfw)
+    target_compile_definitions(vectorgl_gpu_tests PRIVATE
+        VECTORGL_TEST_FONT="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/box.ttf"
+    )
 
     if(UNIX AND NOT APPLE)
         find_program(XVFB_RUN_EXECUTABLE NAMES xvfb-run)

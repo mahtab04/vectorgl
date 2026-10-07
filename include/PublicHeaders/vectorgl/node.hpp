@@ -339,6 +339,8 @@ private:
     DirtyFlag dirty_ = DirtyFlag::All;
     Mat3x3 localTransform_ = Mat3x3::identity();
     Mat3x3 worldTransform_ = Mat3x3::identity();
+    Mat3x3 cachedParentTransform_ = Mat3x3::identity();
+    bool worldTransformDirty_ = true;
 
     Node* parent_ = nullptr;
     std::vector<std::shared_ptr<Node>> children_;

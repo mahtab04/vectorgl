@@ -34,6 +34,7 @@ public:
     [[nodiscard]] bool load(const std::string& path);
 
     /*! @brief Loads an SVG from an in-memory string.
+     *  Rejects malformed XML, inputs larger than 16 MiB, and excessive nesting or element counts.
      *
      *  @param[in] svgData  Complete SVG/XML document as a string.
      *  @return `true` if the string was parsed successfully.
