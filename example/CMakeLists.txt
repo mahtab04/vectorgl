@@ -2,6 +2,9 @@ add_executable(vectorgl_example main.cpp)
 
 add_executable(vectorgl_hit_testing hit_testing_demo.cpp)
 target_link_libraries(vectorgl_hit_testing PRIVATE vectorgl glfw)
+
+add_executable(vectorgl_text_layout text_layout_demo.cpp)
+target_link_libraries(vectorgl_text_layout PRIVATE vectorgl glfw)
 target_link_libraries(vectorgl_example PRIVATE vectorgl glfw)
 
 

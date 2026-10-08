@@ -222,6 +222,8 @@ public:
 
     detail::GLVAO texVAO_;
     detail::GLBuffer texVBO_;
+    detail::GLVAO blurVAO_;
+    detail::GLBuffer blurVBO_;
 
     detail::GLFramebuffer effectFBO_;
     detail::GLTexture effectTexture_;
@@ -256,6 +258,7 @@ public:
     int32_t texLoc_viewSize_ = -1;
     int32_t texLoc_texture_ = -1;
     int32_t texLoc_sdf_ = -1;
+    int32_t texLoc_effect_ = -1;
     int32_t blurLoc_radius_ = -1;
     int32_t blurLoc_direction_ = -1;
     int32_t blurLoc_texture_ = -1;
@@ -378,6 +381,15 @@ public:
     void initEffects()
     {
         blurProgram_.adopt(buildShaderProgram("blur.vert", "blur.frag", "blur"));
+        blurVAO_.create();
+        blurVBO_.create();
+        glBindVertexArray(blurVAO_);
+        glBindBuffer(GL_ARRAY_BUFFER, blurVBO_);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), nullptr);
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), reinterpret_cast<void*>(2 * sizeof(float)));
+        glBindVertexArray(0);
     }
 
     void ensureEffectFBOs(int width, int height)
@@ -443,6 +455,7 @@ public:
         texLoc_viewSize_ = glGetUniformLocation(texturedProgram_, "uViewSize");
         texLoc_texture_ = glGetUniformLocation(texturedProgram_, "uTexture");
         texLoc_sdf_ = glGetUniformLocation(texturedProgram_, "uSDF");
+        texLoc_effect_ = glGetUniformLocation(texturedProgram_, "uEffectTexture");
         blurLoc_radius_ = glGetUniformLocation(blurProgram_, "uRadius");
         blurLoc_direction_ = glGetUniformLocation(blurProgram_, "uDirection");
         blurLoc_texture_ = glGetUniformLocation(blurProgram_, "uTexture");
@@ -460,6 +473,8 @@ public:
         pathVAO_.reset();
         texVBO_.reset();
         texVAO_.reset();
+        blurVBO_.reset();
+        blurVAO_.reset();
         sdfProgram_.reset();
         pathProgram_.reset();
         texturedProgram_.reset();
@@ -498,7 +513,7 @@ public:
         fbHeight_ = fbHeight;
         glViewport(0, 0, fbWidth, fbHeight);
         glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
         glDisable(GL_DEPTH_TEST);
         glDisable(GL_CULL_FACE);
         glDisable(GL_SCISSOR_TEST);
@@ -927,7 +942,8 @@ public:
         glBindVertexArray(0);
     }
 
-    void drawTexturedQuad(float x, float y, float w, float h, uint32_t texture, Color tint, const Mat3x3& transform)
+    void drawTexturedQuad(float x, float y, float w, float h, uint32_t texture, Color tint, const Mat3x3& transform,
+                          bool effectTexture = false)
     {
         flushSDF();
         Vec2 tl = transform.transformPoint({x, y});
@@ -942,6 +958,7 @@ public:
         glUseProgram(texturedProgram_);
         glUniform2f(texLoc_viewSize_, static_cast<float>(fbWidth_), static_cast<float>(fbHeight_));
         glUniform1i(texLoc_sdf_, 0);
+        glUniform1i(texLoc_effect_, effectTexture ? 1 : 0);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, texture);
         glUniform1i(texLoc_texture_, 0);
@@ -980,6 +997,7 @@ public:
         glUseProgram(texturedProgram_);
         glUniform2f(texLoc_viewSize_, static_cast<float>(fbWidth_), static_cast<float>(fbHeight_));
         glUniform1i(texLoc_sdf_, 1);
+        glUniform1i(texLoc_effect_, 0);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, glyphTexture_);
         glUniform1i(texLoc_texture_, 0);
@@ -1021,6 +1039,7 @@ public:
         if (!effectPassActive_)
             throw std::logic_error("Renderer::endEffectPass() requires an active effect pass");
 
+        flushSDF();
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glViewport(0, 0, fbWidth_, fbHeight_);
         effectPassActive_ = false;
@@ -1034,6 +1053,10 @@ public:
         glDisable(GL_SCISSOR_TEST);
         glDisable(GL_STENCIL_TEST);
         const float quad[] = {-1, -1, 0, 0, 1, -1, 1, 0, 1, 1, 1, 1, -1, -1, 0, 0, 1, 1, 1, 1, -1, 1, 0, 1};
+        // Filtering writes premultiplied samples directly; blending would
+        // apply their alpha again and darken each blur pass.
+        glDisable(GL_BLEND);
+        glViewport(0, 0, effectW_, effectH_);
         glUseProgram(blurProgram_);
         glUniform1f(blurLoc_radius_, radius);
         glBindFramebuffer(GL_FRAMEBUFFER, effectFBO2_);
@@ -1042,8 +1065,8 @@ public:
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, effectTexture_);
         glUniform1i(blurLoc_texture_, 0);
-        glBindVertexArray(texVAO_);
-        glBindBuffer(GL_ARRAY_BUFFER, texVBO_);
+        glBindVertexArray(blurVAO_);
+        glBindBuffer(GL_ARRAY_BUFFER, blurVBO_);
         glBufferData(GL_ARRAY_BUFFER, sizeof(quad), quad, GL_STREAM_DRAW);
         glDrawArrays(GL_TRIANGLES, 0, 6);
         glBindFramebuffer(GL_FRAMEBUFFER, effectFBO_);
@@ -1053,6 +1076,8 @@ public:
         glDrawArrays(GL_TRIANGLES, 0, 6);
         glBindVertexArray(0);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glEnable(GL_BLEND);
+        glViewport(0, 0, fbWidth_, fbHeight_);
         applyClip();
     }
 
@@ -1061,7 +1086,7 @@ public:
         if (!effectCaptured_)
             return;
         drawTexturedQuad(offset.x, offset.y, static_cast<float>(effectW_), static_cast<float>(effectH_), effectTexture_,
-                         tint, Mat3x3::identity());
+                         tint, Mat3x3::identity(), true);
     }
 
     void applyBlur(float radius)

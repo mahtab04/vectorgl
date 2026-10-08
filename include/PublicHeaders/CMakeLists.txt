@@ -15,6 +15,7 @@ set(VECTORGL_PUBLIC_HEADERS
     "${CMAKE_CURRENT_SOURCE_DIR}/vectorgl/svg.hpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/vectorgl/svg_cache.hpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/vectorgl/text_box.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/vectorgl/text.hpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/vectorgl/ui.hpp"
     PARENT_SCOPE
 )

@@ -75,8 +75,9 @@ struct TextBoxStyle
  *  agnostic and can be driven either directly or through a platform adapter
  *  like @ref GlfwTextBoxController.
  *
- *  The widget currently accepts printable ASCII input and renders itself using
- *  the active @ref Canvas font API.
+ *  Accepts Unicode scalar input and valid UTF-8 clipboard text. Editing moves
+ *  and deletes whole codepoints; combining/emoji grapheme clusters and IME
+ *  composition are not segmented. Rendering uses the active Canvas font API.
  *
  *  Typical usage:
  *  @code
@@ -155,10 +156,10 @@ public:
     /*! @brief Returns whether a text range is currently selected. */
     [[nodiscard]] bool hasSelection() const;
 
-    /*! @brief Returns the first selected character index. */
+    /*! @brief Returns the first selected UTF-8 byte offset (a codepoint boundary). */
     [[nodiscard]] std::size_t selectionStart() const;
 
-    /*! @brief Returns the index one past the last selected character. */
+    /*! @brief Returns the UTF-8 byte offset one past the selection. */
     [[nodiscard]] std::size_t selectionEnd() const;
 
     /*! @brief Returns a copy of the currently selected substring.
@@ -222,8 +223,8 @@ public:
 
     /*! @brief Inserts text as if it came from the clipboard.
      *
-     *  Unsupported characters are filtered out.  If a selection exists, it is
-     *  replaced.
+     *  Single-line controls are filtered out; malformed UTF-8 becomes U+FFFD.
+     *  If accepted text remains, it replaces the selection.
      *
      *  @param[in] text Text to insert.
      *  @return `true` if the value changed.

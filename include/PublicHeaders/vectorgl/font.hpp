@@ -1,79 +1,60 @@
 #pragma once
 #include <cstdint>
+#include <memory>
 #include <string>
-#include <unordered_map>
+#include <string_view>
+
+#include "vectorgl/text.hpp"
 
 namespace vectorgl
 {
-
-/*! @brief Glyph metrics and UV coordinates within the font atlas. */
+/*! Glyph metrics and immutable UV coordinates in an atlas page. */
 struct GlyphInfo
 {
     float u0, v0, u1, v1;
     float xoff, yoff, xadvance;
     float width, height;
+    uint32_t texture = 0;
 };
-
-/*! @brief A TrueType font loaded from disk, rasterized to a GPU texture atlas.
- *
- *  Used internally by Canvas::setFont / Canvas::fillText. Users typically
- *  interact with fonts through the Canvas API rather than directly.
+/*! TrueType font with lazily rasterized Unicode SDF glyphs. Font data is retained
+ * for metrics and rasterization. The cache is bounded to four 1024x1024 R8 pages
+ * and 4096 distinct glyphs. Pages never relocate or evict queued glyphs.
+ * Load, getGlyph and destruction require a current OpenGL context.
  */
 class Font
 {
 public:
-    Font() = default;
+    Font();
     ~Font();
     Font(const Font&) = delete;
     Font& operator=(const Font&) = delete;
     Font(Font&& other) noexcept;
     Font& operator=(Font&& other) noexcept;
-
-    /*! @brief Loads a TrueType font from a `.ttf` file.
-     *  @param[in] path  Filesystem path to the font file.
-     *  @param[in] size  Desired font size in pixels.
-     *  Sizes above 256 pixels or glyph sets that exceed the fixed atlas are rejected.
-     *  @return `true` if the font was loaded and atlas was generated.
+    /*! Loads a trusted TrueType outline font at an em size in pixels in (0, 256].
+     * CFF outlines and font collections are not supported by this SDF loader.
      */
     [[nodiscard]] bool load(const std::string& path, float size);
-
-    /*! @brief Releases the font atlas texture and all cached data. */
     void destroy();
-
-    /*! @brief Looks up glyph metrics for a Unicode codepoint.
-     *  @param[in] codepoint  Unicode codepoint (e.g. 'A' = 65).
-     *  @return Pointer to GlyphInfo, or `nullptr` if the codepoint is not in the atlas.
+    /*! Lazily uploads a glyph from the font. Missing glyphs or a full cache use
+     * the replacement glyph (U+FFFD, then '?', then .notdef). The returned
+     * pointer stays valid until destroy/reload; use GlyphInfo::texture to draw.
      */
     [[nodiscard]] const GlyphInfo* getGlyph(int codepoint) const;
-
-    /*! @brief Returns the OpenGL texture ID of the font atlas. */
-    [[nodiscard]] uint32_t atlasTexture() const
-    {
-        return atlasTexture_;
-    }
-    /*! @brief Returns the line height in pixels. */
-    [[nodiscard]] float lineHeight() const
-    {
-        return lineHeight_;
-    }
-    /*! @brief Returns the font ascent in pixels. */
-    [[nodiscard]] float ascent() const
-    {
-        return ascent_;
-    }
-    /*! @brief Returns the render scale factor used for SDF generation. */
-    [[nodiscard]] float renderScale() const
-    {
-        return renderScale_;
-    }
+    [[nodiscard]] bool hasGlyph(uint32_t codepoint) const;
+    /*! Metrics and layout never allocate textures or upload glyphs. */
+    [[nodiscard]] float advance(uint32_t codepoint) const;
+    [[nodiscard]] float kerning(uint32_t left, uint32_t right) const;
+    [[nodiscard]] TextLayout layoutText(std::string_view text, const TextLayoutOptions& options = {}) const;
+    /*! First atlas page; individual glyphs can live on other pages. */
+    [[nodiscard]] uint32_t atlasTexture() const;
+    [[nodiscard]] std::size_t atlasPageCount() const;
+    [[nodiscard]] std::size_t glyphCacheSize() const;
+    [[nodiscard]] float lineHeight() const;
+    [[nodiscard]] float ascent() const;
+    [[nodiscard]] float renderScale() const;
 
 private:
-    std::unordered_map<int, GlyphInfo> glyphs_;
-    uint32_t atlasTexture_ = 0;
-    float lineHeight_ = 0;
-    float ascent_ = 0;
-    float size_ = 0;
-    float renderScale_ = 1.0f;
+    struct Impl;
+    std::unique_ptr<Impl> impl_;
 };
-
 } // namespace vectorgl

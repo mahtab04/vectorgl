@@ -2,211 +2,272 @@
 
 #include <glad/gl.h>
 
+#include <algorithm>
 #include <cmath>
 #include <fstream>
+#include <unordered_map>
 #include <vector>
 
+#include "vectorgl/detail/gl_handle.hpp"
+#include "vectorgl/detail/utf8.hpp"
 #define STB_TRUETYPE_IMPLEMENTATION
 #include "stb_truetype.h"
 
 namespace vectorgl
 {
-
-Font::~Font()
+namespace
 {
-    destroy();
-}
+constexpr int atlasSize = 1024, padding = 8;
+constexpr size_t maxPages = 4, maxGlyphs = 4096;
 
-Font::Font(Font&& other) noexcept
-    : glyphs_(std::move(other.glyphs_)), atlasTexture_(other.atlasTexture_), lineHeight_(other.lineHeight_),
-      ascent_(other.ascent_), size_(other.size_), renderScale_(other.renderScale_)
+// Lazy uploads must also work in hosts using PBOs or nondefault unpack state.
+struct UploadState
 {
-    other.atlasTexture_ = 0;
-    other.lineHeight_ = 0;
-    other.ascent_ = 0;
-    other.size_ = 0;
-    other.renderScale_ = 1.0f;
-    other.glyphs_.clear();
-}
-
-Font& Font::operator=(Font&& other) noexcept
-{
-    if (this != &other)
+    GLint texture = 0, buffer = 0, alignment = 4, rowLength = 0, skipRows = 0, skipPixels = 0;
+    UploadState()
     {
-        destroy();
-        glyphs_ = std::move(other.glyphs_);
-        atlasTexture_ = other.atlasTexture_;
-        lineHeight_ = other.lineHeight_;
-        ascent_ = other.ascent_;
-        size_ = other.size_;
-        renderScale_ = other.renderScale_;
-        other.atlasTexture_ = 0;
-        other.lineHeight_ = 0;
-        other.ascent_ = 0;
-        other.size_ = 0;
-        other.renderScale_ = 1.0f;
-        other.glyphs_.clear();
+        glGetIntegerv(GL_TEXTURE_BINDING_2D, &texture);
+        glGetIntegerv(GL_PIXEL_UNPACK_BUFFER_BINDING, &buffer);
+        glGetIntegerv(GL_UNPACK_ALIGNMENT, &alignment);
+        glGetIntegerv(GL_UNPACK_ROW_LENGTH, &rowLength);
+        glGetIntegerv(GL_UNPACK_SKIP_ROWS, &skipRows);
+        glGetIntegerv(GL_UNPACK_SKIP_PIXELS, &skipPixels);
+        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+        glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
+        glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
     }
-    return *this;
+    ~UploadState()
+    {
+        glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(texture));
+        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, static_cast<GLuint>(buffer));
+        glPixelStorei(GL_UNPACK_ALIGNMENT, alignment);
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, rowLength);
+        glPixelStorei(GL_UNPACK_SKIP_ROWS, skipRows);
+        glPixelStorei(GL_UNPACK_SKIP_PIXELS, skipPixels);
+    }
+};
+
+bool validDirectory(const std::vector<uint8_t>& data)
+{
+    if (data.size() < 12)
+        return false;
+    auto u32 = [&](size_t at)
+    {
+        return (uint32_t(data[at]) << 24) | (uint32_t(data[at + 1]) << 16) | (uint32_t(data[at + 2]) << 8) |
+               data[at + 3];
+    };
+    const auto signature = u32(0);
+    if (signature != 0x00010000 && signature != 0x4F54544F && signature != 0x74727565)
+        return false;
+    const size_t count = (size_t(data[4]) << 8) | data[5];
+    if (count > (data.size() - 12) / 16)
+        return false;
+    for (size_t i = 0; i < count; ++i)
+    {
+        const size_t offset = u32(12 + i * 16 + 8), length = u32(12 + i * 16 + 12);
+        if (offset > data.size() || length > data.size() - offset)
+            return false;
+    }
+    return true;
 }
+} // namespace
+
+struct Font::Impl
+{
+    struct Page
+    {
+        detail::GLTexture texture;
+        int x = 1, y = 1, rowHeight = 0;
+    };
+    std::vector<uint8_t> data;
+    stbtt_fontinfo info{};
+    std::vector<Page> pages;
+    std::unordered_map<int, GlyphInfo> glyphs;
+    float scale = 0, rasterScale = 0, displayScale = 1, lineHeight = 0, ascent = 0;
+    int fallback = 0;
+    bool saturated = false;
+
+    int glyphIndex(uint32_t cp) const
+    {
+        int index = detail::isScalar(cp) ? stbtt_FindGlyphIndex(&info, static_cast<int>(cp)) : 0;
+        return index ? index : fallback;
+    }
+    bool addPage()
+    {
+        if (pages.size() >= maxPages)
+            return false;
+        Page page;
+        page.texture.create();
+        if (!page.texture.get())
+            return false;
+        UploadState state;
+        glBindTexture(GL_TEXTURE_2D, page.texture.get());
+        std::vector<uint8_t> zero(atlasSize * atlasSize, 0);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, atlasSize, atlasSize, 0, GL_RED, GL_UNSIGNED_BYTE, zero.data());
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        pages.push_back(std::move(page));
+        return true;
+    }
+    const GlyphInfo* cacheGlyph(int index)
+    {
+        if (auto it = glyphs.find(index); it != glyphs.end())
+            return &it->second;
+        if (saturated || glyphs.size() >= maxGlyphs)
+            return nullptr;
+        GlyphInfo glyph{};
+        int advance, bearing;
+        stbtt_GetGlyphHMetrics(&info, index, &advance, &bearing);
+        glyph.xadvance = advance * scale;
+        if (stbtt_IsGlyphEmpty(&info, index))
+        {
+            glyph.texture = pages.front().texture.get();
+            return &glyphs.emplace(index, glyph).first->second;
+        }
+        int x0, y0, x1, y1;
+        stbtt_GetGlyphBitmapBox(&info, index, rasterScale, rasterScale, &x0, &y0, &x1, &y1);
+        if (x1 - x0 + 2 * padding + 2 > atlasSize || y1 - y0 + 2 * padding + 2 > atlasSize)
+            return nullptr;
+        int width, height, xoff, yoff;
+        auto freeSdf = [](unsigned char* p) { stbtt_FreeSDF(p, nullptr); };
+        std::unique_ptr<unsigned char, decltype(freeSdf)> bitmap(
+            stbtt_GetGlyphSDF(&info, rasterScale, index, padding, 128, 16.0f, &width, &height, &xoff, &yoff), freeSdf);
+        if (!bitmap || width + 2 > atlasSize || height + 2 > atlasSize)
+            return nullptr;
+        Page* page = &pages.back();
+        if (page->x + width + 1 > atlasSize)
+        {
+            page->x = 1;
+            page->y += page->rowHeight + 1;
+            page->rowHeight = 0;
+        }
+        if (page->y + height + 1 > atlasSize)
+        {
+            if (!addPage())
+            {
+                saturated = pages.size() >= maxPages;
+                return nullptr;
+            }
+            page = &pages.back();
+        }
+        UploadState state;
+        glBindTexture(GL_TEXTURE_2D, page->texture.get());
+        glTexSubImage2D(GL_TEXTURE_2D, 0, page->x, page->y, width, height, GL_RED, GL_UNSIGNED_BYTE, bitmap.get());
+        glyph.texture = page->texture.get();
+        glyph.u0 = float(page->x) / atlasSize;
+        glyph.v0 = float(page->y) / atlasSize;
+        glyph.u1 = float(page->x + width) / atlasSize;
+        glyph.v1 = float(page->y + height) / atlasSize;
+        glyph.xoff = xoff * displayScale;
+        glyph.yoff = yoff * displayScale;
+        glyph.width = width * displayScale;
+        glyph.height = height * displayScale;
+        page->x += width + 1;
+        page->rowHeight = std::max(page->rowHeight, height);
+        return &glyphs.emplace(index, glyph).first->second;
+    }
+};
+
+Font::Font() = default;
+Font::~Font() = default;
+Font::Font(Font&&) noexcept = default;
+Font& Font::operator=(Font&&) noexcept = default;
 
 bool Font::load(const std::string& path, float size)
 {
     destroy();
-    if (!(size > 0.0f) || !std::isfinite(size) || size > 256.0f)
+    if (!(size > 0) || !std::isfinite(size) || size > 256)
         return false;
-
     std::ifstream file(path, std::ios::binary | std::ios::ate);
-    if (!file.is_open())
+    if (!file)
         return false;
-
-    auto fileSize = file.tellg();
-    if (fileSize <= 0)
+    const auto length = file.tellg();
+    if (length <= 0 || length > 64 * 1024 * 1024)
         return false;
+    auto impl = std::make_unique<Impl>();
+    impl->data.resize(static_cast<size_t>(length));
     file.seekg(0);
-    std::vector<uint8_t> fontData(static_cast<size_t>(fileSize));
-    if (!file.read(reinterpret_cast<char*>(fontData.data()), fileSize))
-    {
+    if (!file.read(reinterpret_cast<char*>(impl->data.data()), length) || !validDirectory(impl->data) ||
+        !stbtt_InitFont(&impl->info, impl->data.data(), 0) || impl->info.cff.size > 0)
         return false;
-    }
-
-    stbtt_fontinfo fontInfo;
-    if (!stbtt_InitFont(&fontInfo, fontData.data(), 0))
+    const float internalSize = std::max(size, 64.0f);
+    // Font sizes specify the em square, not the ascent/descent span. Using
+    // ScaleForPixelHeight made e.g. Segoe UI's requested 12px only a 9px em.
+    impl->scale = stbtt_ScaleForMappingEmToPixels(&impl->info, size);
+    impl->rasterScale = stbtt_ScaleForMappingEmToPixels(&impl->info, internalSize);
+    impl->displayScale = size / internalSize;
+    int ascent, descent, gap;
+    stbtt_GetFontVMetrics(&impl->info, &ascent, &descent, &gap);
+    impl->ascent = ascent * impl->scale;
+    impl->lineHeight = (ascent - descent + gap) * impl->scale;
+    if (!(impl->lineHeight > 0) || !std::isfinite(impl->lineHeight) || !std::isfinite(impl->ascent))
         return false;
-
-    // Generate atlas at higher internal resolution for better SDF precision,
-    // then scale down at render time for the requested display size.
-    constexpr float kMinAtlasSize = 48.0f;
-    float internalSize = std::max(size, kMinAtlasSize);
-    float renderScale = size / internalSize;
-    float scale = stbtt_ScaleForPixelHeight(&fontInfo, internalSize);
-
-    int iAscent, iDescent, iLineGap;
-    stbtt_GetFontVMetrics(&fontInfo, &iAscent, &iDescent, &iLineGap);
-    float ascent = iAscent * scale * renderScale;
-    float lineHeight = (iAscent - iDescent + iLineGap) * scale * renderScale;
-
-    constexpr int atlasW = 1024, atlasH = 1024;
-    std::vector<uint8_t> atlasData(atlasW * atlasH, 0);
-    std::unordered_map<int, GlyphInfo> glyphs;
-
-    // SDF parameters — higher padding for better distance range
-    int sdfPadding = 8;
-    uint8_t sdfOnEdge = 128;
-    float sdfPixelDist = static_cast<float>(sdfPadding);
-
-    int penX = sdfPadding, penY = sdfPadding;
-    int rowHeight = 0;
-
-    // Keep the fixed atlas predictable while covering ASCII and Latin-1.
-    // Canvas substitutes '?' for codepoints that are not present.
-    for (int cp = 32; cp < 256; ++cp)
-    {
-        int glyph = stbtt_FindGlyphIndex(&fontInfo, cp);
-        if (glyph == 0 && cp != 32)
-            continue;
-
-        int ix0, iy0, ix1, iy1;
-        stbtt_GetGlyphBitmapBox(&fontInfo, glyph, scale, scale, &ix0, &iy0, &ix1, &iy1);
-
-        int gw = ix1 - ix0;
-        int gh = iy1 - iy0;
-        int sdfW = gw + 2 * sdfPadding;
-        int sdfH = gh + 2 * sdfPadding;
-        if (sdfW + 2 * sdfPadding >= atlasW || sdfH + 2 * sdfPadding >= atlasH)
-            return false;
-
-        if (penX + sdfW >= atlasW)
-        {
-            penX = sdfPadding;
-            penY += rowHeight + sdfPadding;
-            rowHeight = 0;
-        }
-        if (penY + sdfH >= atlasH)
-            return false;
-
-        unsigned char* sdfBitmap = stbtt_GetGlyphSDF(&fontInfo, scale, glyph, sdfPadding, sdfOnEdge, sdfPixelDist,
-                                                     &sdfW, &sdfH, nullptr, nullptr);
-
-        if (sdfBitmap)
-        {
-            for (int row = 0; row < sdfH; ++row)
-            {
-                for (int col = 0; col < sdfW; ++col)
-                {
-                    int dx = penX + col;
-                    int dy = penY + row;
-                    if (dx < atlasW && dy < atlasH)
-                        atlasData[dy * atlasW + dx] = sdfBitmap[row * sdfW + col];
-                }
-            }
-            stbtt_FreeSDF(sdfBitmap, nullptr);
-        }
-        else if (gw > 0 && gh > 0)
-            return false;
-
-        int advW, lsb;
-        stbtt_GetGlyphHMetrics(&fontInfo, glyph, &advW, &lsb);
-
-        GlyphInfo gi{};
-        gi.u0 = static_cast<float>(penX) / atlasW;
-        gi.v0 = static_cast<float>(penY) / atlasH;
-        gi.u1 = static_cast<float>(penX + sdfW) / atlasW;
-        gi.v1 = static_cast<float>(penY + sdfH) / atlasH;
-        gi.xoff = static_cast<float>(ix0 - sdfPadding) * renderScale;
-        gi.yoff = static_cast<float>(iy0 - sdfPadding) * renderScale;
-        gi.width = static_cast<float>(sdfW) * renderScale;
-        gi.height = static_cast<float>(sdfH) * renderScale;
-        gi.xadvance = advW * scale * renderScale;
-
-        glyphs[cp] = gi;
-
-        penX += sdfW + sdfPadding;
-        rowHeight = std::max(rowHeight, sdfH);
-    }
-
-    if (!glyphs.contains('?'))
+    impl->fallback = stbtt_FindGlyphIndex(&impl->info, 0xFFFD);
+    if (!impl->fallback)
+        impl->fallback = stbtt_FindGlyphIndex(&impl->info, '?');
+    if (!impl->addPage() || !impl->cacheGlyph(impl->fallback))
         return false;
-
-    uint32_t atlasTexture = 0;
-    glGenTextures(1, &atlasTexture);
-    if (atlasTexture == 0)
-        return false;
-    glBindTexture(GL_TEXTURE_2D, atlasTexture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, atlasW, atlasH, 0, GL_RED, GL_UNSIGNED_BYTE, atlasData.data());
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-    glyphs_ = std::move(glyphs);
-    atlasTexture_ = atlasTexture;
-    lineHeight_ = lineHeight;
-    ascent_ = ascent;
-    size_ = size;
-    renderScale_ = renderScale;
-
+    impl_ = std::move(impl);
     return true;
 }
 
 void Font::destroy()
 {
-    if (atlasTexture_)
-    {
-        glDeleteTextures(1, &atlasTexture_);
-    }
-    atlasTexture_ = 0;
-    glyphs_.clear();
-    lineHeight_ = 0;
-    ascent_ = 0;
-    size_ = 0;
-    renderScale_ = 1.0f;
+    impl_.reset();
 }
-
-const GlyphInfo* Font::getGlyph(int codepoint) const
+const GlyphInfo* Font::getGlyph(int cp) const
 {
-    auto it = glyphs_.find(codepoint);
-    return it != glyphs_.end() ? &it->second : nullptr;
+    if (!impl_)
+        return nullptr;
+    if (auto* glyph = impl_->cacheGlyph(impl_->glyphIndex(static_cast<uint32_t>(cp))))
+        return glyph;
+    return &impl_->glyphs.at(impl_->fallback);
 }
-
+bool Font::hasGlyph(uint32_t cp) const
+{
+    return impl_ && detail::isScalar(cp) && stbtt_FindGlyphIndex(&impl_->info, static_cast<int>(cp)) != 0;
+}
+float Font::advance(uint32_t cp) const
+{
+    if (!impl_)
+        return 0;
+    int advance, bearing;
+    stbtt_GetGlyphHMetrics(&impl_->info, impl_->glyphIndex(cp), &advance, &bearing);
+    return advance * impl_->scale;
+}
+float Font::kerning(uint32_t left, uint32_t right) const
+{
+    return impl_ && left && right
+               ? stbtt_GetGlyphKernAdvance(&impl_->info, impl_->glyphIndex(left), impl_->glyphIndex(right)) *
+                     impl_->scale
+               : 0;
+}
+uint32_t Font::atlasTexture() const
+{
+    return impl_ && !impl_->pages.empty() ? impl_->pages.front().texture.get() : 0;
+}
+size_t Font::atlasPageCount() const
+{
+    return impl_ ? impl_->pages.size() : 0;
+}
+size_t Font::glyphCacheSize() const
+{
+    return impl_ ? impl_->glyphs.size() : 0;
+}
+float Font::lineHeight() const
+{
+    return impl_ ? impl_->lineHeight : 0;
+}
+float Font::ascent() const
+{
+    return impl_ ? impl_->ascent : 0;
+}
+float Font::renderScale() const
+{
+    return impl_ ? impl_->displayScale : 1;
+}
 } // namespace vectorgl
