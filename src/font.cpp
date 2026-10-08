@@ -53,8 +53,7 @@ bool validDirectory(const std::vector<uint8_t>& data)
 {
     if (data.size() < 12)
         return false;
-    auto u32 = [&](size_t at)
-    {
+    auto u32 = [&](size_t at) {
         return (uint32_t(data[at]) << 24) | (uint32_t(data[at + 1]) << 16) | (uint32_t(data[at + 2]) << 8) |
                data[at + 3];
     };
