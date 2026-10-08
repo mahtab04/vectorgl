@@ -112,7 +112,7 @@ int main()
     unsupported->setSize(1000, 1000);
     unsupported->setFill(Color::White);
     geometry.addRoot(unsupported);
-    expect(geometry.pick(50, 50) == rounded, "unrendered node types skipped");
+    expect(geometry.pick(50, 50) == rounded, "text without a loaded font is skipped");
 
     Scene animated;
     auto moving = animated.circle(100, 100, 20);

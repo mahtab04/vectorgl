@@ -2,6 +2,7 @@
 #include <array>
 #include <cstdint>
 #include <memory>
+#include <string_view>
 #include <vector>
 
 #include "vectorgl/color.hpp"
@@ -205,6 +206,13 @@ public:
      *  @param[in] node  Pointer to the root node to render.
      */
     void renderNode(Node* node);
+
+    /*! Draws a loaded font using the same UTF-8 layout and snapping as Canvas.
+     * x/y are the layout top-left. Keep the font alive until flush/endFrame;
+     * renderNode() retains shared node fonts automatically for queued glyphs.
+     */
+    void drawText(const Font& font, std::string_view text, float x, float y, Color color, const Mat3x3& transform,
+                  const TextLayoutOptions& options = {}, bool pixelSnap = true);
 
     /*! @brief Returns the current framebuffer width in pixels. */
     int fbWidth() const;

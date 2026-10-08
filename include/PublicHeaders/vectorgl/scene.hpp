@@ -76,6 +76,19 @@ public:
      */
     std::shared_ptr<Node> path(const Path2D& path);
 
+    /*! Creates UTF-8 text at a top-left layout origin. The font's loaded em size
+     * sets text size; fill color defaults to black. Layout options set wrapping
+     * and alignment. Font may be null; such a node is not rendered or picked.
+     */
+    std::shared_ptr<Node> text(std::string text, float x, float y, std::shared_ptr<Font> font,
+                               const TextLayoutOptions& options = {});
+
+    /*! Creates an image rectangle at top-left x/y. Zero width/height use the
+     * loaded image's natural size. Later setPosition() addresses its center.
+     * Positive width/height stretch the image; opacity applies to image alpha.
+     */
+    std::shared_ptr<Node> image(std::shared_ptr<Image> image, float x, float y, float w = 0, float h = 0);
+
     /*! @brief Creates an empty group node for hierarchical composition. */
     std::shared_ptr<Node> group();
 
@@ -103,8 +116,10 @@ public:
      *  Uses render z-order (later traversal wins ties), visibility, fill/stroke
      *  alpha and opacity. Groups are traversed but never returned.
      *  Refreshes transforms without advancing animations; no GL context is needed.
-     *  Antialias fringes, effects and renderer clipping are excluded. Text and
-     *  image nodes are skipped until scene rendering supports them.
+     *  Text uses the union of logical line bounds (including spaces and line
+     *  gaps); images use their full rectangle, including transparent pixels.
+     *  Both use the full affine transform. Missing resources are skipped.
+     *  Antialias fringes, glyph overhangs, effects and renderer clipping are excluded.
      *  @return Shared pointer to the hit node, or nullptr when nothing is hit.
      */
     std::shared_ptr<Node> pick(float x, float y);
@@ -131,7 +146,10 @@ public:
      */
     void render(Renderer& renderer, int fbWidth, int fbHeight);
 
-    /*! @brief Renders the scene using the renderer supplied at construction. */
+    /*! Renders within an already active frame using the bound renderer.
+     * Refreshes transforms without advancing animations. The caller flushes
+     * or ends the frame after drawing the scene and any overlays.
+     */
     void render();
 
     /*! @brief Returns the root node list. */

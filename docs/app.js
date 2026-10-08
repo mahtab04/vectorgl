@@ -269,6 +269,18 @@ field.handleCharInput(codepoint);
 field.handleKey(vectorgl::TextBoxKey::Backspace);`
     },
     {
+        title: "scene_content_demo.cpp",
+        text: "Build vectorgl_scene_content to select and drag wrapped Unicode text and shared images, including content in a rotated parent group.",
+        bullets: [
+            "Click/drag to move; Up/Down changes order; O toggles opacity; R resets.",
+            "Text picks logical bounds; images include transparent pixels.",
+            "Pass --font path/to/font.ttf to select a font."
+        ],
+        code: `auto label = scene.text(utf8Text, 40, 60, font, options);
+label->setFill(vectorgl::Color::White);
+auto picture = scene.image(image, 40, 180, 320, 180);`
+    },
+    {
         title: "hit_testing_demo.cpp",
         text: "Build vectorgl_hit_testing to select and drag painted scene shapes, including a child in a rotated group. Up/Down changes z-index, R resets positions and order, and Esc closes the window.",
         bullets: [
@@ -486,6 +498,8 @@ const apiReference = [
             {
                 title: "Shape factories",
                 methods: [
+                    { signature: "std::shared_ptr<Node> text(std::string text, float x, float y, std::shared_ptr<Font> font, const TextLayoutOptions& options = {})", description: "Creates UTF-8 text at a top-left layout origin. The shared loaded font supplies em size. Fill defaults to black; options control wrapping/alignment." },
+                    { signature: "std::shared_ptr<Node> image(std::shared_ptr<Image> image, float x, float y, float w = 0, float h = 0)", description: "Creates an image from top-left coordinates, storing a centered rectangle. Zero dimensions use natural image size; positive dimensions stretch it." },
                     { signature: "std::shared_ptr<Node> rect(float x, float y, float w, float h)", description: "Creates a rectangle node." },
                     { signature: "std::shared_ptr<Node> roundedRect(float x, float y, float w, float h, float radius)", description: "Creates a rounded rectangle node with a uniform corner radius." },
                     { signature: "std::shared_ptr<Node> circle(float cx, float cy, float r)", description: "Creates a circle node." },
@@ -501,7 +515,7 @@ const apiReference = [
                     { signature: "void addRoot(std::shared_ptr<Node> node)", description: "Adds a node to the scene root list." },
                     { signature: "void removeRoot(const std::shared_ptr<Node>& node)", description: "Removes a node from the root list and node lookup map." },
                     { signature: "std::shared_ptr<Node> findNode(uint32_t id) const", description: "Finds a node by its unique ID." },
-                    { signature: "std::shared_ptr<Node> pick(float x, float y)", description: "Returns the topmost painted rectangle, rounded rectangle, circle, ellipse, line or simple path at a framebuffer coordinate. Refreshes transforms without advancing animations; respects z-order, visibility, opacity and fill/stroke alpha. Groups are traversed. Excludes effects, antialias fringes, renderer clipping and unrendered text/image node types." },
+                    { signature: "std::shared_ptr<Node> pick(float x, float y)", description: "Returns the topmost painted rectangle, rounded rectangle, circle, ellipse, line or simple path at a framebuffer coordinate. Refreshes transforms without advancing animations; respects z-order, visibility, opacity and fill/stroke alpha. Groups are traversed. Text uses logical layout bounds and images use the full rectangle, including transparent pixels. Both support full affine transforms. Excludes effects, glyph overhangs, antialias fringes and renderer clipping." },
                     { signature: "const std::vector<std::shared_ptr<Node>>& roots() const", description: "Returns the root node list." },
                     { signature: "void collectRenderList(std::vector<Node*>& outList)", description: "Flattens visible renderable nodes into a list, useful for inspection or custom debug flows." }
                 ]
@@ -603,7 +617,7 @@ const apiReference = [
         kind: "Class",
         header: "vectorgl/node.hpp",
         tags: ["scene", "node", "effects", "transform"],
-        summary: "Scene graph element representing a shape, path, line, group, text slot, or image slot with transform, style, effects, visibility, hierarchy, and cached world transforms.",
+        summary: "Scene graph element representing a shape, path, line, group, Unicode text, or image with transform, style, effects, visibility, hierarchy, and cached world transforms.",
         usage: [
             "Most nodes should be created through Scene factory methods rather than direct construction.",
             "setPath() is meaningful when the node type is ShapeType::Path.",
@@ -635,6 +649,16 @@ const apiReference = [
                     { signature: "void setBlur(float radius)", description: "Applies a blur descriptor." },
                     { signature: "void setGlow(float radius, Color color)", description: "Applies a glow descriptor." },
                     { signature: "void clearEffects() / const NodeEffects& effects() const / bool hasEffects() const", description: "Clears or inspects active effect descriptors." }
+                ]
+            },
+            {
+                title: "Text and image content",
+                methods: [
+                    { signature: "void setText(std::string text) / const std::string& text() const", description: "Changes or inspects UTF-8 content. Text size comes from the font and layout options, not setSize()." },
+                    { signature: "void setFont(std::shared_ptr<Font> font) / const std::shared_ptr<Font>& font() const", description: "Shares a loaded font. Null/unloaded fonts skip rendering and picking. Keep the GL context current when releasing resources; flush before reloading or destroying a shared font in place." },
+                    { signature: "void setTextLayout(const TextLayoutOptions& options) / TextLayout textLayout() const", description: "Controls wrapping, alignment and line spacing; measures without GL uploads. textLayoutOptions() returns the settings. Text uses fill and opacity; stroke is ignored." },
+                    { signature: "void setTextPixelSnap(bool enabled) / bool textPixelSnap() const", description: "Controls whole-line pixel snapping, default on. Rotated text remains fractional." },
+                    { signature: "void setImage(std::shared_ptr<Image> image) / Vec2 imageSize() const", description: "Changes shared image ownership or queries resolved dimensions. image() returns the resource. Position addresses the center; size zero uses natural dimensions. Opacity applies, fill/stroke do not tint." }
                 ]
             },
             {

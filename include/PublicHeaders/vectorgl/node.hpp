@@ -3,13 +3,17 @@
 #include <atomic>
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "vectorgl/color.hpp"
 #include "vectorgl/path.hpp"
+#include "vectorgl/text.hpp"
 
 namespace vectorgl
 {
+class Font;
+class Image;
 
 /*! @brief A 3×3 affine transform matrix for 2D operations.
  *
@@ -292,6 +296,45 @@ public:
         return path_;
     }
 
+    /*! Text nodes use a top-left layout origin. Size is controlled by the loaded
+     * font and layout options, not setSize(). Resources are shared across nodes.
+     * Release the scene and resources while their OpenGL context is current.
+     * Flush the renderer before reloading/destroying a shared font in place.
+     */
+    void setText(std::string text);
+    void setFont(std::shared_ptr<Font> font);
+    void setTextLayout(const TextLayoutOptions& options);
+    const std::string& text() const
+    {
+        return text_;
+    }
+    const std::shared_ptr<Font>& font() const
+    {
+        return font_;
+    }
+    const TextLayoutOptions& textLayoutOptions() const
+    {
+        return textOptions_;
+    }
+    /*! CPU-only layout; empty when no font is loaded. Text strokes are ignored. */
+    TextLayout textLayout() const;
+    void setTextPixelSnap(bool enabled);
+    bool textPixelSnap() const
+    {
+        return textPixelSnap_;
+    }
+
+    /*! Image nodes use a centered rectangle, like rect nodes. Zero dimensions
+     * use the image's natural size; positive dimensions stretch the image.
+     * Fill/stroke colors do not tint images; node opacity still applies.
+     */
+    void setImage(std::shared_ptr<Image> image);
+    const std::shared_ptr<Image>& image() const
+    {
+        return image_;
+    }
+    Vec2 imageSize() const;
+
     // Dirty tracking
     DirtyFlag dirtyFlags() const
     {
@@ -333,6 +376,11 @@ private:
     NodeStyle style_;
     NodeEffects effects_;
     Path2D path_;
+    std::string text_;
+    std::shared_ptr<Font> font_;
+    TextLayoutOptions textOptions_;
+    bool textPixelSnap_ = true;
+    std::shared_ptr<Image> image_;
     int zIndex_ = 0;
     bool visible_ = true;
 

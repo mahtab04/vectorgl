@@ -6,6 +6,7 @@
 #include <utility>
 #include <vectorgl/canvas.hpp>
 #include <vectorgl/font.hpp>
+#include <vectorgl/scene.hpp>
 
 #include "test_utils.hpp"
 
@@ -177,4 +178,64 @@ int main()
         expect(uploads == before, "saturated cache does not repeatedly upload or rebuild glyphs");
     }
     expect(textures.empty(), "all dynamic pages released");
+    {
+        Scene scene;
+        auto font = std::make_shared<Font>();
+        expect(font->load(VECTORGL_TEST_FONT, 16), "scene font loads");
+        const auto before = uploads;
+        TextLayoutOptions options;
+        options.maxWidth = 40;
+        options.align = TextAlign::Right;
+        auto text = scene.text("AV", 10, 20, font, options);
+        expect(text->type() == ShapeType::Text && text->font() == font, "text factory shares resource");
+        expect(scene.pick(35, 25) == text, "aligned text bounds hit");
+        expect(!scene.pick(11, 25), "unused alignment area excluded");
+        expect(!scene.pick(35, 45), "outside font line height excluded");
+        auto layout = text->textLayout();
+        expectNear(layout.width, 17.6f, 0.001f, "scene layout preserves kerning");
+        text->setText("A\xCE\xA9V");
+        options.maxWidth = 16;
+        options.wrap = TextWrap::Character;
+        text->setTextLayout(options);
+        expect(text->textLayout().lines.size() == 3, "scene Unicode wrapping updates after edits");
+        expect(scene.pick(22, 75) == text, "wrapped text height participates in picking");
+        auto group = scene.group();
+        group->setPosition(150, 100);
+        group->setRotation(0.4f);
+        group->setScale(-2, 0.8f);
+        text->setPosition(3, 4);
+        text->setRotation(-0.2f);
+        group->addChild(text);
+        scene.update(0);
+        const auto point = text->worldTransform().transformPoint({12, 55});
+        expect(scene.pick(point.x, point.y) == text, "text picking handles parent shear and reflection");
+        group->setVisible(false);
+        expect(!scene.pick(point.x, point.y), "hidden parent hides text");
+        group->setVisible(true);
+        text->setOpacity(0);
+        expect(!scene.pick(point.x, point.y), "transparent text not picked");
+        text->setOpacity(1);
+        text->setFill(Color::Transparent);
+        text->setStroke(Color::White, 8);
+        expect(!scene.pick(point.x, point.y), "text stroke alone is not rendered or picked");
+        text->setFill(Color::White);
+        text->setScale(0, 1);
+        expect(!scene.pick(point.x, point.y), "singular text transform skipped");
+        text->setScale(1, 1);
+        auto overlay = scene.text(text->text(), 3, 4, font, options);
+        overlay->setRotation(-0.2f);
+        group->addChild(overlay);
+        expect(scene.pick(point.x, point.y) == overlay, "text draw order resolves ties");
+        text->setZIndex(1);
+        expect(scene.pick(point.x, point.y) == text, "text z-index respected");
+        expect(uploads == before, "scene layout and picking never upload glyphs");
+        std::weak_ptr<Font> resource = font;
+        font.reset();
+        expect(!resource.expired(), "nodes keep their font alive");
+        text->setFont(nullptr);
+        overlay->setFont(nullptr);
+        expect(resource.expired(), "clearing node fonts releases the shared resource");
+        expect(!scene.pick(point.x, point.y), "text without font is not picked");
+    }
+    expect(textures.empty(), "scene destruction releases font atlases");
 }

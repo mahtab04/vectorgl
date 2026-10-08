@@ -11,3 +11,8 @@ cache bound without depending on system fonts or downloading assets.
 
 Its ascent/descent span is 1500 units with a 1000-unit em square so tests catch
 font-size scaling that incorrectly normalizes to line height.
+
+`quad.tga` is an original 2x2, uncompressed, top-left-origin RGBA fixture under
+the repository license. Its corners are opaque red, green, blue, and transparent
+white. GPU tests use it to check image orientation, source alpha, opacity and
+transformed bounds; the scene content example shares it between image nodes.

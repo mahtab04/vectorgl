@@ -13,6 +13,8 @@
 
 #include "vectorgl/detail/gl_handle.hpp"
 #include "vectorgl/detail/shader_utils.hpp"
+#include "vectorgl/font.hpp"
+#include "vectorgl/image.hpp"
 #include "vectorgl/paint.hpp"
 
 #ifndef VECTORGL_SHADER_DIR
@@ -216,6 +218,7 @@ public:
     std::vector<SDFInstance> sdfBatch_;
     std::vector<float> glyphBatch_;
     uint32_t glyphTexture_ = 0;
+    std::shared_ptr<Font> glyphFontOwner_;
 
     detail::GLVAO pathVAO_;
     detail::GLBuffer pathVBO_;
@@ -466,6 +469,7 @@ public:
     {
         glyphBatch_.clear();
         glyphTexture_ = 0;
+        glyphFontOwner_.reset();
         sdfVBO_.reset();
         sdfInstanceVBO_.reset();
         sdfVAO_.reset();
@@ -990,6 +994,37 @@ public:
         glyphBatch_.insert(glyphBatch_.end(), std::begin(buffer), std::end(buffer));
     }
 
+    void drawText(const Font& font, std::string_view text, float x, float y, Color color, const Mat3x3& transform,
+                  const TextLayoutOptions& options, bool pixelSnap)
+    {
+        if (!(color.a > 0))
+            return;
+        const auto layout = font.layoutText(text, options);
+        const auto& m = transform.m;
+        const bool snap = pixelSnap && std::abs(m[1]) < 1e-5f && std::abs(m[3]) < 1e-5f && std::abs(m[0]) > 1e-5f &&
+                          std::abs(m[4]) > 1e-5f;
+        size_t index = 0;
+        for (const auto& line : layout.lines)
+        {
+            float offsetX = x, baseline = y + line.y + font.ascent();
+            if (snap)
+            {
+                const auto device = transform.transformPoint({x + line.x, baseline});
+                offsetX += (std::round(device.x) - device.x) / m[0];
+                baseline += (std::round(device.y) - device.y) / m[4];
+            }
+            while (index < layout.glyphs.size() && layout.glyphs[index].y == line.y)
+            {
+                const auto& positioned = layout.glyphs[index++];
+                const auto* glyph = font.getGlyph(static_cast<int>(positioned.codepoint));
+                if (!glyph || glyph->width <= 0 || glyph->height <= 0)
+                    continue;
+                drawGlyph(offsetX + positioned.x + glyph->xoff, baseline + glyph->yoff, glyph->width, glyph->height,
+                          glyph->u0, glyph->v0, glyph->u1, glyph->v1, glyph->texture, color, transform);
+            }
+        }
+    }
+
     void flushGlyphs()
     {
         if (glyphBatch_.empty())
@@ -1009,6 +1044,7 @@ public:
         glBindVertexArray(0);
         glyphBatch_.clear();
         glyphTexture_ = 0;
+        glyphFontOwner_.reset();
     }
 
     void beginEffectPass(float x, float y, float w, float h)
@@ -1124,6 +1160,31 @@ public:
 
         switch (node->type())
         {
+        case ShapeType::Text:
+        {
+            const auto font = node->font();
+            if (!font || !(style.opacity > 0) || !(style.fillColor.a > 0))
+                break;
+            if (glyphFontOwner_ != font)
+                flushGlyphs();
+            Color color = style.fillColor;
+            color.a *= style.opacity;
+            drawText(*font, node->text(), 0, 0, color, worldTransform, node->textLayoutOptions(),
+                     node->textPixelSnap());
+            if (!glyphBatch_.empty())
+                glyphFontOwner_ = font;
+            break;
+        }
+        case ShapeType::Image:
+        {
+            const auto image = node->image();
+            const auto dimensions = node->imageSize();
+            if (image && dimensions.x > 0 && dimensions.y > 0 && std::isfinite(dimensions.x + dimensions.y) &&
+                style.opacity > 0)
+                drawTexturedQuad(-dimensions.x * 0.5f, -dimensions.y * 0.5f, dimensions.x, dimensions.y,
+                                 image->texture(), {1, 1, 1, style.opacity}, worldTransform);
+            break;
+        }
         case ShapeType::Rect:
             drawSDFRect({0, 0}, size, style, worldTransform);
             break;
@@ -1328,6 +1389,13 @@ void Renderer::applyShadow(float blur, Vec2 offset, Color color)
 void Renderer::applyGlow(float radius, Color color)
 {
     impl_->applyGlow(radius, color);
+}
+
+void Renderer::drawText(const Font& font, std::string_view text, float x, float y, Color color, const Mat3x3& transform,
+                        const TextLayoutOptions& options, bool pixelSnap)
+{
+    impl_->requireFrame("drawText()");
+    impl_->drawText(font, text, x, y, color, transform, options, pixelSnap);
 }
 
 void Renderer::renderNode(Node* node)

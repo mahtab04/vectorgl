@@ -1,4 +1,6 @@
+#include <limits>
 #include <memory>
+#include <stdexcept>
 #include <type_traits>
 #include <vector>
 #include <vectorgl/scene.hpp>
@@ -93,4 +95,23 @@ int main()
     transformed.updateWorldTransform(Mat3x3::identity());
     expectNear(cachedChild->worldTransform().transformPoint({0, 0}).x, 8, 0.0001f,
                "dirty child updates under an unchanged parent");
+    auto text = scene.text("No font", 0, 0, nullptr);
+    expect(text->textLayout().lines.empty(), "missing font produces an empty layout without GL");
+    TextLayoutOptions invalid;
+    invalid.lineSpacing = std::numeric_limits<float>::quiet_NaN();
+    bool rejected = false;
+    try
+    {
+        text->setTextLayout(invalid);
+    }
+    catch (const std::invalid_argument&)
+    {
+        rejected = true;
+    }
+    expect(rejected, "invalid scene text layout rejected even without a font");
+    auto missingImage = scene.image(nullptr, 100, 100, 40, 50);
+    expect(missingImage->imageSize().x == 0 && missingImage->imageSize().y == 0,
+           "missing image has no renderable dimensions");
+    expectNear(missingImage->position().x, 120, 0.001f, "explicit image width sets center before resource is loaded");
+    expectNear(missingImage->position().y, 125, 0.001f, "explicit image height sets center before resource is loaded");
 }

@@ -198,8 +198,9 @@ Picking supports rectangles, rounded rectangles, circles, ellipses, lines and
 simple paths, with parent transforms, visibility, opacity, fills and strokes.
 Higher z-index wins; ties follow draw order. Empty outline interiors do not hit.
 Path subpaths are filled independently, matching the current renderer. Effects,
-antialias fringes, renderer clipping and the currently unrendered text/image node
-types are excluded.
+antialias fringes and renderer clipping are excluded. Text uses logical layout
+bounds, including spaces and gaps between lines; images use their full rectangle,
+including transparent pixels. Both support the full parent affine transform.
 
 The [interactive example](example/hit_testing_demo.cpp) demonstrates selection,
 dragging, a rotated parent group, outlines, and overlapping shapes. Build the
@@ -207,6 +208,53 @@ dragging, a rotated parent group, outlines, and overlapping shapes. Build the
 (the `Debug` subdirectory for Visual Studio). Click/drag to move, Up/Down to
 change z-index, R to reset, and Esc to close. Convert GLFW window cursor units to
 framebuffer pixels on high-DPI displays, as shown in the example.
+
+### Scene Text and Images
+
+```cpp
+#include <vectorgl/font.hpp>
+#include <vectorgl/image.hpp>
+
+auto font = std::make_shared<vectorgl::Font>();
+auto image = std::make_shared<vectorgl::Image>();
+if (!font->load("font.ttf", 22) || !image->load("photo.png")) {
+    // Handle missing assets before adding content.
+    return;
+}
+vectorgl::TextLayoutOptions options;
+options.maxWidth = 320;
+options.align = vectorgl::TextAlign::Center;
+auto label = scene.text("Unicode text", 40, 60, font, options);
+label->setFill(vectorgl::Color::White);
+auto picture = scene.image(image, 40, 180, 320, 180);
+picture->setOpacity(0.8f);
+```
+
+Text positions address the top-left layout origin. The loaded font sets the em
+size; `setTextLayout()` controls wrapping, alignment and line spacing. Update
+content with `setText()` or replace the shared font with `setFont()`.
+`textLayout()` measures without GL calls. `setSize()` does not resize text;
+load a different font size or use `setScale()`. Text uses fill color and ignores
+stroke. Pixel snapping defaults on and can be disabled with `setTextPixelSnap(false)`.
+
+The image factory takes top-left coordinates, then stores a centered rectangle,
+like `rect()`. Later `setPosition()` moves its center. Zero width/height use the
+image's natural dimensions; positive dimensions stretch it. `setImage()` changes
+the resource. Fill/stroke colors do not tint images; node opacity multiplies
+source alpha. Null or unloaded resources produce no rendering or hit.
+
+Nodes share ownership of fonts/images. Keep their GL context current when loading
+or releasing resources. Queued scene text retains its font until the glyph batch
+is flushed; explicitly flush the renderer before reloading or destroying a font
+in place. Parent transforms and visibility apply, while opacity remains a property
+of each individual node. Both `render()` overloads refresh transforms without
+advancing animations; `update(dt)` advances animations.
+
+Build and run `vectorgl_scene_content` for the
+[scene text/image example](example/scene_content_demo.cpp). Click/drag text or images,
+Up/Down changes order, O toggles opacity, R resets, and Esc closes. The example
+shares one image between two nodes, includes a rotated parent group, and handles
+high-DPI cursor coordinates. Pass `--font path/to/font.ttf` to choose a font.
 
 ### SVG Rendering
 
