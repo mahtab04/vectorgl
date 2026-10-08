@@ -228,11 +228,54 @@ canvas.setFontCacheLimit(8);
 canvas.clearFontCache(); // flushes pending text before releasing its atlases
 ```
 
-Font loading returns `false` if the size exceeds 256 pixels or the supported
-glyphs cannot fit the fixed atlas. Font-file bytes are released after atlas
-generation. Consecutive glyphs sharing an atlas are batched, with drawing order
+Font loading returns `false` for unsupported files or sizes outside `(0, 256]`.
+Unicode glyphs are rasterized on demand into up to four 1024x1024 R8 pages per
+font, with a maximum of 4096 distinct cached glyphs. Font-file bytes remain in
+memory for dynamic rasterization and kerning. Atlas pages keep stable UVs;
+missing glyphs or a full cache draw the replacement glyph while retaining the
+original font advance. Consecutive glyphs sharing a page are batched, with drawing order
 preserved across shapes, images, clipping, and effects. Low-level callers must
 keep an atlas alive until `renderer.flush()` or the end of the frame.
+
+Font sizes specify the em square in pixels; line height follows the font's
+ascent/descent/gap metrics and may be larger than the requested size.
+`fillText()` and `measureText()` share UTF-8 decoding and font kerning. The `y`
+coordinate is the top of the line; the baseline is `y + font ascent`. Explicit
+line breaks are supported, and measurement returns the widest line. Add layout
+options for wrapping, alignment, and line spacing:
+
+```cpp
+vectorgl::TextLayoutOptions options;
+options.maxWidth = 320;
+options.wrap = vectorgl::TextWrap::Word; // None or Character are also available
+options.align = vectorgl::TextAlign::Center; // Left or Right
+options.lineSpacing = 1.25f;
+canvas.fillText(utf8Text, 40, 100, options);
+auto layout = canvas.layoutText(utf8Text, options); // no texture uploads or GL calls
+// layout.width/height, lines, glyph positions, and UTF-8 caret byte boundaries
+```
+
+Word wrapping breaks at whitespace and falls back to codepoint breaks for long
+words. Tabs advance by four spaces. `setTextPixelSnap(false)` enables fractional
+line origins; by default whole lines snap in framebuffer space, preserving
+fractional glyph advances. SDF coverage uses a one-pixel antialias band.
+
+`TextBox` accepts Unicode typing and clipboard input. Arrow keys, selection,
+Backspace/Delete, scrolling, and pointer placement preserve UTF-8 codepoints.
+Selection indices are UTF-8 byte offsets; malformed input becomes U+FFFD and
+single-line controls are removed. Layout is left-to-right and does not include
+complex-script shaping, bidi, font fallback stacks, color emoji, IME composition,
+or grapheme-cluster editing (combining marks and emoji sequences remain separate
+codepoints).
+
+The [text layout example](example/text_layout_demo.cpp) shows Unicode input,
+kerning, wrapped left/center/right columns, small and transformed text, and a
+sharp-versus-blur comparison. Run `vectorgl_text_layout` from your build's
+`example/Debug` directory on Visual Studio, or `example` with a single-config
+generator. It discovers a system font, or accepts `--font path/to/font.ttf`.
+F2 toggles pixel snapping. `--smoke-test --screenshot preview.bmp` saves a hidden
+preview and exits. The blur pass now flushes queued glyphs, uses the correct
+vertex layout and UV orientation, and preserves opacity through filtering.
 
 Animation time steps must be finite and non-negative. Looping animations wrap
 time without repeatedly subtracting their duration, and tween/keyframe masks

@@ -82,6 +82,21 @@ const homePageCards = [
 
 const guides = [
     {
+        title: "Layout Unicode text",
+        text: "Canvas draws UTF-8 with dynamic glyphs and font kerning. Use layout options for wrapping, left/center/right alignment and line spacing. Measurement shares the same layout and does not upload glyphs.",
+        bullets: [
+            "Missing glyphs use a replacement; glyph coverage depends on the font.",
+            "TextBox editing preserves complete UTF-8 codepoints and uses kerning-aware caret positions.",
+            "Layout is left-to-right; complex shaping, bidi, grapheme editing and IME composition are not included."
+        ],
+        code: `vectorgl::TextLayoutOptions options;
+options.maxWidth = 320;
+options.align = vectorgl::TextAlign::Center;
+options.lineSpacing = 1.25f;
+canvas.fillText(utf8Text, 40, 100, options);
+auto layout = canvas.layoutText(utf8Text, options);`
+    },
+    {
         title: "Clip drawing to a region",
         text: "Use clipRect() for fast rectangular clipping or clipRoundedRect() for an exact stencil-backed rounded mask. Nested clips intersect automatically, and save()/restore() makes clipping convenient for reusable widgets.",
         bullets: [
@@ -241,6 +256,18 @@ const exampleFlows = [
 ];
 
 const repoExampleCards = [
+    {
+        title: "text_layout_demo.cpp",
+        text: "Build vectorgl_text_layout for Unicode input, kerning, wrapped alignment columns, text sizes/transforms and a sharp-versus-blur comparison. F2 toggles pixel snapping. Pass --font path/to/font.ttf to choose a font.",
+        bullets: [
+            "Demonstrates dynamic Unicode glyphs and UTF-8 codepoint editing.",
+            "Uses framebuffer scaling for high-DPI text and window-coordinate input.",
+            "Supports --smoke-test --screenshot preview.bmp for hidden capture."
+        ],
+        code: `canvas.fillText(utf8Text, x, y, options);
+field.handleCharInput(codepoint);
+field.handleKey(vectorgl::TextBoxKey::Backspace);`
+    },
     {
         title: "hit_testing_demo.cpp",
         text: "Build vectorgl_hit_testing to select and drag painted scene shapes, including a child in a rotated group. Up/Down changes z-index, R resets positions and order, and Esc closes the window.",
@@ -422,7 +449,10 @@ const apiReference = [
             {
                 title: "Text and images",
                 methods: [
-                    { signature: "void fillText(const std::string& text, float x, float y)", description: "Renders UTF-8 text at the baseline position using the active font and the current fill color.", notes: ["Requires setFont() to succeed first.", "Text is rendered from an SDF atlas for smooth edges across sizes."] },
+                    { signature: "void fillText(const std::string& text, float x, float y)", description: "Renders UTF-8 with font kerning and explicit line breaks. y is the line top; the baseline is y + ascent.", notes: ["Requires setFont() to succeed first.", "Glyphs load lazily into bounded SDF atlas pages."] },
+                    { signature: "void fillText(const std::string& text, float x, float y, const TextLayoutOptions& options)", description: "Draws wrapped text with Left/Center/Right alignment and configurable line spacing." },
+                    { signature: "TextLayout layoutText(const std::string& text, const TextLayoutOptions& options = {}) const", description: "Returns layout width/height, lines, glyph positions and UTF-8 caret byte boundaries without GL calls. TextLayoutOptions contains maxWidth, align, wrap (None/Word/Character) and lineSpacing." },
+                    { signature: "void setTextPixelSnap(bool enabled)", description: "Controls framebuffer snapping of whole line origins (default true), preserving fractional glyph advances. Rotated text is not snapped." },
                     { signature: "Image loadImage(const std::string& path)", description: "Convenience helper that loads a raster image from disk and returns an Image object." },
                     { signature: "void drawImage(const Image& img, float x, float y, float w = -1, float h = -1)", description: "Draws a raster image at the given destination. When width or height is -1 the original image size is used." },
                     { signature: "Renderer& renderer()", description: "Returns the underlying Renderer instance when you need lower-level access or want to bind a Scene to the same renderer." }
@@ -741,7 +771,7 @@ const apiReference = [
             {
                 title: "Glyph metrics",
                 methods: [
-                    { signature: "struct GlyphInfo { u0, v0, u1, v1, xoff, yoff, xadvance, width, height }", description: "Stores atlas UV coordinates plus per-glyph positioning and advance metrics." }
+                    { signature: "struct GlyphInfo { u0, v0, u1, v1, xoff, yoff, xadvance, width, height, texture }", description: "Stores immutable atlas UVs, metrics and the specific atlas-page texture to draw." }
                 ]
             },
             {
@@ -749,8 +779,12 @@ const apiReference = [
                 methods: [
                     { signature: "bool load(const std::string& path, float size)", description: "Loads a `.ttf` font file and generates the atlas texture." },
                     { signature: "void destroy()", description: "Releases the atlas texture and cached font data." },
-                    { signature: "const GlyphInfo* getGlyph(int codepoint) const", description: "Returns glyph metrics for a Unicode codepoint or nullptr if missing." },
-                    { signature: "uint32_t atlasTexture() const", description: "Returns the OpenGL texture ID for the atlas." },
+                    { signature: "const GlyphInfo* getGlyph(int codepoint) const", description: "Lazily uploads a Unicode glyph. Missing glyphs or a saturated cache use U+FFFD, '?', or .notdef. Requires a current GL context; returns nullptr if unloaded." },
+                    { signature: "bool hasGlyph(uint32_t codepoint) const", description: "Tests actual font coverage without rasterizing." },
+                    { signature: "float advance(uint32_t codepoint) const / float kerning(uint32_t left, uint32_t right) const", description: "Returns scaled font metrics without GL calls." },
+                    { signature: "TextLayout layoutText(std::string_view text, const TextLayoutOptions& options = {}) const", description: "Measures and positions UTF-8 without rasterizing or uploading glyphs." },
+                    { signature: "uint32_t atlasTexture() const", description: "Returns the first atlas page. Draw individual glyphs using GlyphInfo::texture." },
+                    { signature: "std::size_t atlasPageCount() const / std::size_t glyphCacheSize() const", description: "Reports cache usage, bounded to four 1024x1024 R8 pages and 4096 distinct glyphs. Font-file bytes are retained for lazy rasterization." },
                     { signature: "float lineHeight() const / float ascent() const / float renderScale() const", description: "Returns font metrics and the render scale used during SDF generation." }
                 ]
             }

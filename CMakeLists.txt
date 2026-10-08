@@ -45,6 +45,7 @@ add_library(vectorgl STATIC
     src/canvas.cpp
     src/path.cpp
     src/font.cpp
+    src/text.cpp
     src/image.cpp
     src/text_box.cpp
     src/renderer.cpp

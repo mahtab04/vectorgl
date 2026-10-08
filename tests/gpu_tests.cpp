@@ -11,6 +11,7 @@
 #include <vectorgl/canvas.hpp>
 #include <vectorgl/color.hpp>
 #include <vectorgl/scene.hpp>
+#include <vectorgl/text_box.hpp>
 
 namespace
 {
@@ -352,6 +353,98 @@ int main()
             glFinish();
             if (!pixelIs(readPixel(92, 90), 0, 0, 0) || !pixelIs(readPixel(32, 95), 0, 0, 0))
                 result = fail("scene path or line ignored node opacity");
+        }
+
+        if (result == 0)
+        {
+            glClearColor(0, 0, 0, 1);
+            glClear(GL_COLOR_BUFFER_BIT);
+            canvas.beginFrame(kFramebufferSize, kFramebufferSize);
+            GLuint unpackBuffer;
+            glGenBuffers(1, &unpackBuffer);
+            glBindBuffer(GL_PIXEL_UNPACK_BUFFER, unpackBuffer);
+            glBufferData(GL_PIXEL_UNPACK_BUFFER, 4096, nullptr, GL_STATIC_DRAW);
+            glPixelStorei(GL_UNPACK_ALIGNMENT, 8);
+            glPixelStorei(GL_UNPACK_ROW_LENGTH, 37);
+            glPixelStorei(GL_UNPACK_SKIP_ROWS, 2);
+            glPixelStorei(GL_UNPACK_SKIP_PIXELS, 3);
+            if (!canvas.setFont(VECTORGL_TEST_FONT, 32))
+                result = fail("Unicode test font failed to load");
+            canvas.setTextPixelSnap(false);
+            canvas.setFillColor(vectorgl::Color::White);
+            canvas.fillText("A", 10.3f, 10);
+            canvas.fillText("\xCE\xA9", 60, 10);
+            GLint restoredBuffer, restoredAlignment, restoredLength, restoredRows, restoredPixels;
+            glGetIntegerv(GL_PIXEL_UNPACK_BUFFER_BINDING, &restoredBuffer);
+            glGetIntegerv(GL_UNPACK_ALIGNMENT, &restoredAlignment);
+            glGetIntegerv(GL_UNPACK_ROW_LENGTH, &restoredLength);
+            glGetIntegerv(GL_UNPACK_SKIP_ROWS, &restoredRows);
+            glGetIntegerv(GL_UNPACK_SKIP_PIXELS, &restoredPixels);
+            if (restoredBuffer != static_cast<GLint>(unpackBuffer) || restoredAlignment != 8 || restoredLength != 37 ||
+                restoredRows != 2 || restoredPixels != 3)
+                result = fail("lazy glyph upload corrupted pixel-unpack state");
+            glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+            glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+            glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+            glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
+            glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
+            glDeleteBuffers(1, &unpackBuffer);
+            canvas.endFrame();
+            glFinish();
+            if (!pixelIs(readPixel(18, 25), 255, 255, 255) || !pixelIs(readPixel(82, 25), 255, 255, 255))
+                result = fail("dynamic Unicode glyph did not render its actual outline");
+            int transitionPixels = 0;
+            for (int x = 5; x < 35; ++x)
+            {
+                const int value = readPixel(x, 25)[0];
+                if (value > 5 && value < 250)
+                    ++transitionPixels;
+            }
+            if (transitionPixels > 2 || transitionPixels == 0)
+                result = fail("SDF text edges are blurred or lack antialias coverage");
+
+            for (float radius : {0.0f, 2.0f})
+            {
+                glClearColor(0, 0, 0, 1);
+                glClear(GL_COLOR_BUFFER_BIT);
+                canvas.beginFrame(kFramebufferSize, kFramebufferSize);
+                canvas.renderer().beginEffectPass(0, 0, kFramebufferSize, kFramebufferSize);
+                canvas.setFillColor({1, 1, 1, 0.5f});
+                canvas.fillText("A", 10.3f, 10);
+                canvas.renderer().endEffectPass(); // Must flush queued text into the capture.
+                canvas.renderer().applyBlur(radius);
+                canvas.endFrame();
+                glFinish();
+                const auto center = readPixel(18, 25);
+                if (center[0] < 110 || center[0] > 145 || readPixel(18, 100)[0] > 3)
+                {
+                    std::cerr << "Blur radius " << radius << " center=" << static_cast<int>(center[0])
+                              << " bottom=" << static_cast<int>(readPixel(18, 100)[0]) << '\n';
+                    result = fail("text effect changed opacity or vertically flipped the capture");
+                }
+                if (radius > 0 && readPixel(9, 25)[0] == 0)
+                    result = fail("text blur did not spread edge coverage");
+            }
+
+            glClearColor(0, 0, 0, 1);
+            glClear(GL_COLOR_BUFFER_BIT);
+            canvas.beginFrame(kFramebufferSize, kFramebufferSize);
+            canvas.setTextPixelSnap(true);
+            vectorgl::TextBox field;
+            field.setFont(VECTORGL_TEST_FONT, 16);
+            field.setBounds(0, 60, 80, 50);
+            field.setText("A\xCE\xA9\xF0\x9F\x98\x80"
+                          "AVAVAVAVAVAV");
+            field.setFocused(true);
+            if (!field.render(canvas, 0.01f))
+                result = fail("Unicode text box rendering failed");
+            field.handleKey(vectorgl::TextBoxKey::Home);
+            field.handlePointerDown(36, 85, canvas);
+            if (field.selectionStart() != 3)
+                result = fail("text-box pointer hit split a UTF-8 codepoint");
+            canvas.endFrame();
+            if (glGetError() != GL_NO_ERROR)
+                result = fail("Unicode text or blur produced an OpenGL error");
         }
 
         canvas.destroy();

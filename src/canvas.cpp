@@ -8,55 +8,6 @@
 
 namespace vectorgl
 {
-namespace
-{
-
-uint32_t nextUtf8Codepoint(const std::string& text, std::size_t& offset)
-{
-    const auto first = static_cast<uint8_t>(text[offset++]);
-    if (first < 0x80)
-        return first;
-
-    int continuationCount = 0;
-    uint32_t codepoint = 0;
-    if ((first & 0xE0) == 0xC0)
-    {
-        continuationCount = 1;
-        codepoint = first & 0x1F;
-    }
-    else if ((first & 0xF0) == 0xE0)
-    {
-        continuationCount = 2;
-        codepoint = first & 0x0F;
-    }
-    else if ((first & 0xF8) == 0xF0)
-    {
-        continuationCount = 3;
-        codepoint = first & 0x07;
-    }
-    else
-    {
-        return 0xFFFD;
-    }
-
-    if (offset + static_cast<std::size_t>(continuationCount) > text.size())
-    {
-        offset = text.size();
-        return 0xFFFD;
-    }
-    for (int i = 0; i < continuationCount; ++i)
-    {
-        const auto next = static_cast<uint8_t>(text[offset]);
-        if ((next & 0xC0) != 0x80)
-            return 0xFFFD;
-        ++offset;
-        codepoint = (codepoint << 6) | (next & 0x3F);
-    }
-    return codepoint;
-}
-
-} // namespace
-
 Canvas::Canvas() = default;
 Canvas::~Canvas()
 {
@@ -396,57 +347,53 @@ void Canvas::stroke()
 
 void Canvas::fillText(const std::string& text, float x, float y)
 {
+    fillText(text, x, y, {});
+}
+
+void Canvas::fillText(const std::string& text, float x, float y, const TextLayoutOptions& options)
+{
     if (!activeFont_)
         return;
-
-    // Detect axis-aligned transform for pixel snapping
-    bool axisAligned = std::abs(currentState_.transform.m[1]) < 1e-5f && std::abs(currentState_.transform.m[3]) < 1e-5f;
-
-    float penX = axisAligned ? std::round(x) : x;
-    float baseline = y + activeFont_->ascent();
-    if (axisAligned)
-        baseline = std::round(baseline);
-
-    for (std::size_t offset = 0; offset < text.size();)
+    const auto layout = activeFont_->layoutText(text, options);
+    const auto& m = currentState_.transform.m;
+    const bool snap = currentState_.textPixelSnap && std::abs(m[1]) < 1e-5f && std::abs(m[3]) < 1e-5f &&
+                      std::abs(m[0]) > 1e-5f && std::abs(m[4]) > 1e-5f;
+    size_t index = 0;
+    for (const auto& line : layout.lines)
     {
-        const auto codepoint = nextUtf8Codepoint(text, offset);
-        auto* glyph = activeFont_->getGlyph(static_cast<int>(codepoint));
-        if (!glyph)
-            glyph = activeFont_->getGlyph('?');
-        if (!glyph)
-            continue;
-
-        float gx = penX + glyph->xoff;
-        float gy = baseline + glyph->yoff;
-        if (axisAligned)
+        float offsetX = x, baseline = y + line.y + activeFont_->ascent();
+        if (snap)
         {
-            gx = std::round(gx);
-            gy = std::round(gy);
+            const auto device = currentState_.transform.transformPoint({x + line.x, baseline});
+            offsetX += (std::round(device.x) - device.x) / m[0];
+            baseline += (std::round(device.y) - device.y) / m[4];
         }
-
-        renderer_.drawGlyph(gx, gy, glyph->width, glyph->height, glyph->u0, glyph->v0, glyph->u1, glyph->v1,
-                            activeFont_->atlasTexture(), currentState_.fillColor, currentState_.transform);
-        penX += glyph->xadvance;
+        while (index < layout.glyphs.size() && layout.glyphs[index].y == line.y)
+        {
+            const auto& positioned = layout.glyphs[index++];
+            const auto* glyph = activeFont_->getGlyph(static_cast<int>(positioned.codepoint));
+            if (!glyph || glyph->width <= 0 || glyph->height <= 0)
+                continue;
+            renderer_.drawGlyph(offsetX + positioned.x + glyph->xoff, baseline + glyph->yoff, glyph->width,
+                                glyph->height, glyph->u0, glyph->v0, glyph->u1, glyph->v1, glyph->texture,
+                                currentState_.fillColor, currentState_.transform);
+        }
     }
+}
+
+TextLayout Canvas::layoutText(const std::string& text, const TextLayoutOptions& options) const
+{
+    return activeFont_ ? activeFont_->layoutText(text, options) : TextLayout{};
+}
+
+void Canvas::setTextPixelSnap(bool enabled)
+{
+    currentState_.textPixelSnap = enabled;
 }
 
 float Canvas::measureText(const std::string& text) const
 {
-    if (!activeFont_)
-        return 0.0f;
-
-    float width = 0.0f;
-    for (std::size_t offset = 0; offset < text.size();)
-    {
-        const auto codepoint = nextUtf8Codepoint(text, offset);
-        const auto* glyph = activeFont_->getGlyph(static_cast<int>(codepoint));
-        if (!glyph)
-            glyph = activeFont_->getGlyph('?');
-        if (glyph)
-            width += glyph->xadvance;
-    }
-
-    return width;
+    return layoutText(text).width;
 }
 
 float Canvas::lineHeight() const

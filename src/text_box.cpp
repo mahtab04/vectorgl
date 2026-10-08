@@ -5,8 +5,22 @@
 #include <limits>
 #include <utility>
 
+#include "vectorgl/detail/utf8.hpp"
+
 namespace vectorgl
 {
+namespace
+{
+float caretX(const TextLayout& layout, size_t byteOffset)
+{
+    if (layout.lines.empty())
+        return 0;
+    for (const auto& caret : layout.lines.front().carets)
+        if (caret.byteOffset == byteOffset)
+            return caret.x;
+    return layout.lines.front().width;
+}
+} // namespace
 
 void TextBox::setBounds(float x, float y, float width, float height)
 {
@@ -24,7 +38,7 @@ void TextBox::setFont(const std::string& fontPath, float fontSize)
 
 void TextBox::setText(const std::string& text)
 {
-    text_ = text;
+    text_ = detail::singleLine(text);
     caretIndex_ = text_.size();
     selectionAnchor_ = caretIndex_;
     viewStart_ = 0;
@@ -33,7 +47,7 @@ void TextBox::setText(const std::string& text)
 
 void TextBox::setPlaceholder(const std::string& placeholder)
 {
-    placeholder_ = placeholder;
+    placeholder_ = detail::singleLine(placeholder);
 }
 
 void TextBox::setFocused(bool focused)
@@ -126,7 +140,8 @@ bool TextBox::handlePointerDrag(float x, float /* y */, Canvas& canvas)
         return false;
 
     // Clamp drag updates to the inner text area so selection can extend to the box edges.
-    const float clampedX = std::clamp(x, x_ + style_.paddingX, x_ + width_ - style_.paddingX);
+    const float clampedX =
+        std::clamp(x, x_ + style_.paddingX, x_ + style_.paddingX + std::max(0.0f, width_ - 2 * style_.paddingX));
     const float localX = std::max(0.0f, clampedX - (x_ + style_.paddingX));
     caretIndex_ = caretIndexFromPosition(canvas, localX);
     submitted_ = false;
@@ -140,8 +155,11 @@ bool TextBox::handleCharInput(uint32_t codepoint)
         return false;
 
     deleteSelection();
-    text_.insert(text_.begin() + static_cast<std::ptrdiff_t>(caretIndex_), static_cast<char>(codepoint));
-    ++caretIndex_;
+    std::string encoded;
+    detail::appendCodepoint(encoded, codepoint);
+    text_.insert(caretIndex_, encoded);
+    caretIndex_ += encoded.size();
+    viewStart_ = 0;
     selectionAnchor_ = caretIndex_;
     submitted_ = false;
     resetBlink();
@@ -164,8 +182,12 @@ bool TextBox::handleKey(TextBoxKey key, bool extendSelection)
         }
         if (caretIndex_ == 0 || text_.empty())
             return false;
-        text_.erase(text_.begin() + static_cast<std::ptrdiff_t>(caretIndex_ - 1));
-        --caretIndex_;
+        {
+            const auto previous = detail::previousBoundary(text_, caretIndex_);
+            text_.erase(previous, caretIndex_ - previous);
+            caretIndex_ = previous;
+            viewStart_ = 0;
+        }
         selectionAnchor_ = caretIndex_;
         resetBlink();
         return true;
@@ -177,7 +199,8 @@ bool TextBox::handleKey(TextBoxKey key, bool extendSelection)
         }
         if (caretIndex_ >= text_.size())
             return false;
-        text_.erase(text_.begin() + static_cast<std::ptrdiff_t>(caretIndex_));
+        text_.erase(caretIndex_, detail::nextBoundary(text_, caretIndex_) - caretIndex_);
+        viewStart_ = 0;
         selectionAnchor_ = caretIndex_;
         resetBlink();
         return true;
@@ -190,7 +213,7 @@ bool TextBox::handleKey(TextBoxKey key, bool extendSelection)
         }
         if (caretIndex_ == 0)
             return false;
-        moveCaretTo(caretIndex_ - 1, extendSelection);
+        moveCaretTo(detail::previousBoundary(text_, caretIndex_), extendSelection);
         resetBlink();
         return true;
     case TextBoxKey::Right:
@@ -202,7 +225,7 @@ bool TextBox::handleKey(TextBoxKey key, bool extendSelection)
         }
         if (caretIndex_ >= text_.size())
             return false;
-        moveCaretTo(caretIndex_ + 1, extendSelection);
+        moveCaretTo(detail::nextBoundary(text_, caretIndex_), extendSelection);
         resetBlink();
         return true;
     case TextBoxKey::Home:
@@ -242,20 +265,14 @@ bool TextBox::pasteText(const std::string& text)
     if (!focused_)
         return false;
 
-    std::string filtered;
-    filtered.reserve(text.size());
-    for (unsigned char c : text)
-    {
-        if (supportsCodepoint(static_cast<uint32_t>(c)))
-            filtered.push_back(static_cast<char>(c));
-    }
-
-    if (filtered.empty() && !hasSelection())
+    const std::string filtered = detail::singleLine(text);
+    if (filtered.empty())
         return false;
 
     deleteSelection();
     text_.insert(caretIndex_, filtered);
     caretIndex_ += filtered.size();
+    viewStart_ = 0;
     selectionAnchor_ = caretIndex_;
     submitted_ = false;
     resetBlink();
@@ -308,7 +325,8 @@ bool TextBox::render(Canvas& canvas, float dt)
     const std::size_t visibleSelectionStart = std::max(selectionStart(), visibleStart);
     const std::size_t visibleSelectionEnd = std::min(selectionEnd(), visibleEnd);
     const std::size_t relativeCaret = caretIndex_ >= viewStart_ ? caretIndex_ - viewStart_ : 0;
-    const float caretOffset = canvas.measureText(visible.substr(0, std::min(relativeCaret, visible.size())));
+    const auto layout = canvas.layoutText(visible);
+    const float caretOffset = caretX(layout, std::min(relativeCaret, visible.size()));
     const float textBaselineY = y_ + ((height_ - canvas.lineHeight()) * 0.5f);
 
     canvas.setFillColor(style_.backgroundColor);
@@ -318,13 +336,16 @@ bool TextBox::render(Canvas& canvas, float dt)
     canvas.setLineWidth(focused_ ? style_.focusedBorderWidth : style_.borderWidth);
     canvas.strokeRoundedRect(x_, y_, width_, height_, style_.cornerRadius);
 
+    canvas.save();
+    canvas.clipRect(x_ + style_.paddingX, y_ + style_.paddingY, availableWidth,
+                    std::max(0.0f, height_ - 2 * style_.paddingY));
+
     if (visibleSelectionStart < visibleSelectionEnd)
     {
         const std::size_t selectionOffsetStart = visibleSelectionStart - visibleStart;
         const std::size_t selectionOffsetEnd = visibleSelectionEnd - visibleStart;
-        const float selectionX = x_ + style_.paddingX + canvas.measureText(visible.substr(0, selectionOffsetStart));
-        const float selectionWidth =
-            canvas.measureText(visible.substr(selectionOffsetStart, selectionOffsetEnd - selectionOffsetStart));
+        const float selectionX = x_ + style_.paddingX + caretX(layout, selectionOffsetStart);
+        const float selectionWidth = caretX(layout, selectionOffsetEnd) - caretX(layout, selectionOffsetStart);
         canvas.setFillColor(style_.selectionColor);
         canvas.fillRoundedRect(selectionX - 1.0f, y_ + style_.paddingY, selectionWidth + 2.0f,
                                height_ - (style_.paddingY * 2.0f), 4.0f);
@@ -343,7 +364,8 @@ bool TextBox::render(Canvas& canvas, float dt)
 
     if (focused_)
     {
-        blinkTime_ += dt;
+        if (std::isfinite(dt) && dt > 0)
+            blinkTime_ = std::fmod(blinkTime_ + std::fmod(dt, 1.0f), 1.0f);
         if (std::fmod(blinkTime_, 1.0f) < 0.5f)
         {
             canvas.setFillColor(style_.caretColor);
@@ -356,6 +378,7 @@ bool TextBox::render(Canvas& canvas, float dt)
         blinkTime_ = 0.0f;
     }
 
+    canvas.restore();
     return true;
 }
 
@@ -366,7 +389,7 @@ bool TextBox::ensureFont(Canvas& canvas) const
 
 bool TextBox::supportsCodepoint(uint32_t codepoint) const
 {
-    return codepoint >= 32 && codepoint < 127;
+    return detail::isSingleLineCodepoint(codepoint);
 }
 
 std::string TextBox::visibleText(const Canvas& canvas, float availableWidth) const
@@ -374,40 +397,35 @@ std::string TextBox::visibleText(const Canvas& canvas, float availableWidth) con
     if (viewStart_ >= text_.size())
         return {};
 
-    // Build the visible span incrementally until the next character would overflow.
-    std::string visible;
-    for (std::size_t i = viewStart_; i < text_.size(); ++i)
+    const auto layout = canvas.layoutText(text_.substr(viewStart_));
+    if (layout.lines.empty())
+        return {};
+    size_t end = 0;
+    for (const auto& caret : layout.lines.front().carets)
     {
-        std::string candidate = visible;
-        candidate.push_back(text_[i]);
-        if (!visible.empty() && canvas.measureText(candidate) > availableWidth)
+        if (caret.x > availableWidth && end > 0)
             break;
-        visible = std::move(candidate);
+        end = caret.byteOffset;
     }
-
-    return visible;
+    return text_.substr(viewStart_, end);
 }
 
 std::size_t TextBox::caretIndexFromPosition(const Canvas& canvas, float localX) const
 {
-    if (viewStart_ >= text_.size())
+    const auto layout = canvas.layoutText(text_.substr(viewStart_));
+    if (layout.lines.empty())
         return text_.size();
-
-    // Snap to the nearest character boundary in the currently visible slice.
     float bestDistance = std::numeric_limits<float>::max();
-    std::size_t bestIndex = viewStart_;
-    for (std::size_t index = viewStart_; index <= text_.size(); ++index)
+    size_t bestIndex = viewStart_;
+    for (const auto& caret : layout.lines.front().carets)
     {
-        const std::string span = text_.substr(viewStart_, index - viewStart_);
-        const float candidateX = canvas.measureText(span);
-        const float distance = std::abs(candidateX - localX);
+        const float distance = std::abs(caret.x - localX);
         if (distance < bestDistance)
         {
             bestDistance = distance;
-            bestIndex = index;
+            bestIndex = viewStart_ + caret.byteOffset;
         }
     }
-
     return bestIndex;
 }
 
@@ -421,24 +439,27 @@ void TextBox::moveCaretTo(std::size_t index, bool extendSelection)
 void TextBox::ensureCaretVisible(const Canvas& canvas, float availableWidth)
 {
     caretIndex_ = std::min(caretIndex_, text_.size());
-    viewStart_ = std::min(viewStart_, caretIndex_);
-
-    while (viewStart_ < caretIndex_)
-    {
-        const std::string span = text_.substr(viewStart_, caretIndex_ - viewStart_);
-        if (canvas.measureText(span) <= availableWidth)
-            break;
-        ++viewStart_;
-    }
-
-    while (viewStart_ > 0)
-    {
-        const std::size_t newStart = viewStart_ - 1;
-        const std::string span = text_.substr(newStart, caretIndex_ - newStart);
-        if (canvas.measureText(span) > availableWidth)
-            break;
-        viewStart_ = newStart;
-    }
+    const auto layout = canvas.layoutText(text_);
+    const float target = std::max(0.0f, caretX(layout, caretIndex_) - availableWidth);
+    viewStart_ = 0;
+    if (!layout.lines.empty())
+        for (const auto& caret : layout.lines.front().carets)
+        {
+            if (caret.byteOffset > caretIndex_)
+                break;
+            viewStart_ = caret.byteOffset;
+            if (caret.x >= target)
+                break;
+        }
+    // A new visible slice has no kerning from the character to its left.
+    const auto tail = canvas.layoutText(text_.substr(viewStart_, caretIndex_ - viewStart_));
+    if (tail.width > availableWidth && !tail.lines.empty())
+        for (const auto& caret : tail.lines.front().carets)
+            if (tail.width - caret.x <= availableWidth)
+            {
+                viewStart_ += caret.byteOffset;
+                break;
+            }
 }
 
 bool TextBox::deleteSelection()
@@ -449,6 +470,7 @@ bool TextBox::deleteSelection()
     const std::size_t start = selectionStart();
     const std::size_t end = selectionEnd();
     text_.erase(start, end - start);
+    viewStart_ = 0;
     caretIndex_ = start;
     selectionAnchor_ = start;
     return true;

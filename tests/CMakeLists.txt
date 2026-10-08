@@ -12,6 +12,8 @@ vectorgl_add_test(vectorgl_animator_tests animator_tests.cpp)
 vectorgl_add_test(vectorgl_shader_tests shader_tests.cpp)
 vectorgl_add_test(vectorgl_svg_tests svg_tests.cpp)
 vectorgl_add_test(vectorgl_font_tests font_tests.cpp)
+vectorgl_add_test(vectorgl_text_box_tests text_box_tests.cpp)
+target_include_directories(vectorgl_text_box_tests PRIVATE ${VECTORGL_INTERNAL_INCLUDE_DIR})
 target_compile_definitions(vectorgl_font_tests PRIVATE
     VECTORGL_TEST_FONT="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/box.ttf"
 )
@@ -62,5 +64,18 @@ if(VECTORGL_BUILD_GPU_TESTS)
             )
         endif()
         set_tests_properties(vectorgl_hit_testing_demo_smoke PROPERTIES TIMEOUT 15)
+    endif()
+    if(TARGET vectorgl_text_layout)
+        if(XVFB_RUN_EXECUTABLE)
+            add_test(NAME vectorgl_text_layout_demo_smoke
+                COMMAND ${XVFB_RUN_EXECUTABLE} -a $<TARGET_FILE:vectorgl_text_layout>
+                    --smoke-test --font ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/box.ttf
+            )
+        else()
+            add_test(NAME vectorgl_text_layout_demo_smoke COMMAND vectorgl_text_layout
+                --smoke-test --font ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/box.ttf
+            )
+        endif()
+        set_tests_properties(vectorgl_text_layout_demo_smoke PROPERTIES TIMEOUT 15)
     endif()
 endif()

@@ -140,7 +140,7 @@ public:
     /*! @brief Loads a TrueType font and sets it as the active font for text rendering.
      *
      *  @param[in] fontPath  Filesystem path to a `.ttf` file.
-     *  @param[in] size      Font size in pixels.
+     *  @param[in] size      Font em size in pixels; line height comes from font metrics.
      *  @return `true` if the font was loaded successfully.
      */
     bool setFont(const std::string& fontPath, float size);
@@ -254,11 +254,20 @@ public:
      *
      *  Requires a font to be loaded via @ref setFont.
      *
-     *  @param[in] text  UTF-8 text string to render. Unsupported glyphs use `?`.
-     *  @param[in] x     Left edge of the text baseline.
-     *  @param[in] y     Vertical position of the text baseline.
+     *  @param[in] text  UTF-8 text. Uses font kerning and explicit line breaks.
+     *  @param[in] x     Left edge of the layout.
+     *  @param[in] y     Top of the first line (the baseline is y + font ascent).
      */
     void fillText(const std::string& text, float x, float y);
+
+    /*! Draws UTF-8 text with wrapping, alignment and line spacing. */
+    void fillText(const std::string& text, float x, float y, const TextLayoutOptions& options);
+    /*! Returns glyph/line/caret positions without texture uploads or GL calls. */
+    [[nodiscard]] TextLayout layoutText(const std::string& text, const TextLayoutOptions& options = {}) const;
+    /*! Snaps whole line origins in framebuffer space (default true). Glyph
+     * advances remain fractional to preserve kerning; rotated text is not snapped.
+     */
+    void setTextPixelSnap(bool enabled);
 
     /*! @brief Measures the untransformed width of a text string using the active font.
      *
@@ -320,6 +329,7 @@ private:
         Color fillColor{Color::Black};
         Color strokeColor{Color::Black};
         float lineWidth = 1.0f;
+        bool textPixelSnap = true;
         Mat3x3 transform = Mat3x3::identity();
         ClipRect clip{};
         std::vector<Renderer::RoundedClip> roundedClips;
