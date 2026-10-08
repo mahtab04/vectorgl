@@ -2,6 +2,11 @@
 
 #include <algorithm>
 #include <cmath>
+#include <stdexcept>
+#include <utility>
+
+#include "vectorgl/font.hpp"
+#include "vectorgl/image.hpp"
 
 namespace vectorgl
 {
@@ -211,6 +216,54 @@ void Node::setPath(const Path2D& p)
 {
     path_ = p;
     markDirty(DirtyFlag::GeometryDirty);
+}
+
+void Node::setText(std::string text)
+{
+    if (text_ != text)
+    {
+        text_ = std::move(text);
+        markDirty(DirtyFlag::GeometryDirty);
+    }
+}
+
+void Node::setFont(std::shared_ptr<Font> font)
+{
+    font_ = std::move(font);
+    markDirty(DirtyFlag::GeometryDirty);
+}
+
+void Node::setTextLayout(const TextLayoutOptions& options)
+{
+    if (!std::isfinite(options.maxWidth) || !std::isfinite(options.lineSpacing) || options.lineSpacing <= 0)
+        throw std::invalid_argument("Node::setTextLayout() requires finite width and positive finite line spacing");
+    textOptions_ = options;
+    markDirty(DirtyFlag::GeometryDirty);
+}
+
+TextLayout Node::textLayout() const
+{
+    return font_ ? font_->layoutText(text_, textOptions_) : TextLayout{};
+}
+
+void Node::setTextPixelSnap(bool enabled)
+{
+    textPixelSnap_ = enabled;
+    markDirty(DirtyFlag::GeometryDirty);
+}
+
+void Node::setImage(std::shared_ptr<Image> image)
+{
+    image_ = std::move(image);
+    markDirty(DirtyFlag::GeometryDirty);
+}
+
+Vec2 Node::imageSize() const
+{
+    if (!image_ || !image_->valid())
+        return {};
+    return {size_.x == 0 ? static_cast<float>(image_->width()) : size_.x,
+            size_.y == 0 ? static_cast<float>(image_->height()) : size_.y};
 }
 
 void Node::markDirty(DirtyFlag flags)

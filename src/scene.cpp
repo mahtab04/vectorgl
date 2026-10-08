@@ -3,7 +3,11 @@
 #include <algorithm>
 #include <cmath>
 #include <functional>
+#include <limits>
+#include <utility>
 
+#include "vectorgl/font.hpp"
+#include "vectorgl/image.hpp"
 #include "vectorgl/renderer.hpp"
 
 namespace vectorgl
@@ -64,6 +68,32 @@ bool containsPoint(const Node& node, Vec2 point)
     const bool stroke = style.strokeColor.a > 0 && style.strokeWidth > 0;
     const auto& transform = node.worldTransform();
     const Vec2 size = node.size();
+
+    if (node.type() == ShapeType::Text || node.type() == ShapeType::Image)
+    {
+        Vec2 local;
+        if (!toLocal(point, transform, local))
+            return false;
+        if (node.type() == ShapeType::Image)
+        {
+            const auto dimensions = node.imageSize();
+            return dimensions.x > 0 && dimensions.y > 0 && std::isfinite(dimensions.x + dimensions.y) &&
+                   std::abs(local.x) <= dimensions.x * 0.5f && std::abs(local.y) <= dimensions.y * 0.5f;
+        }
+        if (!fill || node.text().empty())
+            return false;
+        const auto layout = node.textLayout();
+        if (!(layout.width > 0 && layout.height > 0))
+            return false;
+        float left = std::numeric_limits<float>::infinity(), right = -left;
+        for (const auto& line : layout.lines)
+            if (line.width > 0)
+            {
+                left = std::min(left, line.x);
+                right = std::max(right, line.x + line.width);
+            }
+        return local.x >= left && local.x <= right && local.y >= 0 && local.y <= layout.height;
+    }
 
     if (node.type() == ShapeType::Path || node.type() == ShapeType::Line)
     {
@@ -195,6 +225,30 @@ std::shared_ptr<Node> Scene::path(const Path2D& p)
     return node;
 }
 
+std::shared_ptr<Node> Scene::text(std::string text, float x, float y, std::shared_ptr<Font> font,
+                                  const TextLayoutOptions& options)
+{
+    auto node = std::make_shared<Node>(ShapeType::Text);
+    node->setPosition(x, y);
+    node->setText(std::move(text));
+    node->setFont(std::move(font));
+    node->setTextLayout(options);
+    node->setFill(Color::Black);
+    addRoot(node);
+    return node;
+}
+
+std::shared_ptr<Node> Scene::image(std::shared_ptr<Image> image, float x, float y, float w, float h)
+{
+    auto node = std::make_shared<Node>(ShapeType::Image);
+    node->setImage(std::move(image));
+    node->setSize(w, h);
+    const auto size = node->imageSize();
+    node->setPosition(x + (w == 0 ? size.x : w) * 0.5f, y + (h == 0 ? size.y : h) * 0.5f);
+    addRoot(node);
+    return node;
+}
+
 std::shared_ptr<Node> Scene::group()
 {
     auto node = std::make_shared<Node>(ShapeType::Group);
@@ -271,6 +325,9 @@ void Scene::update(float dt)
 
 void Scene::render(Renderer& renderer, int fbWidth, int fbHeight)
 {
+    for (const auto& root : roots_)
+        if (!root->parent())
+            root->updateWorldTransform(Mat3x3::identity());
     renderer.beginFrame(fbWidth, fbHeight);
 
     std::vector<Node*> renderList;
@@ -295,6 +352,10 @@ void Scene::render()
 {
     if (!renderer_)
         return;
+
+    for (const auto& root : roots_)
+        if (!root->parent())
+            root->updateWorldTransform(Mat3x3::identity());
 
     std::vector<Node*> renderList;
     collectRenderList(renderList);

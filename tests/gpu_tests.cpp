@@ -10,6 +10,8 @@
 #include <stdexcept>
 #include <vectorgl/canvas.hpp>
 #include <vectorgl/color.hpp>
+#include <vectorgl/font.hpp>
+#include <vectorgl/image.hpp>
 #include <vectorgl/scene.hpp>
 #include <vectorgl/text_box.hpp>
 
@@ -445,6 +447,117 @@ int main()
             canvas.endFrame();
             if (glGetError() != GL_NO_ERROR)
                 result = fail("Unicode text or blur produced an OpenGL error");
+        }
+
+        if (result == 0)
+        {
+            using namespace vectorgl;
+            auto font = std::make_shared<Font>();
+            auto image = std::make_shared<Image>();
+            if (!font->load(VECTORGL_TEST_FONT, 32) || !image->load(VECTORGL_TEST_IMAGE))
+                result = fail("scene resources failed to load");
+            Scene scene(canvas.renderer());
+            TextLayoutOptions options;
+            options.maxWidth = 32;
+            options.align = TextAlign::Right;
+            options.wrap = TextWrap::Character;
+            auto label = scene.text("A\xCE\xA9", 64, 0, font, options);
+            label->setFill(Color::White);
+            label->setOpacity(0.5f);
+            auto tile = scene.image(image, 8, 64, 64, 64);
+            // render() must refresh transforms even without update().
+            glClearColor(0, 0, 0, 1);
+            glClear(GL_COLOR_BUFFER_BIT);
+            scene.render(canvas.renderer(), kFramebufferSize, kFramebufferSize);
+            glFinish();
+            const int textRed = readPixel(83, 20)[0];
+            if (textRed < 120 || textRed > 135 || readPixel(88, 68)[0] < 120)
+                result = fail("scene wrapped/aligned Unicode text or opacity incorrect");
+            else if (!pixelIs(readPixel(24, 80), 255, 0, 0) || !pixelIs(readPixel(56, 80), 0, 255, 0) ||
+                     !pixelIs(readPixel(24, 112), 0, 0, 255) || !pixelIs(readPixel(56, 112), 0, 0, 0))
+                result = fail("scene image colors, orientation or source alpha incorrect");
+            else if (scene.pick(56, 112) != tile || scene.pick(88, 68) != label)
+                result = fail("scene text/image bounds not picked, including transparent image pixels");
+            tile->setOpacity(0.5f);
+            label->setBlur(0);
+            glClear(GL_COLOR_BUFFER_BIT);
+            scene.render(canvas.renderer(), kFramebufferSize, kFramebufferSize);
+            glFinish();
+            if (readPixel(24, 80)[0] < 120 || readPixel(24, 80)[0] > 135 || readPixel(83, 20)[0] < 120)
+                result = fail("scene image opacity or text effect capture incorrect");
+            label->clearEffects();
+            auto group = scene.group();
+            group->setPosition(90, 100);
+            group->setRotation(0.4f);
+            group->setScale(-1, 0.7f);
+            tile->setPosition(0, 0);
+            tile->setRotation(0.3f);
+            tile->setOpacity(1);
+            group->addChild(tile);
+            scene.update(0);
+            const auto imagePoint = tile->worldTransform().transformPoint({-16, -16});
+            glClear(GL_COLOR_BUFFER_BIT);
+            scene.render(canvas.renderer(), kFramebufferSize, kFramebufferSize);
+            glFinish();
+            if (scene.pick(imagePoint.x, imagePoint.y) != tile ||
+                !pixelIs(readPixel(static_cast<int>(imagePoint.x), static_cast<int>(imagePoint.y)), 255, 0, 0))
+                result = fail("image parent affine transform disagrees with rendering/picking");
+            auto natural = scene.image(image, 0, 0);
+            if (natural->imageSize().x != 2 || natural->imageSize().y != 2 || natural->position().x != 1 ||
+                scene.pick(1, 1) != natural)
+                result = fail("image natural-size factory or top-left placement incorrect");
+            natural->setSize(-1, 2);
+            if (scene.pick(1, 1))
+                result = fail("negative image size was pickable");
+            scene.removeRoot(natural);
+            natural.reset();
+            auto cover = scene.rect(75, 10, 20, 30);
+            cover->setFill(Color::Blue);
+            cover->setZIndex(2);
+            glClear(GL_COLOR_BUFFER_BIT);
+            scene.render(canvas.renderer(), kFramebufferSize, kFramebufferSize);
+            glFinish();
+            if (scene.pick(83, 20) != cover || !pixelIs(readPixel(83, 20), 0, 0, 255))
+                result = fail("shape/text batch order disagrees with z-index");
+            cover->setZIndex(-2);
+            cover->setFill(Color::Black);
+            glClear(GL_COLOR_BUFFER_BIT);
+            scene.render(canvas.renderer(), kFramebufferSize, kFramebufferSize);
+            glFinish();
+            if (scene.pick(83, 20) != label || readPixel(83, 20)[0] < 120)
+                result = fail("text did not render/pick above an earlier shape");
+            scene.removeRoot(cover);
+            tile->setVisible(false);
+            // Draw through the bound-scene overload and remove every font owner
+            // before endFrame: the queued glyph batch must retain the font.
+            glClear(GL_COLOR_BUFFER_BIT);
+            canvas.beginFrame(kFramebufferSize, kFramebufferSize);
+            scene.render();
+            std::weak_ptr<Font> queuedFont = font;
+            font.reset();
+            label->setFont(nullptr);
+            scene.removeRoot(label);
+            label.reset();
+            if (queuedFont.expired())
+                result = fail("queued scene glyphs did not retain their font");
+            canvas.endFrame();
+            glFinish();
+            if (!queuedFont.expired() || readPixel(83, 20)[0] < 120)
+                result = fail("font release happened before draw or was retained after flush");
+            tile->setVisible(true);
+            if (scene.pick(imagePoint.x, imagePoint.y) != tile)
+                result = fail("image visibility toggle did not restore picking");
+            std::weak_ptr<Image> sharedImage = image;
+            image.reset();
+            if (sharedImage.expired())
+                result = fail("image node did not retain its shared resource");
+            tile->setImage(nullptr);
+            if (!sharedImage.expired())
+                result = fail("clearing image node leaked its resource");
+            if (scene.pick(imagePoint.x, imagePoint.y))
+                result = fail("missing image resource remained pickable");
+            if (glGetError() != GL_NO_ERROR)
+                result = fail("scene text/image rendering produced an OpenGL error");
         }
 
         canvas.destroy();

@@ -354,31 +354,8 @@ void Canvas::fillText(const std::string& text, float x, float y, const TextLayou
 {
     if (!activeFont_)
         return;
-    const auto layout = activeFont_->layoutText(text, options);
-    const auto& m = currentState_.transform.m;
-    const bool snap = currentState_.textPixelSnap && std::abs(m[1]) < 1e-5f && std::abs(m[3]) < 1e-5f &&
-                      std::abs(m[0]) > 1e-5f && std::abs(m[4]) > 1e-5f;
-    size_t index = 0;
-    for (const auto& line : layout.lines)
-    {
-        float offsetX = x, baseline = y + line.y + activeFont_->ascent();
-        if (snap)
-        {
-            const auto device = currentState_.transform.transformPoint({x + line.x, baseline});
-            offsetX += (std::round(device.x) - device.x) / m[0];
-            baseline += (std::round(device.y) - device.y) / m[4];
-        }
-        while (index < layout.glyphs.size() && layout.glyphs[index].y == line.y)
-        {
-            const auto& positioned = layout.glyphs[index++];
-            const auto* glyph = activeFont_->getGlyph(static_cast<int>(positioned.codepoint));
-            if (!glyph || glyph->width <= 0 || glyph->height <= 0)
-                continue;
-            renderer_.drawGlyph(offsetX + positioned.x + glyph->xoff, baseline + glyph->yoff, glyph->width,
-                                glyph->height, glyph->u0, glyph->v0, glyph->u1, glyph->v1, glyph->texture,
-                                currentState_.fillColor, currentState_.transform);
-        }
-    }
+    renderer_.drawText(*activeFont_, text, x, y, currentState_.fillColor, currentState_.transform, options,
+                       currentState_.textPixelSnap);
 }
 
 TextLayout Canvas::layoutText(const std::string& text, const TextLayoutOptions& options) const
