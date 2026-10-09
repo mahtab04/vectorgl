@@ -257,6 +257,13 @@ const exampleFlows = [
 
 const repoExampleCards = [
     {
+        title: "text_raster_demo.cpp",
+        text: "Build vectorgl_text_raster to compare SDF, FreeType hinted bitmap and Auto text at 12-32 px and 1x/1.5x/2x framebuffer scales.",
+        bullets: ["F2 toggles pixel snap; F3 switches the editable Unicode input mode.", "Coverage is grayscale, not LCD/ClearType. Layout metrics stay consistent."],
+        code: `canvas.setTextRenderingMode(vectorgl::TextRenderingMode::Auto);
+label->setTextRenderingMode(vectorgl::TextRenderingMode::Bitmap);`
+    },
+    {
         title: "text_layout_demo.cpp",
         text: "Build vectorgl_text_layout for Unicode input, kerning, wrapped alignment columns, text sizes/transforms and a sharp-versus-blur comparison. F2 toggles pixel snapping. Pass --font path/to/font.ttf to choose a font.",
         bullets: [
@@ -464,6 +471,7 @@ const apiReference = [
                     { signature: "void fillText(const std::string& text, float x, float y)", description: "Renders UTF-8 with font kerning and explicit line breaks. y is the line top; the baseline is y + ascent.", notes: ["Requires setFont() to succeed first.", "Glyphs load lazily into bounded SDF atlas pages."] },
                     { signature: "void fillText(const std::string& text, float x, float y, const TextLayoutOptions& options)", description: "Draws wrapped text with Left/Center/Right alignment and configurable line spacing." },
                     { signature: "TextLayout layoutText(const std::string& text, const TextLayoutOptions& options = {}) const", description: "Returns layout width/height, lines, glyph positions and UTF-8 caret byte boundaries without GL calls. TextLayoutOptions contains maxWidth, align, wrap (None/Word/Character) and lineSpacing." },
+                    { signature: "void setTextRenderingMode(TextRenderingMode mode)", description: "Auto uses light-hinted grayscale coverage for snapped, axis-aligned uniform text at 1-24 framebuffer px per em; larger/transformed text uses SDF. Bitmap permits up to 64 px, with fallback for unsupported transforms or unavailable coverage. Set after beginFrame; save/restore preserves it." },
                     { signature: "void setTextPixelSnap(bool enabled)", description: "Controls framebuffer snapping of whole line origins (default true), preserving fractional glyph advances. Rotated text is not snapped." },
                     { signature: "Image loadImage(const std::string& path)", description: "Convenience helper that loads a raster image from disk and returns an Image object." },
                     { signature: "void drawImage(const Image& img, float x, float y, float w = -1, float h = -1)", description: "Draws a raster image at the given destination. When width or height is -1 the original image size is used." },
@@ -654,6 +662,7 @@ const apiReference = [
             {
                 title: "Text and image content",
                 methods: [
+                    { signature: "void setTextRenderingMode(TextRenderingMode mode)", description: "Selects Auto (default), Sdf or Bitmap for scene text. Coverage and SDF keep identical layout metrics." },
                     { signature: "void setText(std::string text) / const std::string& text() const", description: "Changes or inspects UTF-8 content. Text size comes from the font and layout options, not setSize()." },
                     { signature: "void setFont(std::shared_ptr<Font> font) / const std::shared_ptr<Font>& font() const", description: "Shares a loaded font. Null/unloaded fonts skip rendering and picking. Keep the GL context current when releasing resources; flush before reloading or destroying a shared font in place." },
                     { signature: "void setTextLayout(const TextLayoutOptions& options) / TextLayout textLayout() const", description: "Controls wrapping, alignment and line spacing; measures without GL uploads. textLayoutOptions() returns the settings. Text uses fill and opacity; stroke is ignored." },
@@ -806,6 +815,8 @@ const apiReference = [
                     { signature: "const GlyphInfo* getGlyph(int codepoint) const", description: "Lazily uploads a Unicode glyph. Missing glyphs or a saturated cache use U+FFFD, '?', or .notdef. Requires a current GL context; returns nullptr if unloaded." },
                     { signature: "bool hasGlyph(uint32_t codepoint) const", description: "Tests actual font coverage without rasterizing." },
                     { signature: "float advance(uint32_t codepoint) const / float kerning(uint32_t left, uint32_t right) const", description: "Returns scaled font metrics without GL calls." },
+                    { signature: "const GlyphInfo* getBitmapGlyph(int cp, int pixelSize, int phaseX = 0) const", description: "Returns hinted grayscale coverage at 1-64 device pixels per em and quarter-pixel phase 0-3. Offsets/sizes are raster pixels; xadvance stays in logical units. Check GlyphInfo::sdf for fallback. All variants share the existing four-page/4096-entry cache limit." },
+                    { signature: "bool hasBitmapSupport() const / float emSize() const", description: "Checks loaded FreeType support or queries the logical em size. VECTORGL_ENABLE_HINTED_TEXT=OFF produces the original SDF-only build." },
                     { signature: "TextLayout layoutText(std::string_view text, const TextLayoutOptions& options = {}) const", description: "Measures and positions UTF-8 without rasterizing or uploading glyphs." },
                     { signature: "uint32_t atlasTexture() const", description: "Returns the first atlas page. Draw individual glyphs using GlyphInfo::texture." },
                     { signature: "std::size_t atlasPageCount() const / std::size_t glyphCacheSize() const", description: "Reports cache usage, bounded to four 1024x1024 R8 pages and 4096 distinct glyphs. Font-file bytes are retained for lazy rasterization." },

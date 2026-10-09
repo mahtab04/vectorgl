@@ -6,6 +6,9 @@ target_link_libraries(vectorgl_hit_testing PRIVATE vectorgl glfw)
 add_executable(vectorgl_text_layout text_layout_demo.cpp)
 target_link_libraries(vectorgl_text_layout PRIVATE vectorgl glfw)
 
+add_executable(vectorgl_text_raster text_raster_demo.cpp)
+target_link_libraries(vectorgl_text_raster PRIVATE vectorgl glfw)
+
 add_executable(vectorgl_scene_content scene_content_demo.cpp)
 target_link_libraries(vectorgl_scene_content PRIVATE vectorgl glfw)
 target_compile_definitions(vectorgl_scene_content PRIVATE

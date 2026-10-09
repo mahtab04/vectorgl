@@ -15,11 +15,13 @@ struct GlyphInfo
     float xoff, yoff, xadvance;
     float width, height;
     uint32_t texture = 0;
+    bool sdf = true;
 };
-/*! TrueType font with lazily rasterized Unicode SDF glyphs. Font data is retained
+/*! TrueType font with lazy Unicode SDF and hinted grayscale glyphs. Font data is retained
  * for metrics and rasterization. The cache is bounded to four 1024x1024 R8 pages
- * and 4096 distinct glyphs. Pages never relocate or evict queued glyphs.
- * Load, getGlyph and destruction require a current OpenGL context.
+ * and 4096 glyph variants (all coverage sizes/phases share this limit).
+ * Pages never relocate or evict queued glyphs. Load, glyph uploads and destruction
+ * require a current OpenGL context.
  */
 class Font
 {
@@ -40,6 +42,14 @@ public:
      * pointer stays valid until destroy/reload; use GlyphInfo::texture to draw.
      */
     [[nodiscard]] const GlyphInfo* getGlyph(int codepoint) const;
+    /*! Hinted grayscale coverage at an integer framebuffer em size in [1,64].
+     * phaseX is a quarter-pixel offset [0,3]. Bitmap offsets/sizes are in raster
+     * pixels; xadvance retains logical layout units. On failure returns an SDF
+     * glyph (check GlyphInfo::sdf). All variants share the existing cache limits.
+     */
+    [[nodiscard]] const GlyphInfo* getBitmapGlyph(int codepoint, int pixelSize, int phaseX = 0) const;
+    [[nodiscard]] bool hasBitmapSupport() const;
+    [[nodiscard]] float emSize() const;
     [[nodiscard]] bool hasGlyph(uint32_t codepoint) const;
     /*! Metrics and layout never allocate textures or upload glyphs. */
     [[nodiscard]] float advance(uint32_t codepoint) const;

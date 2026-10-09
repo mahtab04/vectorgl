@@ -308,6 +308,42 @@ words. Tabs advance by four spaces. `setTextPixelSnap(false)` enables fractional
 line origins; by default whole lines snap in framebuffer space, preserving
 fractional glyph advances. SDF coverage uses a one-pixel antialias band.
 
+Small, snapped, axis-aligned text uses FreeType light-hinted grayscale coverage
+by default at 1-24 framebuffer pixels per em. Larger text, rotation, reflection,
+shear, nonuniform scaling, and disabled pixel snapping use SDF. Uniform DPI
+scaling is included when choosing the raster size. Layout, kerning, wrapping
+and caret positions stay the same in both modes.
+
+```cpp
+// Set after beginFrame(); save()/restore() preserves this setting.
+canvas.setTextRenderingMode(vectorgl::TextRenderingMode::Auto); // default
+canvas.setTextRenderingMode(vectorgl::TextRenderingMode::Sdf);  // always SDF
+canvas.setTextRenderingMode(vectorgl::TextRenderingMode::Bitmap);
+label->setTextRenderingMode(vectorgl::TextRenderingMode::Bitmap); // scene text
+```
+
+`Bitmap` permits hinted coverage up to 64 framebuffer pixels per em for supported
+transforms; other transforms and unavailable coverage fall back to SDF. It rounds
+the raster em size and baseline to device pixels, with quarter-pixel horizontal
+phases to preserve fractional spacing. This is grayscale coverage, not LCD or
+Windows ClearType. All sizes/phases share the font's existing four-page,
+4096-entry cache limit; pages and UVs stay stable until font reload/destruction.
+
+FreeType 2.14.3 is fetched at configure time, built statically, and installed with
+VectorGL and its license notices. Use `-DVECTORGL_ENABLE_HINTED_TEXT=OFF` for the
+original SDF-only build; bitmap requests then fall back to SDF. Existing offline
+builds need one online configure to populate the new dependency.
+
+The [small-text comparison example](example/text_raster_demo.cpp),
+`vectorgl_text_raster`, compares SDF, hinted bitmap and Auto at 12-32 px and
+1x/1.5x/2x framebuffer scales. F2 toggles pixel snapping; F3 switches the editable
+16 px Unicode field's mode. It supports `--font path/to/font.ttf` and
+`--smoke-test --screenshot preview.bmp`.
+
+This software uses the FreeType library under the FreeType License (FTL).
+Portions of this software are copyright (C) 2026 The FreeType Project
+(https://freetype.org). All rights reserved.
+
 `TextBox` accepts Unicode typing and clipboard input. Arrow keys, selection,
 Backspace/Delete, scrolling, and pointer placement preserve UTF-8 codepoints.
 Selection indices are UTF-8 byte offsets; malformed input becomes U+FFFD and

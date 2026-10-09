@@ -560,6 +560,87 @@ int main()
                 result = fail("scene text/image rendering produced an OpenGL error");
         }
 
+        if (result == 0)
+        {
+            using namespace vectorgl;
+            auto font = std::make_shared<Font>();
+            if (!font->load(VECTORGL_TEST_FONT, 16) || !canvas.setFont(VECTORGL_TEST_FONT, 16))
+                result = fail("hinted rendering test font failed to load");
+            const auto shaderMode = []
+            {
+                GLint program = 0, mode = 0;
+                glGetIntegerv(GL_CURRENT_PROGRAM, &program);
+                glGetUniformiv(static_cast<GLuint>(program), glGetUniformLocation(static_cast<GLuint>(program), "uSDF"),
+                               &mode);
+                return mode;
+            };
+            const auto draw = [&](TextRenderingMode mode, const Mat3x3& transform, bool snap = true)
+            {
+                glClearColor(0, 0, 0, 1);
+                glClear(GL_COLOR_BUFFER_BIT);
+                canvas.beginFrame(kFramebufferSize, kFramebufferSize);
+                canvas.renderer().drawText(*font, "A", 10, 10, {1, 1, 1, 0.5f}, transform, {}, snap, mode);
+                canvas.endFrame();
+                glFinish();
+                return shaderMode();
+            };
+            const int bitmapMode = font->hasBitmapSupport() ? 2 : 1;
+            if (draw(TextRenderingMode::Auto, Mat3x3::identity()) != bitmapMode ||
+                draw(TextRenderingMode::Sdf, Mat3x3::identity()) != 1 ||
+                draw(TextRenderingMode::Bitmap, Mat3x3::identity()) != bitmapMode)
+                result = fail("automatic/explicit text rendering mode incorrect");
+            const auto center = readPixel(14, 21);
+            if (center[0] < 115 || center[0] > 140 || std::abs(int(center[0]) - int(center[1])) > 2 ||
+                std::abs(int(center[0]) - int(center[2])) > 2)
+                result = fail("bitmap R8 coverage did not produce white text at requested alpha");
+            if (draw(TextRenderingMode::Auto, Mat3x3::scaling(1.5f, 1.5f)) != bitmapMode ||
+                draw(TextRenderingMode::Auto, Mat3x3::scaling(2, 2)) != 1 ||
+                draw(TextRenderingMode::Bitmap, Mat3x3::scaling(2, 2)) != bitmapMode ||
+                draw(TextRenderingMode::Bitmap, Mat3x3::scaling(5, 5)) != 1 ||
+                draw(TextRenderingMode::Auto, Mat3x3::identity(), false) != 1 ||
+                draw(TextRenderingMode::Bitmap, Mat3x3::rotation(0.2f)) != 1 ||
+                draw(TextRenderingMode::Bitmap, Mat3x3::scaling(-1, 1)) != 1 ||
+                draw(TextRenderingMode::Bitmap, Mat3x3::scaling(1, 2)) != 1)
+                result = fail("bitmap mode did not account for framebuffer size or transform restrictions");
+            canvas.beginFrame(kFramebufferSize, kFramebufferSize);
+            canvas.setTextRenderingMode(TextRenderingMode::Sdf);
+            canvas.save();
+            canvas.setTextRenderingMode(TextRenderingMode::Bitmap);
+            canvas.restore();
+            canvas.setFillColor(Color::White);
+            canvas.fillText("A", 10, 10);
+            canvas.endFrame();
+            if (shaderMode() != 1 || std::abs(canvas.measureText("AV") - 17.6f) > 0.001f)
+                result = fail("Canvas save/restore lost rendering mode or changed layout metrics");
+            if (font->hasBitmapSupport())
+            {
+                const auto* sdf = font->getGlyph('A');
+                const auto* bitmap = font->getBitmapGlyph('A', 16);
+                DrawArraySpy spy;
+                canvas.beginFrame(kFramebufferSize, kFramebufferSize);
+                for (const auto* glyph : {sdf, bitmap, sdf})
+                    canvas.renderer().drawGlyph(10, 10, 20, 20, glyph->u0, glyph->v0, glyph->u1, glyph->v1,
+                                                glyph->texture, Color::White, Mat3x3::identity(), glyph->sdf);
+                canvas.endFrame();
+                if (drawArrayCalls != 3)
+                    result = fail("coverage/SDF mode transitions failed to split shared-atlas batches");
+            }
+            Scene scene(canvas.renderer());
+            auto label = scene.text("A", 10, 10, font);
+            label->setFill(Color::White);
+            label->setTextRenderingMode(TextRenderingMode::Bitmap);
+            label->setBlur(0);
+            glClearColor(0, 0, 0, 1);
+            glClear(GL_COLOR_BUFFER_BIT);
+            scene.render(canvas.renderer(), kFramebufferSize, kFramebufferSize);
+            glFinish();
+            if (readPixel(14, 21)[1] < 230 || readPixel(14, 100)[1] > 3)
+                result = fail("scene bitmap text effect flipped or lost coverage");
+            if (glGetError() != GL_NO_ERROR)
+                result = fail("bitmap text rendering produced an OpenGL error");
+            canvas.setTextRenderingMode(TextRenderingMode::Auto);
+        }
+
         canvas.destroy();
         if (canvas.renderer().isInitialized())
             result = fail("renderer stayed initialized after destroy");

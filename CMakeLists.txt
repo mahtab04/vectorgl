@@ -10,6 +10,7 @@ include(CMakePackageConfigHelpers)
 option(VECTORGL_BUILD_EXAMPLES "Build vectorgl example applications" ${PROJECT_IS_TOP_LEVEL})
 option(VECTORGL_BUILD_TESTS "Build vectorgl regression tests" ${PROJECT_IS_TOP_LEVEL})
 option(VECTORGL_BUILD_GPU_TESTS "Build OpenGL integration tests (requires GLFW and a display)" OFF)
+option(VECTORGL_ENABLE_HINTED_TEXT "Use FreeType for hinted small-text bitmap rendering" ON)
 
 add_subdirectory(include/PublicHeaders)
 add_subdirectory(include/InternalHeaders)
@@ -93,6 +94,10 @@ target_compile_definitions(vectorgl PRIVATE
 
 target_compile_features(vectorgl PUBLIC cxx_std_20)
 target_link_libraries(vectorgl PRIVATE ${CMAKE_DL_LIBS})
+if(VECTORGL_ENABLE_HINTED_TEXT)
+    target_link_libraries(vectorgl PRIVATE freetype)
+    target_compile_definitions(vectorgl PRIVATE VECTORGL_HAS_FREETYPE=1)
+endif()
 
 setup_clang_tooling(vectorgl)
 

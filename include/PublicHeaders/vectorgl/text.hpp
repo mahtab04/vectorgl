@@ -5,6 +5,17 @@
 
 namespace vectorgl
 {
+/*! Auto uses hinted bitmaps for snapped, axis-aligned text at up to 24 framebuffer
+ * pixels per em. Larger, rotated, reflected or nonuniformly scaled text uses SDF.
+ * Bitmap forces coverage rendering at up to 64 pixels per em; unsupported
+ * transforms, cache exhaustion or builds without FreeType fall back to SDF.
+ */
+enum class TextRenderingMode
+{
+    Auto,
+    Sdf,
+    Bitmap
+};
 enum class TextAlign
 {
     Left,

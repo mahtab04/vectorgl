@@ -319,6 +319,11 @@ public:
     /*! CPU-only layout; empty when no font is loaded. Text strokes are ignored. */
     TextLayout textLayout() const;
     void setTextPixelSnap(bool enabled);
+    void setTextRenderingMode(TextRenderingMode mode);
+    TextRenderingMode textRenderingMode() const
+    {
+        return textRenderingMode_;
+    }
     bool textPixelSnap() const
     {
         return textPixelSnap_;
@@ -380,6 +385,7 @@ private:
     std::shared_ptr<Font> font_;
     TextLayoutOptions textOptions_;
     bool textPixelSnap_ = true;
+    TextRenderingMode textRenderingMode_ = TextRenderingMode::Auto;
     std::shared_ptr<Image> image_;
     int zIndex_ = 0;
     bool visible_ = true;
