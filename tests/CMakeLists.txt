@@ -80,6 +80,19 @@ if(VECTORGL_BUILD_GPU_TESTS)
         set_tests_properties(vectorgl_scene_content_demo_smoke PROPERTIES TIMEOUT 15)
     endif()
     if(TARGET vectorgl_text_layout)
+        if(TARGET vectorgl_text_raster)
+            if(XVFB_RUN_EXECUTABLE)
+                add_test(NAME vectorgl_text_raster_demo_smoke
+                    COMMAND ${XVFB_RUN_EXECUTABLE} -a $<TARGET_FILE:vectorgl_text_raster>
+                        --smoke-test --font ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/box.ttf
+                )
+            else()
+                add_test(NAME vectorgl_text_raster_demo_smoke COMMAND vectorgl_text_raster
+                    --smoke-test --font ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/box.ttf
+                )
+            endif()
+            set_tests_properties(vectorgl_text_raster_demo_smoke PROPERTIES TIMEOUT 15)
+        endif()
         if(XVFB_RUN_EXECUTABLE)
             add_test(NAME vectorgl_text_layout_demo_smoke
                 COMMAND ${XVFB_RUN_EXECUTABLE} -a $<TARGET_FILE:vectorgl_text_layout>

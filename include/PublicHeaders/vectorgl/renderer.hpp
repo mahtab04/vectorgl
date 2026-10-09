@@ -169,7 +169,7 @@ public:
      *  @param[in] transform World transform matrix.
      */
     void drawGlyph(float x, float y, float w, float h, float u0, float v0, float u1, float v1, uint32_t texture,
-                   Color color, const Mat3x3& transform);
+                   Color color, const Mat3x3& transform, bool sdf = true);
 
     // --- FBO-based post-processing effects ---
 
@@ -212,7 +212,8 @@ public:
      * renderNode() retains shared node fonts automatically for queued glyphs.
      */
     void drawText(const Font& font, std::string_view text, float x, float y, Color color, const Mat3x3& transform,
-                  const TextLayoutOptions& options = {}, bool pixelSnap = true);
+                  const TextLayoutOptions& options = {}, bool pixelSnap = true,
+                  TextRenderingMode mode = TextRenderingMode::Auto);
 
     /*! @brief Returns the current framebuffer width in pixels. */
     int fbWidth() const;

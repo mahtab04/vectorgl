@@ -218,6 +218,7 @@ public:
     std::vector<SDFInstance> sdfBatch_;
     std::vector<float> glyphBatch_;
     uint32_t glyphTexture_ = 0;
+    bool glyphSdf_ = true;
     std::shared_ptr<Font> glyphFontOwner_;
 
     detail::GLVAO pathVAO_;
@@ -974,13 +975,14 @@ public:
     }
 
     void drawGlyph(float x, float y, float w, float h, float u0, float v0, float u1, float v1, uint32_t texture,
-                   Color color, const Mat3x3& transform)
+                   Color color, const Mat3x3& transform, bool sdf)
     {
         if (!sdfBatch_.empty())
             flushSDF();
-        if (glyphTexture_ != texture || glyphBatch_.size() >= 1024 * 48)
+        if (glyphTexture_ != texture || glyphSdf_ != sdf || glyphBatch_.size() >= 1024 * 48)
             flushGlyphs();
         glyphTexture_ = texture;
+        glyphSdf_ = sdf;
         Vec2 tl = transform.transformPoint({x, y});
         Vec2 tr = transform.transformPoint({x + w, y});
         Vec2 bl = transform.transformPoint({x, y + h});
@@ -995,7 +997,7 @@ public:
     }
 
     void drawText(const Font& font, std::string_view text, float x, float y, Color color, const Mat3x3& transform,
-                  const TextLayoutOptions& options, bool pixelSnap)
+                  const TextLayoutOptions& options, bool pixelSnap, TextRenderingMode mode)
     {
         if (!(color.a > 0))
             return;
@@ -1003,6 +1005,13 @@ public:
         const auto& m = transform.m;
         const bool snap = pixelSnap && std::abs(m[1]) < 1e-5f && std::abs(m[3]) < 1e-5f && std::abs(m[0]) > 1e-5f &&
                           std::abs(m[4]) > 1e-5f;
+        const float deviceEm = font.emSize() * m[0];
+        const bool bitmap = font.hasBitmapSupport() && mode != TextRenderingMode::Sdf && std::abs(m[1]) < 1e-5f &&
+                            std::abs(m[3]) < 1e-5f && m[0] > 1e-5f && m[4] > 1e-5f && std::abs(m[0] - m[4]) < 1e-5f &&
+                            std::isfinite(deviceEm) && deviceEm >= 1 &&
+                            deviceEm <= (mode == TextRenderingMode::Bitmap ? 64 : 24) &&
+                            (mode == TextRenderingMode::Bitmap || pixelSnap);
+        const int pixelSize = bitmap ? static_cast<int>(std::round(deviceEm)) : 0;
         size_t index = 0;
         for (const auto& line : layout.lines)
         {
@@ -1016,11 +1025,44 @@ public:
             while (index < layout.glyphs.size() && layout.glyphs[index].y == line.y)
             {
                 const auto& positioned = layout.glyphs[index++];
-                const auto* glyph = font.getGlyph(static_cast<int>(positioned.codepoint));
+                const auto device = transform.transformPoint({offsetX + positioned.x, baseline});
+                if (!std::isfinite(device.x) || !std::isfinite(device.y))
+                    continue;
+                float pixelX = std::floor(device.x);
+                int phase = 0;
+                if (bitmap && std::isfinite(device.x + device.y))
+                {
+                    phase = static_cast<int>(std::round((device.x - pixelX) * 4));
+                    if (phase == 4)
+                    {
+                        pixelX += 1;
+                        phase = 0;
+                    }
+                }
+                const auto* glyph = bitmap
+                                        ? font.getBitmapGlyph(static_cast<int>(positioned.codepoint), pixelSize, phase)
+                                        : font.getGlyph(static_cast<int>(positioned.codepoint));
                 if (!glyph || glyph->width <= 0 || glyph->height <= 0)
                     continue;
-                drawGlyph(offsetX + positioned.x + glyph->xoff, baseline + glyph->yoff, glyph->width, glyph->height,
-                          glyph->u0, glyph->v0, glyph->u1, glyph->v1, glyph->texture, color, transform);
+                float gx, gy, gw, gh;
+                if (!glyph->sdf)
+                {
+                    // Draw coverage at exactly one atlas texel per device pixel.
+                    // Quarter-pixel raster phases preserve fractional kerning.
+                    gx = (pixelX + glyph->xoff - m[6]) / m[0];
+                    gy = (std::round(device.y) + glyph->yoff - m[7]) / m[4];
+                    gw = glyph->width / m[0];
+                    gh = glyph->height / m[4];
+                }
+                else
+                {
+                    gx = offsetX + positioned.x + glyph->xoff;
+                    gy = baseline + glyph->yoff;
+                    gw = glyph->width;
+                    gh = glyph->height;
+                }
+                drawGlyph(gx, gy, gw, gh, glyph->u0, glyph->v0, glyph->u1, glyph->v1, glyph->texture, color, transform,
+                          glyph->sdf);
             }
         }
     }
@@ -1031,7 +1073,7 @@ public:
             return;
         glUseProgram(texturedProgram_);
         glUniform2f(texLoc_viewSize_, static_cast<float>(fbWidth_), static_cast<float>(fbHeight_));
-        glUniform1i(texLoc_sdf_, 1);
+        glUniform1i(texLoc_sdf_, glyphSdf_ ? 1 : 2);
         glUniform1i(texLoc_effect_, 0);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, glyphTexture_);
@@ -1169,8 +1211,8 @@ public:
                 flushGlyphs();
             Color color = style.fillColor;
             color.a *= style.opacity;
-            drawText(*font, node->text(), 0, 0, color, worldTransform, node->textLayoutOptions(),
-                     node->textPixelSnap());
+            drawText(*font, node->text(), 0, 0, color, worldTransform, node->textLayoutOptions(), node->textPixelSnap(),
+                     node->textRenderingMode());
             if (!glyphBatch_.empty())
                 glyphFontOwner_ = font;
             break;
@@ -1360,10 +1402,10 @@ void Renderer::drawTexturedQuad(float x, float y, float w, float h, uint32_t tex
 }
 
 void Renderer::drawGlyph(float x, float y, float w, float h, float u0, float v0, float u1, float v1, uint32_t texture,
-                         Color color, const Mat3x3& transform)
+                         Color color, const Mat3x3& transform, bool sdf)
 {
     impl_->requireFrame("drawGlyph()");
-    impl_->drawGlyph(x, y, w, h, u0, v0, u1, v1, texture, color, transform);
+    impl_->drawGlyph(x, y, w, h, u0, v0, u1, v1, texture, color, transform, sdf);
 }
 
 void Renderer::beginEffectPass(float x, float y, float w, float h)
@@ -1392,10 +1434,10 @@ void Renderer::applyGlow(float radius, Color color)
 }
 
 void Renderer::drawText(const Font& font, std::string_view text, float x, float y, Color color, const Mat3x3& transform,
-                        const TextLayoutOptions& options, bool pixelSnap)
+                        const TextLayoutOptions& options, bool pixelSnap, TextRenderingMode mode)
 {
     impl_->requireFrame("drawText()");
-    impl_->drawText(font, text, x, y, color, transform, options, pixelSnap);
+    impl_->drawText(font, text, x, y, color, transform, options, pixelSnap, mode);
 }
 
 void Renderer::renderNode(Node* node)

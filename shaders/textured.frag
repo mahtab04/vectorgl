@@ -21,6 +21,9 @@ void main() {
         float edge = 128.0 / 255.0;
         float alpha = smoothstep(edge - smoothing, edge + smoothing, d);
         fragColor = vec4(vColor.rgb, vColor.a * alpha);
+    } else if (uSDF == 2) {
+        // FreeType coverage is stored in the red channel of an R8 atlas.
+        fragColor = vec4(vColor.rgb, vColor.a * texel.r);
     } else {
         if (uEffectTexture == 1 && texel.a > 0.0)
             texel.rgb /= texel.a;

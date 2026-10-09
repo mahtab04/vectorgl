@@ -355,7 +355,7 @@ void Canvas::fillText(const std::string& text, float x, float y, const TextLayou
     if (!activeFont_)
         return;
     renderer_.drawText(*activeFont_, text, x, y, currentState_.fillColor, currentState_.transform, options,
-                       currentState_.textPixelSnap);
+                       currentState_.textPixelSnap, currentState_.textRenderingMode);
 }
 
 TextLayout Canvas::layoutText(const std::string& text, const TextLayoutOptions& options) const
@@ -366,6 +366,11 @@ TextLayout Canvas::layoutText(const std::string& text, const TextLayoutOptions& 
 void Canvas::setTextPixelSnap(bool enabled)
 {
     currentState_.textPixelSnap = enabled;
+}
+
+void Canvas::setTextRenderingMode(TextRenderingMode mode)
+{
+    currentState_.textRenderingMode = mode;
 }
 
 float Canvas::measureText(const std::string& text) const

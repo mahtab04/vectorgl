@@ -1,5 +1,10 @@
 @PACKAGE_INIT@
 
+if(@VECTORGL_ENABLE_HINTED_TEXT@)
+    include(CMakeFindDependencyMacro)
+    find_dependency(freetype CONFIG)
+endif()
+
 include("${CMAKE_CURRENT_LIST_DIR}/vectorglTargets.cmake")
 
 check_required_components(vectorgl)

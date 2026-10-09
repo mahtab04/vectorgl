@@ -268,6 +268,8 @@ public:
      * advances remain fractional to preserve kerning; rotated text is not snapped.
      */
     void setTextPixelSnap(bool enabled);
+    /*! Selects automatic, SDF or hinted bitmap text. Saved by save()/restore(). */
+    void setTextRenderingMode(TextRenderingMode mode);
 
     /*! @brief Measures the untransformed width of a text string using the active font.
      *
@@ -330,6 +332,7 @@ private:
         Color strokeColor{Color::Black};
         float lineWidth = 1.0f;
         bool textPixelSnap = true;
+        TextRenderingMode textRenderingMode = TextRenderingMode::Auto;
         Mat3x3 transform = Mat3x3::identity();
         ClipRect clip{};
         std::vector<Renderer::RoundedClip> roundedClips;

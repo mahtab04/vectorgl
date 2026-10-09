@@ -13,6 +13,11 @@
 #define STB_TRUETYPE_IMPLEMENTATION
 #include "stb_truetype.h"
 
+#ifdef VECTORGL_HAS_FREETYPE
+#include <ft2build.h>
+#include FT_FREETYPE_H
+#endif
+
 namespace vectorgl
 {
 namespace
@@ -83,7 +88,19 @@ struct Font::Impl
     std::vector<uint8_t> data;
     stbtt_fontinfo info{};
     std::vector<Page> pages;
-    std::unordered_map<int, GlyphInfo> glyphs;
+    std::unordered_map<uint64_t, GlyphInfo> glyphs;
+    float size = 0;
+#ifdef VECTORGL_HAS_FREETYPE
+    FT_Library library = nullptr;
+    FT_Face face = nullptr;
+    ~Impl()
+    {
+        if (face)
+            FT_Done_Face(face);
+        if (library)
+            FT_Done_FreeType(library);
+    }
+#endif
     float scale = 0, rasterScale = 0, displayScale = 1, lineHeight = 0, ascent = 0;
     int fallback = 0;
     bool saturated = false;
@@ -112,6 +129,98 @@ struct Font::Impl
         pages.push_back(std::move(page));
         return true;
     }
+    const GlyphInfo* storeBitmap(uint64_t key, GlyphInfo glyph, int width, int height, const uint8_t* bitmap)
+    {
+        Page* page = &pages.back();
+        if (page->x + width + 1 > atlasSize)
+        {
+            page->x = 1;
+            page->y += page->rowHeight + 1;
+            page->rowHeight = 0;
+        }
+        if (page->y + height + 1 > atlasSize)
+        {
+            if (!addPage())
+            {
+                saturated = pages.size() >= maxPages;
+                return nullptr;
+            }
+            page = &pages.back();
+        }
+        UploadState state;
+        glBindTexture(GL_TEXTURE_2D, page->texture.get());
+        glTexSubImage2D(GL_TEXTURE_2D, 0, page->x, page->y, width, height, GL_RED, GL_UNSIGNED_BYTE, bitmap);
+        glyph.texture = page->texture.get();
+        glyph.u0 = float(page->x) / atlasSize;
+        glyph.v0 = float(page->y) / atlasSize;
+        glyph.u1 = float(page->x + width) / atlasSize;
+        glyph.v1 = float(page->y + height) / atlasSize;
+        page->x += width + 1;
+        page->rowHeight = std::max(page->rowHeight, height);
+        return &glyphs.emplace(key, glyph).first->second;
+    }
+    const GlyphInfo* cacheBitmap(int index, int pixelSize, int phaseX)
+    {
+#ifdef VECTORGL_HAS_FREETYPE
+        if (!face)
+            return nullptr;
+        const uint64_t key =
+            uint64_t(index) | (uint64_t(1) << 32) | (uint64_t(pixelSize) << 33) | (uint64_t(phaseX) << 40);
+        if (auto it = glyphs.find(key); it != glyphs.end())
+            return &it->second;
+        if (saturated || glyphs.size() >= maxGlyphs)
+            return nullptr;
+        int x0, y0, x1, y1;
+        const float bitmapScale = stbtt_ScaleForMappingEmToPixels(&info, static_cast<float>(pixelSize));
+        stbtt_GetGlyphBitmapBox(&info, index, bitmapScale, bitmapScale, &x0, &y0, &x1, &y1);
+        if (x1 - x0 + 4 > atlasSize || y1 - y0 + 4 > atlasSize)
+            return nullptr;
+        if (FT_Set_Pixel_Sizes(face, 0, static_cast<FT_UInt>(pixelSize)))
+            return nullptr;
+        FT_Vector delta{phaseX * 16, 0};
+        FT_Set_Transform(face, nullptr, &delta);
+        if (FT_Load_Glyph(face, static_cast<FT_UInt>(index),
+                          FT_LOAD_NO_BITMAP | FT_LOAD_TARGET_LIGHT | FT_LOAD_FORCE_AUTOHINT) ||
+            FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL))
+            return nullptr;
+        const auto& source = face->glyph->bitmap;
+        GlyphInfo glyph{};
+        glyph.sdf = false;
+        glyph.xadvance = advanceForGlyph(index);
+        if (source.width == 0 || source.rows == 0)
+        {
+            glyph.texture = pages.front().texture.get();
+            return &glyphs.emplace(key, glyph).first->second;
+        }
+        if (source.pixel_mode != FT_PIXEL_MODE_GRAY || source.width + 4 > atlasSize || source.rows + 4 > atlasSize)
+            return nullptr;
+        // A transparent border prevents filtering from bleeding into neighbours.
+        const int width = static_cast<int>(source.width) + 2, height = static_cast<int>(source.rows) + 2;
+        std::vector<uint8_t> bitmap(size_t(width) * height, 0);
+        for (unsigned row = 0; row < source.rows; ++row)
+        {
+            const auto* pixels = source.buffer + (source.pitch >= 0 ? row : source.rows - 1 - row) *
+                                                     static_cast<size_t>(std::abs(source.pitch));
+            std::copy_n(pixels, source.width, bitmap.data() + size_t(row + 1) * width + 1);
+        }
+        glyph.xoff = static_cast<float>(face->glyph->bitmap_left - 1);
+        glyph.yoff = static_cast<float>(-face->glyph->bitmap_top - 1);
+        glyph.width = static_cast<float>(width);
+        glyph.height = static_cast<float>(height);
+        return storeBitmap(key, glyph, width, height, bitmap.data());
+#else
+        (void)index;
+        (void)pixelSize;
+        (void)phaseX;
+        return nullptr;
+#endif
+    }
+    float advanceForGlyph(int index) const
+    {
+        int advance, bearing;
+        stbtt_GetGlyphHMetrics(&info, index, &advance, &bearing);
+        return advance * scale;
+    }
     const GlyphInfo* cacheGlyph(int index)
     {
         if (auto it = glyphs.find(index); it != glyphs.end())
@@ -137,37 +246,11 @@ struct Font::Impl
             stbtt_GetGlyphSDF(&info, rasterScale, index, padding, 128, 16.0f, &width, &height, &xoff, &yoff), freeSdf);
         if (!bitmap || width + 2 > atlasSize || height + 2 > atlasSize)
             return nullptr;
-        Page* page = &pages.back();
-        if (page->x + width + 1 > atlasSize)
-        {
-            page->x = 1;
-            page->y += page->rowHeight + 1;
-            page->rowHeight = 0;
-        }
-        if (page->y + height + 1 > atlasSize)
-        {
-            if (!addPage())
-            {
-                saturated = pages.size() >= maxPages;
-                return nullptr;
-            }
-            page = &pages.back();
-        }
-        UploadState state;
-        glBindTexture(GL_TEXTURE_2D, page->texture.get());
-        glTexSubImage2D(GL_TEXTURE_2D, 0, page->x, page->y, width, height, GL_RED, GL_UNSIGNED_BYTE, bitmap.get());
-        glyph.texture = page->texture.get();
-        glyph.u0 = float(page->x) / atlasSize;
-        glyph.v0 = float(page->y) / atlasSize;
-        glyph.u1 = float(page->x + width) / atlasSize;
-        glyph.v1 = float(page->y + height) / atlasSize;
         glyph.xoff = xoff * displayScale;
         glyph.yoff = yoff * displayScale;
         glyph.width = width * displayScale;
         glyph.height = height * displayScale;
-        page->x += width + 1;
-        page->rowHeight = std::max(page->rowHeight, height);
-        return &glyphs.emplace(index, glyph).first->second;
+        return storeBitmap(static_cast<uint64_t>(index), glyph, width, height, bitmap.get());
     }
 };
 
@@ -193,6 +276,12 @@ bool Font::load(const std::string& path, float size)
     if (!file.read(reinterpret_cast<char*>(impl->data.data()), length) || !validDirectory(impl->data) ||
         !stbtt_InitFont(&impl->info, impl->data.data(), 0) || impl->info.cff.size > 0)
         return false;
+    impl->size = size;
+#ifdef VECTORGL_HAS_FREETYPE
+    if (!FT_Init_FreeType(&impl->library))
+        (void)FT_New_Memory_Face(impl->library, impl->data.data(), static_cast<FT_Long>(impl->data.size()), 0,
+                                 &impl->face);
+#endif
     const float internalSize = std::max(size, 64.0f);
     // Font sizes specify the em square, not the ascent/descent span. Using
     // ScaleForPixelHeight made e.g. Segoe UI's requested 12px only a 9px em.
@@ -225,6 +314,25 @@ const GlyphInfo* Font::getGlyph(int cp) const
     if (auto* glyph = impl_->cacheGlyph(impl_->glyphIndex(static_cast<uint32_t>(cp))))
         return glyph;
     return &impl_->glyphs.at(impl_->fallback);
+}
+const GlyphInfo* Font::getBitmapGlyph(int cp, int pixelSize, int phaseX) const
+{
+    if (impl_ && pixelSize >= 1 && pixelSize <= 64 && phaseX >= 0 && phaseX <= 3)
+        if (auto* glyph = impl_->cacheBitmap(impl_->glyphIndex(static_cast<uint32_t>(cp)), pixelSize, phaseX))
+            return glyph;
+    return getGlyph(cp);
+}
+bool Font::hasBitmapSupport() const
+{
+#ifdef VECTORGL_HAS_FREETYPE
+    return impl_ && impl_->face;
+#else
+    return false;
+#endif
+}
+float Font::emSize() const
+{
+    return impl_ ? impl_->size : 0;
 }
 bool Font::hasGlyph(uint32_t cp) const
 {

@@ -33,9 +33,13 @@ void GLAD_API_PTR bindTexture(GLenum, GLuint) {}
 void GLAD_API_PTR texImage2D(GLenum, GLint, GLint, GLsizei, GLsizei, GLint, GLenum, GLenum, const void*) {}
 void GLAD_API_PTR texParameteri(GLenum, GLenum, GLint) {}
 int uploads = 0;
-void GLAD_API_PTR texSubImage2D(GLenum, GLint, GLint, GLint, GLsizei, GLsizei, GLenum, GLenum, const void*)
+std::vector<uint8_t> uploadedCoverage;
+void GLAD_API_PTR texSubImage2D(GLenum, GLint, GLint, GLint, GLsizei width, GLsizei height, GLenum, GLenum,
+                                const void* pixels)
 {
     ++uploads;
+    const auto* bytes = static_cast<const uint8_t*>(pixels);
+    uploadedCoverage.assign(bytes, bytes + size_t(width) * height);
 }
 void GLAD_API_PTR getIntegerv(GLenum name, GLint* value)
 {
@@ -238,4 +242,50 @@ int main()
         expect(!scene.pick(point.x, point.y), "text without font is not picked");
     }
     expect(textures.empty(), "scene destruction releases font atlases");
+    {
+        Font font;
+        expect(font.load(VECTORGL_TEST_FONT, 16), "bitmap test font loads");
+        expectNear(font.emSize(), 16, 0.001f, "font exposes logical em size");
+        const auto* sdf = font.getGlyph('A');
+        expect(sdf && sdf->sdf, "direct getGlyph remains SDF for existing callers");
+        const auto* bitmap = font.getBitmapGlyph('A', 16);
+        if (font.hasBitmapSupport())
+        {
+            expect(bitmap && !bitmap->sdf && bitmap != sdf, "coverage and SDF variants have distinct cache entries");
+            expectNear(bitmap->xadvance, sdf->xadvance, 0.001f, "bitmap keeps logical layout advance");
+            expect(uploadedCoverage.front() == 0 && uploadedCoverage.back() == 0,
+                   "bitmap atlas has transparent filtering guards");
+            const auto count = uploads;
+            expect(font.getBitmapGlyph('A', 16) == bitmap && uploads == count, "bitmap cache hit does not upload");
+            const auto* fractional = font.getBitmapGlyph('A', 16, 1);
+            expect(fractional && !fractional->sdf && fractional != bitmap, "quarter-pixel phase has a stable variant");
+            expect(font.getBitmapGlyph('A', 24) != bitmap, "framebuffer em sizes have separate coverage");
+            expect(font.getBitmapGlyph(0x3A9, 16)->xadvance > bitmap->xadvance,
+                   "bitmap Unicode uses actual glyph metrics");
+            expect(font.getBitmapGlyph(0x10FFFF, 16) == font.getBitmapGlyph(0xFFFD, 16),
+                   "missing bitmap glyph uses the replacement outline");
+            expect(font.getBitmapGlyph(' ', 16)->width == 0, "empty bitmap glyph retains zero coverage");
+            const auto beforeLayout = uploads;
+            expectNear(font.layoutText("AV").width, 17.6f, 0.001f, "raster mode does not change kerning/layout");
+            expect(uploads == beforeLayout, "measurement does not rasterize coverage");
+            for (int cp = 0xE000; cp < 0xE100; ++cp)
+                for (int size : {12, 16, 20, 24})
+                    for (int phase = 0; phase < 4; ++phase)
+                        expect(font.getBitmapGlyph(cp, size, phase) != nullptr, "cache exhaustion has a fallback");
+            expect(font.glyphCacheSize() <= 4096 && font.atlasPageCount() <= 4,
+                   "all sizes/phases and SDF share one bounded cache");
+            expect(font.getBitmapGlyph('A', 16) == bitmap && !bitmap->sdf,
+                   "cache growth preserves coverage pointers/UVs");
+            const auto saturatedUploads = uploads;
+            for (int i = 0; i < 8; ++i)
+                (void)font.getBitmapGlyph(0xE0FF, 24, 3);
+            expect(uploads == saturatedUploads, "full bitmap cache does not repeatedly allocate/upload");
+        }
+        else
+            expect(bitmap == sdf, "builds without FreeType fall back to existing SDF");
+        expect(font.getBitmapGlyph('A', 0)->sdf && font.getBitmapGlyph('A', 65)->sdf &&
+                   font.getBitmapGlyph('A', 16, 4)->sdf,
+               "unsupported bitmap parameters fall back safely");
+    }
+    expect(textures.empty(), "bitmap and SDF pages released exactly once");
 }

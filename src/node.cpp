@@ -252,6 +252,12 @@ void Node::setTextPixelSnap(bool enabled)
     markDirty(DirtyFlag::GeometryDirty);
 }
 
+void Node::setTextRenderingMode(TextRenderingMode mode)
+{
+    textRenderingMode_ = mode;
+    markDirty(DirtyFlag::GeometryDirty);
+}
+
 void Node::setImage(std::shared_ptr<Image> image)
 {
     image_ = std::move(image);
