@@ -1,5 +1,8 @@
 add_executable(vectorgl_example main.cpp)
 
+add_executable(vectorgl_large_scene large_scene_demo.cpp)
+target_link_libraries(vectorgl_large_scene PRIVATE vectorgl glfw)
+
 add_executable(vectorgl_hit_testing hit_testing_demo.cpp)
 target_link_libraries(vectorgl_hit_testing PRIVATE vectorgl glfw)
 

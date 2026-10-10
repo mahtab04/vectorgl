@@ -44,6 +44,46 @@ It also includes an SVG loader, TrueType font rendering, and a post-processing e
 | **Paint System** | Solid colors, linear/radial gradients, and texture patterns. |
 | **Nested Clipping** | Transformed rectangular and rounded clipping with intersection, reset, and automatic `save()` / `restore()` state. |
 
+## Large scenes and rendering statistics
+
+Build and run [`vectorgl_large_scene`](example/large_scene_demo.cpp) to explore
+10,000 tiles and 16 text labels. Drag to pan, use the wheel to zoom, press **C**
+to toggle viewport culling, **L** to clear scene layouts each frame, and **R**
+to reset. Pass `--font path/to/font.ttf` to choose a font. The HUD reports CPU
+scene submission time, draw calls, streamed buffer bytes, culled nodes and
+layout cache hits/misses. CPU submission time excludes presentation and does
+not measure GPU execution time. The HUD's own drawing is excluded from these
+scene measurements.
+
+```cpp
+scene.render();                    // Within an active Canvas frame
+canvas.renderer().flush();         // Include pending batches in counters
+const auto stats = canvas.renderer().frameStats();
+canvas.renderer().setViewportCulling(false); // Compare against the baseline
+```
+
+Counters reset at `beginFrame()` and remain available after `endFrame()`.
+Draw calls include clipping masks and effects; upload bytes count streamed
+vertex/instance buffers, excluding glyph/image texture uploads. Rendered nodes
+means submissions retained after culling, including missing-resource nodes.
+
+Scene SDF shapes and images are conservatively culled against the framebuffer,
+including transformed quad bounds and SDF stroke/antialias padding. Text,
+paths, effect-bearing nodes, and nonfinite/unsupported bounds are retained.
+Culling does not affect picking or direct Canvas primitive draws. Scene render
+lists reuse their allocation, but rebuild and sort each frame to observe edits.
+
+Canvas and scene text drawing share an immutable layout cache owned by each
+font: at most 32 entries and 2 MiB of accounted text/layout storage. Keys include
+text, wrapping width/mode, alignment and line spacing. Layout metrics stay
+independent of transforms and bitmap/SDF mode; reload/destroy invalidates the
+cache. Oversized inputs/layouts are computed without retention. Call
+`font.layoutCacheStats()` or `font.clearLayoutCache()` to inspect/reset it.
+`cachedLayoutText()` returns shared immutable layouts; externally retained
+layouts survive eviction and are outside the cache budget. Allocator bookkeeping
+is outside the accounted byte limit. Font caches require external synchronization
+if accessed from multiple threads.
+
 ---
 
 ## 📋 Requirements

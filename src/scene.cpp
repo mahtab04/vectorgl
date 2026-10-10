@@ -330,7 +330,8 @@ void Scene::render(Renderer& renderer, int fbWidth, int fbHeight)
             root->updateWorldTransform(Mat3x3::identity());
     renderer.beginFrame(fbWidth, fbHeight);
 
-    std::vector<Node*> renderList;
+    renderList_.clear();
+    auto& renderList = renderList_;
     collectRenderList(renderList);
 
     // Sort by z-index
@@ -357,7 +358,8 @@ void Scene::render()
         if (!root->parent())
             root->updateWorldTransform(Mat3x3::identity());
 
-    std::vector<Node*> renderList;
+    renderList_.clear();
+    auto& renderList = renderList_;
     collectRenderList(renderList);
 
     std::stable_sort(renderList.begin(), renderList.end(),

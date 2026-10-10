@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <fstream>
+#include <list>
 #include <unordered_map>
 #include <vector>
 
@@ -89,6 +90,15 @@ struct Font::Impl
     stbtt_fontinfo info{};
     std::vector<Page> pages;
     std::unordered_map<uint64_t, GlyphInfo> glyphs;
+    struct LayoutEntry
+    {
+        std::string text;
+        TextLayoutOptions options;
+        std::shared_ptr<const TextLayout> layout;
+        std::size_t bytes;
+    };
+    std::list<LayoutEntry> layouts;
+    LayoutCacheStats layoutStats;
     float size = 0;
 #ifdef VECTORGL_HAS_FREETYPE
     FT_Library library = nullptr;
@@ -253,6 +263,59 @@ struct Font::Impl
         return storeBitmap(static_cast<uint64_t>(index), glyph, width, height, bitmap.get());
     }
 };
+
+std::shared_ptr<const TextLayout> Font::cachedLayoutText(std::string_view text, const TextLayoutOptions& options) const
+{
+    constexpr std::size_t budget = 2 * 1024 * 1024;
+    if (impl_)
+    {
+        for (auto it = impl_->layouts.begin(); it != impl_->layouts.end(); ++it)
+            if (it->text == text && it->options.maxWidth == options.maxWidth && it->options.align == options.align &&
+                it->options.wrap == options.wrap && it->options.lineSpacing == options.lineSpacing)
+            {
+                ++impl_->layoutStats.hits;
+                auto layout = it->layout;
+                impl_->layouts.splice(impl_->layouts.begin(), impl_->layouts, it);
+                return layout;
+            }
+        ++impl_->layoutStats.misses;
+    }
+    auto layout = std::make_shared<const TextLayout>(layoutText(text, options));
+    if (!impl_ || text.size() > 65536)
+        return layout;
+    std::size_t bytes = sizeof(Impl::LayoutEntry) + sizeof(TextLayout) + layout->glyphs.capacity() * sizeof(TextGlyph) +
+                        layout->lines.capacity() * sizeof(TextLine);
+    for (const auto& line : layout->lines)
+        bytes += line.carets.capacity() * sizeof(TextCaret);
+    std::string key(text);
+    bytes += key.capacity() + 1;
+    if (bytes > budget)
+        return layout;
+    // Insert first so allocation failure cannot discard otherwise valid entries.
+    impl_->layouts.push_front({std::move(key), options, layout, bytes});
+    impl_->layoutStats.bytes += bytes;
+    while (impl_->layouts.size() > 32 || impl_->layoutStats.bytes > budget)
+    {
+        impl_->layoutStats.bytes -= impl_->layouts.back().bytes;
+        impl_->layouts.pop_back();
+    }
+    impl_->layoutStats.entries = impl_->layouts.size();
+    return layout;
+}
+
+Font::LayoutCacheStats Font::layoutCacheStats() const
+{
+    return impl_ ? impl_->layoutStats : LayoutCacheStats{};
+}
+
+void Font::clearLayoutCache() const
+{
+    if (impl_)
+    {
+        impl_->layouts.clear();
+        impl_->layoutStats = {};
+    }
+}
 
 Font::Font() = default;
 Font::~Font() = default;

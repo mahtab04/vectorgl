@@ -288,4 +288,56 @@ int main()
                "unsupported bitmap parameters fall back safely");
     }
     expect(textures.empty(), "bitmap and SDF pages released exactly once");
+    {
+        Font font;
+        expect(font.load(VECTORGL_TEST_FONT, 16), "layout cache font loads");
+        const auto uploadsBefore = uploads;
+        const auto first = font.cachedLayoutText("AV");
+        expect(first == font.cachedLayoutText("AV"), "cache hits reuse immutable layouts without copying");
+        expectNear(first->width, font.layoutText("AV").width, 0.001f, "cached layout preserves kerning");
+        TextLayoutOptions options;
+        options.maxWidth = 40;
+        auto variant = font.cachedLayoutText("AV", options);
+        expect(variant != first, "width participates in cache key");
+        options.align = TextAlign::Center;
+        auto centered = font.cachedLayoutText("AV", options);
+        expect(centered != variant && centered->lines.front().x > 0, "alignment participates in cache key");
+        options.wrap = TextWrap::Character;
+        expect(font.cachedLayoutText("AV", options) != centered, "wrap mode participates in cache key");
+        options.lineSpacing = 2;
+        auto spaced = font.cachedLayoutText("AV", options);
+        expect(font.cachedLayoutText("AV", options) == spaced, "line spacing cache hit");
+        for (int i = 0; i < 64; ++i)
+            (void)font.cachedLayoutText("label" + std::to_string(i));
+        expect(font.layoutCacheStats().entries == 32, "entry limit evicts old layouts");
+        const auto recent = font.cachedLayoutText("label32");
+        (void)font.cachedLayoutText("new label");
+        expect(font.cachedLayoutText("label32") == recent, "hit refreshes LRU recency before eviction");
+        expectNear(first->width, 17.6f, 0.001f, "caller-held layout survives eviction");
+        expect(font.cachedLayoutText("AV") != first, "evicted layout is recomputed");
+        std::weak_ptr<const TextLayout> retained = font.cachedLayoutText("cache-only label");
+        expect(!retained.expired(), "cache retains immutable layout ownership");
+        font.clearLayoutCache();
+        expect(retained.expired(), "clear releases layouts with no external owners");
+        expect(font.layoutCacheStats().entries == 0 && font.layoutCacheStats().bytes == 0 &&
+                   font.layoutCacheStats().hits == 0,
+               "clear releases cache and resets counters");
+        for (int i = 0; i < 16; ++i)
+            (void)font.cachedLayoutText(std::string(12000, 'A') + std::to_string(i));
+        expect(font.layoutCacheStats().bytes <= 2 * 1024 * 1024 && font.layoutCacheStats().entries < 16,
+               "byte budget evicts large layouts before entry limit");
+        const auto entries = font.layoutCacheStats().entries;
+        (void)font.cachedLayoutText(std::string(65537, 'A'));
+        expect(font.layoutCacheStats().entries == entries, "oversized text bypasses retention");
+        expect(uploads == uploadsBefore, "layout cache never uploads glyphs");
+        Font moved = std::move(font);
+        expect(moved.layoutCacheStats().entries == entries && font.layoutCacheStats().entries == 0,
+               "cache follows font move ownership");
+        expect(moved.load(VECTORGL_TEST_FONT, 24), "cached font reload succeeds");
+        expect(moved.layoutCacheStats().entries == 0, "font reload invalidates cached metrics");
+        expect(moved.cachedLayoutText("AV")->width > first->width, "reloaded font uses new metrics");
+        moved.destroy();
+        expectNear(first->width, 17.6f, 0.001f, "logical layouts survive font destruction");
+    }
+    expect(textures.empty(), "layout cache owns no GPU resources");
 }

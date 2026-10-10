@@ -238,6 +238,8 @@ public:
     bool effectCaptured_ = false;
     bool initialized_ = false;
     bool frameActive_ = false;
+    FrameStats stats_;
+    bool viewportCulling_ = true;
     bool effectPassActive_ = false;
 
     int fbWidth_ = 0;
@@ -513,6 +515,7 @@ public:
         if (fbWidth <= 0 || fbHeight <= 0)
             throw std::invalid_argument("Renderer::beginFrame() requires positive framebuffer dimensions");
 
+        stats_ = {};
         frameActive_ = true;
         fbWidth_ = fbWidth;
         fbHeight_ = fbHeight;
@@ -723,8 +726,11 @@ public:
         glUniform2f(sdfLoc_viewSize_, static_cast<float>(fbWidth_), static_cast<float>(fbHeight_));
         glBindVertexArray(sdfVAO_);
         glBindBuffer(GL_ARRAY_BUFFER, sdfInstanceVBO_);
+        stats_.bufferUploadBytes += static_cast<GLsizeiptr>(sdfBatch_.size() * sizeof(SDFInstance));
         glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(sdfBatch_.size() * sizeof(SDFInstance)), sdfBatch_.data(),
                      GL_STREAM_DRAW);
+        ++stats_.drawCalls;
+        stats_.sdfInstances += sdfBatch_.size();
         glDrawArraysInstanced(GL_TRIANGLES, 0, 6, static_cast<GLsizei>(sdfBatch_.size()));
         glBindVertexArray(0);
         sdfBatch_.clear();
@@ -775,8 +781,10 @@ public:
         glUniform1i(pathLoc_paintType_, 0); // solid color
         glBindVertexArray(pathVAO_);
         glBindBuffer(GL_ARRAY_BUFFER, pathVBO_);
+        stats_.bufferUploadBytes += static_cast<GLsizeiptr>(buffer.size() * sizeof(float));
         glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(buffer.size() * sizeof(float)), buffer.data(),
                      GL_STREAM_DRAW);
+        ++stats_.drawCalls;
         glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(buffer.size() / 7));
         glBindVertexArray(0);
     }
@@ -877,8 +885,10 @@ public:
 
         glBindVertexArray(pathVAO_);
         glBindBuffer(GL_ARRAY_BUFFER, pathVBO_);
+        stats_.bufferUploadBytes += static_cast<GLsizeiptr>(buffer.size() * sizeof(float));
         glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(buffer.size() * sizeof(float)), buffer.data(),
                      GL_STREAM_DRAW);
+        ++stats_.drawCalls;
         glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(buffer.size() / 7));
         glBindVertexArray(0);
 
@@ -941,8 +951,10 @@ public:
         glUniform1i(pathLoc_paintType_, 0); // solid color
         glBindVertexArray(pathVAO_);
         glBindBuffer(GL_ARRAY_BUFFER, pathVBO_);
+        stats_.bufferUploadBytes += static_cast<GLsizeiptr>(buffer.size() * sizeof(float));
         glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(buffer.size() * sizeof(float)), buffer.data(),
                      GL_STREAM_DRAW);
+        ++stats_.drawCalls;
         glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(buffer.size() / 7));
         glBindVertexArray(0);
     }
@@ -969,7 +981,9 @@ public:
         glUniform1i(texLoc_texture_, 0);
         glBindVertexArray(texVAO_);
         glBindBuffer(GL_ARRAY_BUFFER, texVBO_);
+        stats_.bufferUploadBytes += sizeof(buffer);
         glBufferData(GL_ARRAY_BUFFER, sizeof(buffer), buffer, GL_STREAM_DRAW);
+        ++stats_.drawCalls;
         glDrawArrays(GL_TRIANGLES, 0, 6);
         glBindVertexArray(0);
     }
@@ -1001,7 +1015,12 @@ public:
     {
         if (!(color.a > 0))
             return;
-        const auto layout = font.layoutText(text, options);
+        const auto before = font.layoutCacheStats();
+        const auto retained = font.cachedLayoutText(text, options);
+        const auto after = font.layoutCacheStats();
+        stats_.textLayoutHits += after.hits - before.hits;
+        stats_.textLayoutMisses += after.misses - before.misses;
+        const auto& layout = *retained;
         const auto& m = transform.m;
         const bool snap = pixelSnap && std::abs(m[1]) < 1e-5f && std::abs(m[3]) < 1e-5f && std::abs(m[0]) > 1e-5f &&
                           std::abs(m[4]) > 1e-5f;
@@ -1080,8 +1099,11 @@ public:
         glUniform1i(texLoc_texture_, 0);
         glBindVertexArray(texVAO_);
         glBindBuffer(GL_ARRAY_BUFFER, texVBO_);
+        stats_.bufferUploadBytes += static_cast<GLsizeiptr>(glyphBatch_.size() * sizeof(float));
         glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(glyphBatch_.size() * sizeof(float)), glyphBatch_.data(),
                      GL_STREAM_DRAW);
+        ++stats_.drawCalls;
+        stats_.glyphQuads += glyphBatch_.size() / 48;
         glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(glyphBatch_.size() / 8));
         glBindVertexArray(0);
         glyphBatch_.clear();
@@ -1109,6 +1131,7 @@ public:
         glClear(GL_COLOR_BUFFER_BIT);
         effectCaptured_ = true;
         effectPassActive_ = true;
+        ++stats_.effectPasses;
     }
 
     void endEffectPass()
@@ -1145,12 +1168,15 @@ public:
         glUniform1i(blurLoc_texture_, 0);
         glBindVertexArray(blurVAO_);
         glBindBuffer(GL_ARRAY_BUFFER, blurVBO_);
+        stats_.bufferUploadBytes += sizeof(quad);
         glBufferData(GL_ARRAY_BUFFER, sizeof(quad), quad, GL_STREAM_DRAW);
+        ++stats_.drawCalls;
         glDrawArrays(GL_TRIANGLES, 0, 6);
         glBindFramebuffer(GL_FRAMEBUFFER, effectFBO_);
         glClear(GL_COLOR_BUFFER_BIT);
         glUniform2f(blurLoc_direction_, 0.0f, 1.0f);
         glBindTexture(GL_TEXTURE_2D, effectTexture2_);
+        ++stats_.drawCalls;
         glDrawArrays(GL_TRIANGLES, 0, 6);
         glBindVertexArray(0);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -1267,10 +1293,59 @@ public:
         }
     }
 
+    bool outsideViewport(const Node& node) const
+    {
+        if (!viewportCulling_ || effectPassActive_ || node.hasEffects())
+            return false;
+        const auto& transform = node.worldTransform();
+        for (float value : transform.m)
+            if (!std::isfinite(value))
+                return false;
+        float ex = 0, ey = 0;
+        if (node.type() == ShapeType::Image)
+        {
+            const auto size = node.imageSize();
+            if (!(size.x >= 0 && size.y >= 0) || !std::isfinite(size.x + size.y))
+                return false;
+            ex = (std::abs(transform.m[0]) * size.x + std::abs(transform.m[3]) * size.y) * 0.5f;
+            ey = (std::abs(transform.m[1]) * size.x + std::abs(transform.m[4]) * size.y) * 0.5f;
+        }
+        else if (node.type() == ShapeType::Rect || node.type() == ShapeType::RoundedRect ||
+                 node.type() == ShapeType::Circle || node.type() == ShapeType::Ellipse)
+        {
+            const auto size = node.size();
+            const auto components = decomposeTransform(transform);
+            const float stroke = node.style().strokeWidth;
+            if (!(size.x >= 0 && size.y >= 0 && stroke >= 0) || !std::isfinite(size.x + size.y + stroke))
+                return false;
+            // Match sdf.vert's expanded quad and the renderer's decomposition,
+            // rather than affine bounds (which differ for sheared SDF shapes).
+            const float padding = stroke * 0.5f * (components.scaleX + components.scaleY) + 2;
+            const float hx = size.x * components.scaleX * 0.5f + padding;
+            const float hy = (node.type() == ShapeType::Circle ? size.x : size.y) * components.scaleY * 0.5f + padding;
+            const float c = std::abs(std::cos(components.rotation)), s = std::abs(std::sin(components.rotation));
+            ex = c * hx + s * hy;
+            ey = s * hx + c * hy;
+        }
+        else
+            return false;
+        const float x = transform.m[6], y = transform.m[7];
+        if (!std::isfinite(ex + ey + x + y))
+            return false;
+        return x + ex < 0 || y + ey < 0 || x - ex > fbWidth_ || y - ey > fbHeight_;
+    }
+
     void renderNode(Node* node)
     {
         if (!node || !node->visible())
             return;
+        ++stats_.nodesSubmitted;
+        if (outsideViewport(*node))
+        {
+            ++stats_.nodesCulled;
+            return;
+        }
+        ++stats_.nodesRendered;
 
         if (!node->hasEffects() || fbWidth_ <= 0 || fbHeight_ <= 0)
         {
@@ -1449,6 +1524,21 @@ void Renderer::renderNode(Node* node)
 bool Renderer::isInitialized() const noexcept
 {
     return impl_ && impl_->initialized_;
+}
+
+Renderer::FrameStats Renderer::frameStats() const noexcept
+{
+    return impl_ ? impl_->stats_ : FrameStats{};
+}
+
+void Renderer::setViewportCulling(bool enabled)
+{
+    impl_->viewportCulling_ = enabled;
+}
+
+bool Renderer::viewportCulling() const noexcept
+{
+    return impl_ && impl_->viewportCulling_;
 }
 
 bool Renderer::isFrameActive() const noexcept

@@ -167,6 +167,8 @@ private:
     std::vector<std::shared_ptr<Node>> roots_;
     Animator animator_;
     Renderer* renderer_ = nullptr;
+    // Reuse allocation; rebuild and sort each frame to observe all node edits.
+    std::vector<Node*> renderList_;
 
     void collectNodes(Node* node, std::vector<Node*>& outList);
 };

@@ -31,6 +31,20 @@ if(WIN32)
 endif()
 
 if(VECTORGL_BUILD_GPU_TESTS)
+    if(TARGET vectorgl_large_scene)
+        if(UNIX AND NOT APPLE)
+            find_program(XVFB_RUN_EXECUTABLE NAMES xvfb-run)
+        endif()
+        if(XVFB_RUN_EXECUTABLE)
+            add_test(NAME vectorgl_large_scene_demo_smoke
+                COMMAND ${XVFB_RUN_EXECUTABLE} -a $<TARGET_FILE:vectorgl_large_scene>
+                    --smoke-test --font ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/box.ttf)
+        else()
+            add_test(NAME vectorgl_large_scene_demo_smoke COMMAND vectorgl_large_scene
+                --smoke-test --font ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/box.ttf)
+        endif()
+        set_tests_properties(vectorgl_large_scene_demo_smoke PROPERTIES TIMEOUT 30)
+    endif()
     if(NOT TARGET glfw)
         message(FATAL_ERROR "VECTORGL_BUILD_GPU_TESTS requires the GLFW target")
     endif()
