@@ -55,6 +55,22 @@ public:
     [[nodiscard]] float advance(uint32_t codepoint) const;
     [[nodiscard]] float kerning(uint32_t left, uint32_t right) const;
     [[nodiscard]] TextLayout layoutText(std::string_view text, const TextLayoutOptions& options = {}) const;
+    /*! Reuses immutable logical layouts across Canvas/Scene draws. Per-font LRU
+     * retains at most 32 entries and 2 MiB of accounted text/layout storage.
+     * Oversized input/layouts bypass retention; invalid options throw. Returned
+     * shared layouts survive eviction/reload; caller-held layouts are outside
+     * the cache budget. No GL calls; like Font's glyph cache, not thread safe.
+     */
+    [[nodiscard]] std::shared_ptr<const TextLayout> cachedLayoutText(std::string_view text,
+                                                                     const TextLayoutOptions& options = {}) const;
+    struct LayoutCacheStats
+    {
+        uint64_t hits = 0, misses = 0;
+        std::size_t entries = 0, bytes = 0;
+    };
+    [[nodiscard]] LayoutCacheStats layoutCacheStats() const;
+    /*! Releases retained layouts and resets counters. Does not touch glyphs. */
+    void clearLayoutCache() const;
     /*! First atlas page; individual glyphs can live on other pages. */
     [[nodiscard]] uint32_t atlasTexture() const;
     [[nodiscard]] std::size_t atlasPageCount() const;

@@ -243,7 +243,7 @@ void Node::setTextLayout(const TextLayoutOptions& options)
 
 TextLayout Node::textLayout() const
 {
-    return font_ ? font_->layoutText(text_, textOptions_) : TextLayout{};
+    return font_ ? *font_->cachedLayoutText(text_, textOptions_) : TextLayout{};
 }
 
 void Node::setTextPixelSnap(bool enabled)

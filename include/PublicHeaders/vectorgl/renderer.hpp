@@ -22,6 +22,27 @@ namespace vectorgl
 class Renderer
 {
 public:
+    /*! CPU-side counters for the current/last frame, reset by beginFrame().
+     * Draw calls include stencil and effect work. Upload bytes count streamed
+     * vertex/instance buffers, not textures. Pending batches count on flush.
+     * Node counters include visible renderNode submissions: rendered means
+     * retained after culling, including nodes without drawable resources.
+     */
+    struct FrameStats
+    {
+        uint64_t drawCalls = 0, bufferUploadBytes = 0;
+        uint64_t sdfInstances = 0, glyphQuads = 0, effectPasses = 0;
+        uint64_t nodesSubmitted = 0, nodesRendered = 0, nodesCulled = 0;
+        uint64_t textLayoutHits = 0, textLayoutMisses = 0;
+    };
+    [[nodiscard]] FrameStats frameStats() const noexcept;
+    /*! Conservative framebuffer culling for scene SDF shapes and images.
+     * Enabled by default. Paths, text, effects and nonfinite bounds are retained.
+     * Does not affect direct Canvas primitives or picking.
+     */
+    void setViewportCulling(bool enabled);
+    [[nodiscard]] bool viewportCulling() const noexcept;
+
     struct RoundedClip
     {
         Vec2 position{};

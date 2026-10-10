@@ -8,6 +8,7 @@
 #include <exception>
 #include <iostream>
 #include <stdexcept>
+#include <vector>
 #include <vectorgl/canvas.hpp>
 #include <vectorgl/color.hpp>
 #include <vectorgl/font.hpp>
@@ -639,6 +640,85 @@ int main()
             if (glGetError() != GL_NO_ERROR)
                 result = fail("bitmap text rendering produced an OpenGL error");
             canvas.setTextRenderingMode(TextRenderingMode::Auto);
+        }
+
+        if (result == 0)
+        {
+            using namespace vectorgl;
+            Scene scene(canvas.renderer());
+            auto group = scene.group();
+            group->setPosition(12, 5);
+            group->setScale(-1.1f, 0.8f);
+            group->setRotation(0.2f);
+            auto rotated = scene.roundedRect(-60, 25, 42, 24, 5);
+            rotated->setFill(Color::Green);
+            rotated->setRotation(0.7f); // Nonuniform parent scale introduces shear.
+            group->addChild(rotated);
+            auto outside = scene.circle(500, 500, 15);
+            outside->setFill(Color::Red);
+            auto edge = scene.rect(-20, 30, 10, 25);
+            edge->setStroke(Color::White, 36);
+            auto image = std::make_shared<Image>();
+            if (!image->load(VECTORGL_TEST_IMAGE))
+                result = fail("culling image fixture failed to load");
+            auto picture = scene.image(image, 400, 400, 20, 20);
+            picture->setRotation(0.5f);
+            Path2D path;
+            path.moveTo(500, 500);
+            path.lineTo(510, 500);
+            path.lineTo(500, 510);
+            path.closePath();
+            scene.path(path)->setFill(Color::Blue);
+            auto effect = scene.rect(600, 600, 10, 10);
+            effect->setFill(Color::White);
+            effect->setShadow(2, {-600, -600}, Color::White);
+            auto font = std::make_shared<Font>();
+            if (!font->load(VECTORGL_TEST_FONT, 16))
+                result = fail("culling text fixture failed to load");
+            scene.text("AV", 30, 85, font)->setFill(Color::White);
+            const auto snapshot = [&](bool enabled)
+            {
+                canvas.renderer().setViewportCulling(enabled);
+                glClearColor(0, 0, 0, 1);
+                glClear(GL_COLOR_BUFFER_BIT);
+                canvas.beginFrame(kFramebufferSize, kFramebufferSize);
+                scene.render();
+                canvas.endFrame();
+                std::vector<unsigned char> pixels(kFramebufferSize * kFramebufferSize * 4);
+                glReadPixels(0, 0, kFramebufferSize, kFramebufferSize, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+                return pixels;
+            };
+            const auto uncull = snapshot(false);
+            const auto disabledStats = canvas.renderer().frameStats();
+            const auto culled = snapshot(true);
+            const auto stats = canvas.renderer().frameStats();
+            if (uncull != culled)
+                result = fail("viewport culling changed framebuffer pixels");
+            if (disabledStats.nodesCulled != 0 || stats.nodesCulled != 2 || stats.nodesSubmitted != 7 ||
+                stats.nodesRendered != 5 || stats.effectPasses != 1 || stats.textLayoutHits != 1 ||
+                stats.drawCalls >= disabledStats.drawCalls ||
+                stats.bufferUploadBytes >= disabledStats.bufferUploadBytes)
+                result = fail("culling/frame/cache counters were incorrect");
+            picture->setPosition(-3, 50);
+            picture->setScale(-1.5f, 0.8f);
+            const auto partialUnculled = snapshot(false);
+            const auto partialCulled = snapshot(true);
+            if (partialUnculled != partialCulled || canvas.renderer().frameStats().nodesCulled != 1)
+                result = fail("partially visible transformed image was culled");
+            canvas.beginFrame(kFramebufferSize, kFramebufferSize);
+            if (canvas.renderer().frameStats().drawCalls != 0)
+                result = fail("frame counters did not reset");
+            canvas.setFillColor(Color::White);
+            canvas.fillRect(20, 20, 10, 10);
+            canvas.fillCircle(50, 50, 10);
+            if (canvas.renderer().frameStats().sdfInstances != 0)
+                result = fail("pending SDF instances counted before flush");
+            canvas.endFrame();
+            const auto batched = canvas.renderer().frameStats();
+            if (batched.drawCalls != 1 || batched.sdfInstances != 2 || batched.bufferUploadBytes == 0)
+                result = fail("batched primitives did not count as one draw call");
+            if (glGetError() != GL_NO_ERROR)
+                result = fail("large-scene rendering produced an OpenGL error");
         }
 
         canvas.destroy();

@@ -264,6 +264,20 @@ const repoExampleCards = [
 label->setTextRenderingMode(vectorgl::TextRenderingMode::Bitmap);`
     },
     {
+        title: "large_scene_demo.cpp",
+        text: "Build vectorgl_large_scene for a 10,000-tile pan/zoom scene with rendering counters and bounded text-layout caching.",
+        bullets: [
+            "Drag to pan; wheel to zoom; C toggles culling; L clears scene layouts each frame; R resets.",
+            "HUD reports scene CPU submission time, culled nodes, draw calls, streamed buffer bytes and layout hits/misses.",
+            "Text, paths and effect-bearing nodes remain unculled; CPU timing excludes GPU execution and presentation.",
+            "Pass --font path/to/font.ttf or use --smoke-test with a loadable font."
+        ],
+        code: `scene.render();
+canvas.renderer().flush();
+const auto stats = canvas.renderer().frameStats();
+canvas.renderer().setViewportCulling(false);`
+    },
+    {
         title: "text_layout_demo.cpp",
         text: "Build vectorgl_text_layout for Unicode input, kerning, wrapped alignment columns, text sizes/transforms and a sharp-versus-blur comparison. F2 toggles pixel snapping. Pass --font path/to/font.ttf to choose a font.",
         bullets: [
@@ -556,6 +570,8 @@ const apiReference = [
                 methods: [
                     { signature: "void setClipRect(int x, int y, int width, int height)", description: "Sets a framebuffer-space scissor rectangle using VectorGL's top-left coordinate system. Pending SDF work is flushed before the state change." },
                     { signature: "void setRoundedClips(const std::vector<RoundedClip>& clips)", description: "Replaces the ordered stencil-backed rounded clip stack and rebuilds its geometric intersection." },
+                    { signature: "FrameStats frameStats() const", description: "Current/last frame draw calls, streamed buffer bytes, SDF instances, glyph quads, effect passes, node culling and layout hit/miss counters. Resets at beginFrame; queued batches count on flush. Includes clipping/effect draws but excludes texture uploads." },
+                    { signature: "void setViewportCulling(bool enabled)", description: "Enables conservative framebuffer culling for scene SDF shapes and images (default on). Retains text, paths, effects and unsupported bounds. Direct Canvas primitives and picking are unaffected." },
                     { signature: "void clearClip()", description: "Disables scissor clipping after flushing pending SDF work." }
                 ]
             },
