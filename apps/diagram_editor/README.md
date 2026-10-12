@@ -23,8 +23,10 @@ cmake --build build --target flow_studio
 
 Pass a board path to reopen it, or `--font path/to/font.ttf` to choose a font.
 The app searches common Segoe UI, Arial, DejaVu Sans and Liberation Sans paths.
-It requires an OpenGL 3.3 context. Apps build by default in a standalone checkout;
-disable them with `-DVECTORGL_BUILD_APPS=OFF` for a library-only build.
+It requires an OpenGL 3.3 context. On a fresh configure, apps follow
+`VECTORGL_BUILD_EXAMPLES` by default. Set `-DVECTORGL_BUILD_APPS=ON` to build the
+app independently, or `OFF` for a library-only build. Existing CMake caches keep
+their previous setting until explicitly changed.
 
 ## Workspace
 

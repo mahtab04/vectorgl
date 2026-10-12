@@ -8,7 +8,9 @@ include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
 option(VECTORGL_BUILD_EXAMPLES "Build vectorgl example applications" ${PROJECT_IS_TOP_LEVEL})
-option(VECTORGL_BUILD_APPS "Build the Flow Studio diagram editor" ${PROJECT_IS_TOP_LEVEL})
+# Match examples by default so library-only/headless builds do not fetch GLFW.
+# Apps can still be enabled independently with -DVECTORGL_BUILD_APPS=ON.
+option(VECTORGL_BUILD_APPS "Build the Flow Studio diagram editor" ${VECTORGL_BUILD_EXAMPLES})
 option(VECTORGL_BUILD_TESTS "Build vectorgl regression tests" ${PROJECT_IS_TOP_LEVEL})
 option(VECTORGL_BUILD_GPU_TESTS "Build OpenGL integration tests (requires GLFW and a display)" OFF)
 option(VECTORGL_ENABLE_HINTED_TEXT "Use FreeType for hinted small-text bitmap rendering" ON)
