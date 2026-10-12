@@ -44,6 +44,17 @@ It also includes an SVG loader, TrueType font rendering, and a post-processing e
 | **Paint System** | Solid colors, linear/radial gradients, and texture patterns. |
 | **Nested Clipping** | Transformed rectangular and rounded clipping with intersection, reset, and automatic `save()` / `restore()` state. |
 
+## Flow Studio desktop app
+
+[Flow Studio](apps/diagram_editor/README.md) is a complete local diagram workspace
+built with VectorGL: task/decision/note cards, editable properties, connections,
+multi-selection, pan/zoom, undo/redo, JSON save/load, SVG export, a minimap and
+light/dark themes. Windows includes native file dialogs and unsaved-change prompts.
+
+Build the `flow_studio` target (`VECTORGL_BUILD_APPS=ON`) and run
+`build/windows-debug/apps/diagram_editor/Debug/flow_studio.exe`. See the app guide
+for controls, platform behavior and document limits.
+
 ## Large scenes and rendering statistics
 
 Build and run [`vectorgl_large_scene`](example/large_scene_demo.cpp) to explore

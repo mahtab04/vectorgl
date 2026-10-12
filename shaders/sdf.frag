@@ -42,15 +42,19 @@ void main() {
 
     float aa = fwidth(dist) * 1.0;
     float fillAlpha = 1.0 - smoothstep(-aa, aa, dist);
-    vec4 color = vFillColor * fillAlpha;
+    float alpha = vFillColor.a * fillAlpha;
+    vec3 premultiplied = vFillColor.rgb * alpha;
 
     if (vStrokeWidth > 0.0) {
         float strokeDist = abs(dist) - vStrokeWidth * 0.5;
         float strokeAlpha = 1.0 - smoothstep(-aa, aa, strokeDist);
-        color = mix(color, vec4(vStrokeColor.rgb, vStrokeColor.a * strokeAlpha), strokeAlpha);
+        float strokeOpacity = vStrokeColor.a * strokeAlpha;
+        premultiplied = vStrokeColor.rgb * strokeOpacity + premultiplied * (1.0 - strokeOpacity);
+        alpha = strokeOpacity + alpha * (1.0 - strokeOpacity);
     }
 
-    color.a *= vOpacity;
-    if (color.a < 0.001) discard;
-    fragColor = color;
+    float opacity = alpha * vOpacity;
+    if (opacity < 0.001) discard;
+    // The renderer uses straight-alpha blending. Keep coverage out of RGB.
+    fragColor = vec4(premultiplied / alpha, opacity);
 }

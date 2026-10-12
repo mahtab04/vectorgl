@@ -42,7 +42,7 @@ endif()
 
 # GLFW is only needed by example applications and opt-in GPU integration
 # tests. Library-only builds and installed-package consumers do not need it.
-if(VECTORGL_BUILD_EXAMPLES OR VECTORGL_BUILD_GPU_TESTS)
+if(VECTORGL_BUILD_EXAMPLES OR VECTORGL_BUILD_APPS OR VECTORGL_BUILD_GPU_TESTS)
 	find_package(glfw3 3.3 CONFIG QUIET)
 	if(NOT TARGET glfw)
 		FetchContent_Declare(
