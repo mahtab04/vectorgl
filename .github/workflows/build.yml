@@ -127,6 +127,7 @@ jobs:
           -DENABLE_FORMAT_CHECK=OFF
           -DVECTORGL_BUILD_EXAMPLES=OFF
           -DVECTORGL_BUILD_TESTS=ON
+          -DVECTORGL_BUILD_APPS=${{ matrix.gpu_tests }}
           -DVECTORGL_BUILD_GPU_TESTS=${{ matrix.gpu_tests }}
 
       - name: Build
@@ -190,6 +191,7 @@ jobs:
           -DENABLE_FORMAT_CHECK=ON
           -DVECTORGL_BUILD_EXAMPLES=OFF
           -DVECTORGL_BUILD_TESTS=OFF
+          -DVECTORGL_BUILD_APPS=OFF
           -DVECTORGL_BUILD_GPU_TESTS=OFF
 
       - name: Analyze and check formatting

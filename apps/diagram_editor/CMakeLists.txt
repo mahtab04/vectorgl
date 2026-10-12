@@ -1,0 +1,30 @@
+add_library(flow_document STATIC document.cpp)
+target_include_directories(flow_document PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_compile_features(flow_document PUBLIC cxx_std_20)
+
+add_executable(flow_studio main.cpp app.cpp)
+target_link_libraries(flow_studio PRIVATE flow_document vectorgl::vectorgl glfw)
+install(TARGETS flow_studio RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT Apps EXCLUDE_FROM_ALL)
+if(WIN32)
+    target_link_libraries(flow_studio PRIVATE comdlg32)
+endif()
+
+if(VECTORGL_BUILD_TESTS)
+    add_executable(flow_document_tests document_tests.cpp)
+    target_link_libraries(flow_document_tests PRIVATE flow_document)
+    add_test(NAME flow_document_tests COMMAND flow_document_tests)
+    if(VECTORGL_BUILD_GPU_TESTS)
+        if(UNIX AND NOT APPLE)
+            find_program(FLOW_XVFB_RUN NAMES xvfb-run)
+        endif()
+        if(FLOW_XVFB_RUN)
+            add_test(NAME flow_studio_smoke
+                COMMAND ${FLOW_XVFB_RUN} -a $<TARGET_FILE:flow_studio>
+                    --smoke-test --font ${PROJECT_SOURCE_DIR}/tests/fixtures/box.ttf)
+        else()
+            add_test(NAME flow_studio_smoke COMMAND flow_studio --smoke-test
+                --font ${PROJECT_SOURCE_DIR}/tests/fixtures/box.ttf)
+        endif()
+        set_tests_properties(flow_studio_smoke PROPERTIES TIMEOUT 30)
+    endif()
+endif()

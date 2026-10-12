@@ -721,6 +721,28 @@ int main()
                 result = fail("large-scene rendering produced an OpenGL error");
         }
 
+        if (result == 0)
+        {
+            // White coverage over white must never darken at antialiased edges.
+            glClearColor(1, 1, 1, 1);
+            glClear(GL_COLOR_BUFFER_BIT);
+            canvas.beginFrame(kFramebufferSize, kFramebufferSize);
+            canvas.setFillColor(vectorgl::Color::White);
+            canvas.fillRoundedRect(10.3f, 12.7f, 48.2f, 41.6f, 9.4f);
+            canvas.setStrokeColor(vectorgl::Color::White);
+            canvas.setLineWidth(1.3f);
+            canvas.strokeCircle(90.4f, 80.7f, 20.2f);
+            canvas.endFrame();
+            std::vector<unsigned char> pixels(kFramebufferSize * kFramebufferSize * 4);
+            glReadPixels(0, 0, kFramebufferSize, kFramebufferSize, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+            for (std::size_t i = 0; i < pixels.size(); i += 4)
+                if (pixels[i] < 250 || pixels[i + 1] < 250 || pixels[i + 2] < 250)
+                {
+                    result = fail("SDF fill/stroke antialias coverage darkened RGB");
+                    break;
+                }
+        }
+
         canvas.destroy();
         if (canvas.renderer().isInitialized())
             result = fail("renderer stayed initialized after destroy");
