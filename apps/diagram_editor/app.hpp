@@ -2,11 +2,13 @@
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
+#include <chrono>
 #include <optional>
 #include <vectorgl/canvas.hpp>
 #include <vectorgl/text_box.hpp>
 
 #include "document.hpp"
+#include "workspace.hpp"
 
 namespace flow
 {
@@ -21,7 +23,8 @@ struct Rect
 class App
 {
 public:
-    explicit App(GLFWwindow* window, std::string font);
+    explicit App(GLFWwindow* window, std::string font, std::filesystem::path stateDirectory = {},
+                 std::filesystem::path startupDocument = {});
     void render(float width, float height, float dpi, float dt);
     void pointer(float x, float y);
     void mouse(int button, int action, int modifiers);
@@ -31,6 +34,7 @@ public:
     void requestClose();
     void open(const std::filesystem::path& path);
     void smokeTest(const std::filesystem::path& directory);
+    void tickWorkspace(bool force = false);
     vectorgl::Canvas canvas;
 
 private:
@@ -61,7 +65,15 @@ private:
         Quit,
         ModalConfirm,
         ModalCancel,
-        Discard
+        Discard,
+        Recent,
+        RecentOpen,
+        RecentLoad,
+        ClearRecent,
+        RecoveryMenu,
+        RestoreRecovery,
+        ApplyRecovery,
+        DiscardRecovery
     };
     enum class Modal
     {
@@ -72,7 +84,9 @@ private:
         PathExport,
         Rename,
         Help,
-        Error
+        Error,
+        Recent,
+        Recovery
     };
     struct Hit
     {
@@ -85,6 +99,13 @@ private:
     Editor editor_;
     std::filesystem::path path_;
     Document savedDocument_;
+    std::unique_ptr<Workspace> workspace_;
+    std::optional<Document> checkpointDocument_;
+    std::optional<Document> checkpointBaseline_;
+    ViewState checkpointView_;
+    std::filesystem::path checkpointSource_;
+    std::chrono::steady_clock::time_point lastWorkspaceWrite_;
+    std::string recoveryStatus_ = "Recovery ready";
     std::string status_ = "Ready. Drag cards to arrange your ideas.", error_;
     std::vector<uint32_t> selection_;
     uint32_t selectedEdge_ = 0, connecting_ = 0, inspected_ = 0;
@@ -96,6 +117,7 @@ private:
     vectorgl::TextBox title_, description_, modalField_;
     Modal modal_ = Modal::None;
     Action pending_ = Action::None;
+    uint32_t pendingValue_ = 0;
     std::vector<Hit> hits_;
     Rect board() const;
     vectorgl::Vec2 world(vectorgl::Vec2 p) const;
@@ -108,7 +130,9 @@ private:
     void action(Action action, uint32_t value = 0);
     bool save(bool choose);
     void fileAction(Action action);
-    void guard(Action action);
+    void guard(Action action, uint32_t value = 0);
+    void rememberFile();
+    void captureSettings();
     void completePending();
     void setError(const std::string& message);
     void text(const std::string& value, float x, float y, float size, vectorgl::Color color, float maxWidth = 0);

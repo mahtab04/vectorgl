@@ -153,6 +153,6 @@ if(VECTORGL_BUILD_TESTS)
     add_subdirectory(tests)
 endif()
 
-if(VECTORGL_BUILD_APPS)
+if(VECTORGL_BUILD_APPS OR VECTORGL_BUILD_TESTS)
     add_subdirectory(apps/diagram_editor)
 endif()

@@ -53,6 +53,27 @@ std::string findFont()
             return path;
     return {};
 }
+struct SmokeDirectory
+{
+    std::filesystem::path path;
+    explicit SmokeDirectory(bool enabled)
+    {
+        if (!enabled)
+            return;
+        path = std::filesystem::temp_directory_path() /
+               ("flow-workspace-smoke-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+        if (!std::filesystem::create_directory(path))
+            throw std::runtime_error("Smoke folder already exists");
+    }
+    ~SmokeDirectory()
+    {
+        if (!path.empty())
+        {
+            std::error_code error;
+            std::filesystem::remove_all(path, error);
+        }
+    }
+};
 flow::App& app(GLFWwindow* window)
 {
     return *static_cast<flow::App*>(glfwGetWindowUserPointer(window));
@@ -73,7 +94,7 @@ template <typename Function> void callback(GLFWwindow* window, Function function
 int main(int argc, char** argv)
 {
     std::string font = findFont();
-    std::filesystem::path document, capture;
+    std::filesystem::path document, capture, stateDirectory;
     bool smoke = false;
     for (int i = 1; i < argc; ++i)
     {
@@ -82,11 +103,14 @@ int main(int argc, char** argv)
             smoke = true;
         else if (argument == "--font" && i + 1 < argc)
             font = argv[++i];
+        else if (argument == "--state-dir" && i + 1 < argc)
+            stateDirectory = argv[++i];
         else if (argument == "--screenshot" && i + 1 < argc)
             capture = argv[++i];
         else if (argument == "--help")
         {
-            std::cout << "Flow Studio [board.json] [--font font.ttf] [--smoke-test] [--screenshot preview.bmp]\n";
+            std::cout << "Flow Studio [board.json] [--font font.ttf] [--state-dir folder] [--smoke-test] [--screenshot "
+                         "preview.bmp]\n";
             return 0;
         }
         else if (!argument.empty() && argument.front() != '-' && document.empty())
@@ -129,9 +153,8 @@ int main(int argc, char** argv)
     int result = 0;
     try
     {
-        flow::App editor(window, font);
-        if (!document.empty())
-            editor.open(document);
+        SmokeDirectory smokeDirectory(smoke);
+        flow::App editor(window, font, smoke ? smokeDirectory.path / "workspace" : stateDirectory, document);
         glfwSetWindowUserPointer(window, &editor);
         glfwSetCursorPosCallback(window,
                                  [](GLFWwindow* w, double x, double y) {
@@ -160,6 +183,7 @@ int main(int argc, char** argv)
         int frames = 0;
         while (!glfwWindowShouldClose(window))
         {
+            editor.tickWorkspace();
             int width, height, fw, fh;
             glfwGetWindowSize(window, &width, &height);
             glfwGetFramebufferSize(window, &fw, &fh);

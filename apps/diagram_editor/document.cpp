@@ -13,6 +13,8 @@
 #include <stdexcept>
 #include <utility>
 
+#include "workspace.hpp"
+
 #ifdef _WIN32
 #define NOMINMAX
 #include <windows.h>
@@ -472,6 +474,103 @@ Document parse(const std::string& source)
         d.connections.push_back(e);
     }
     return d;
+}
+namespace
+{
+std::string pathString(const std::filesystem::path& path)
+{
+    const auto value = path.u8string();
+    return {reinterpret_cast<const char*>(value.data()), value.size()};
+}
+std::filesystem::path parsedPath(const Json& value)
+{
+    const auto text = value.text(4096);
+    for (unsigned char c : text)
+        if (c < 32)
+            throw std::runtime_error("Workspace path contains control characters");
+    auto path = std::filesystem::path(std::u8string(reinterpret_cast<const char8_t*>(text.data()), text.size()));
+    if (!path.empty() && !path.is_absolute())
+        throw std::runtime_error("Workspace paths must be absolute");
+    return path.lexically_normal();
+}
+void writeView(std::ostream& out, const ViewState& view)
+{
+    out << "\"zoom\":" << view.zoom << ",\"panX\":" << view.x << ",\"panY\":" << view.y;
+}
+ViewState readView(const Json& root)
+{
+    return {static_cast<float>(root.at("zoom").numeric(0.15, 3)),
+            static_cast<float>(root.at("panX").numeric(-1000000000, 1000000000)),
+            static_cast<float>(root.at("panY").numeric(-1000000000, 1000000000))};
+}
+Json workspaceJson(const std::string& content, std::size_t limit)
+{
+    if (content.size() > limit || !validUtf8(content))
+        throw std::runtime_error("Invalid or oversized workspace file");
+    auto root = Parser(content).run();
+    (void)root.at("version").integer(1, 1);
+    return root;
+}
+} // namespace
+std::string serializeSettings(const WorkspaceSettings& settings)
+{
+    std::ostringstream out;
+    out.imbue(std::locale::classic());
+    out << std::setprecision(std::numeric_limits<float>::max_digits10);
+    out << "{\"version\":1,\"dark\":" << settings.dark << ",\"grid\":" << settings.grid << ",\"snap\":" << settings.snap
+        << ',';
+    writeView(out, settings.view);
+    out << ",\"source\":" << quote(pathString(settings.source)) << ",\"recent\":[";
+    for (std::size_t i = 0; i < settings.recent.size(); ++i)
+        out << (i ? "," : "") << quote(pathString(settings.recent[i]));
+    return out.str() + "]}\n";
+}
+WorkspaceSettings parseSettings(const std::string& content)
+{
+    const auto root = workspaceJson(content, 128 * 1024);
+    WorkspaceSettings result;
+    result.dark = root.at("dark").integer(0, 1) != 0;
+    result.grid = root.at("grid").integer(0, 1) != 0;
+    result.snap = root.at("snap").integer(0, 1) != 0;
+    result.view = readView(root);
+    result.source = parsedPath(root.at("source"));
+    const auto& list = root.at("recent");
+    if (list.kind != Json::Array || list.array.size() > 10)
+        throw std::runtime_error("Recent file list exceeds its limit");
+    for (const auto& entry : list.array)
+    {
+        auto path = parsedPath(entry);
+        if (path.empty() || std::find(result.recent.begin(), result.recent.end(), path) != result.recent.end())
+            throw std::runtime_error("Invalid or duplicate recent file");
+        result.recent.push_back(std::move(path));
+    }
+    return result;
+}
+std::string serializeRecovery(const Recovery& recovery)
+{
+    std::ostringstream out;
+    out.imbue(std::locale::classic());
+    out << std::setprecision(std::numeric_limits<float>::max_digits10);
+    out << "{\"version\":1,\"source\":" << quote(pathString(recovery.source)) << ",\"timestamp\":" << recovery.timestamp
+        << ',';
+    writeView(out, recovery.view);
+    out << ",\"document\":" << quote(serialize(recovery.document))
+        << ",\"baseline\":" << quote(serialize(recovery.baseline)) << "}\n";
+    return out.str();
+}
+Recovery parseRecovery(const std::string& content)
+{
+    const auto root = workspaceJson(content, 12 * 1024 * 1024);
+    Recovery result;
+    result.source = parsedPath(root.at("source"));
+    result.view = readView(root);
+    const double timestamp = root.at("timestamp").numeric(0, 100000000000);
+    if (timestamp != std::floor(timestamp))
+        throw std::runtime_error("Recovery timestamp must be an integer");
+    result.timestamp = static_cast<uint64_t>(timestamp);
+    result.document = parse(root.at("document").text(2 * 1024 * 1024));
+    result.baseline = parse(root.at("baseline").text(2 * 1024 * 1024));
+    return result;
 }
 Document readDocument(const std::filesystem::path& path)
 {

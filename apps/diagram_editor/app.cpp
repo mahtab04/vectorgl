@@ -1,7 +1,10 @@
 #include "app.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
+#include <ctime>
+#include <iomanip>
 #include <sstream>
 #include <stdexcept>
 #include <utility>
@@ -76,7 +79,9 @@ std::optional<std::filesystem::path> nativePath(GLFWwindow* window, bool save, b
 #endif
 } // namespace
 
-App::App(GLFWwindow* window, std::string font) : window_(window), font_(std::move(font))
+App::App(GLFWwindow* window, std::string font, std::filesystem::path stateDirectory,
+         std::filesystem::path startupDocument)
+    : window_(window), font_(std::move(font))
 {
     canvas.init();
     canvas.setFontCacheLimit(20);
@@ -93,6 +98,28 @@ App::App(GLFWwindow* window, std::string font) : window_(window), font_(std::mov
     }
     savedDocument_ = editor_.document;
     fit();
+    workspace_ = std::make_unique<Workspace>(stateDirectory.empty() ? Workspace::defaultDirectory() : stateDirectory);
+    dark_ = workspace_->settings.dark;
+    grid_ = workspace_->settings.grid;
+    snap_ = workspace_->settings.snap;
+    lastWorkspaceWrite_ = std::chrono::steady_clock::now();
+    const auto startup = startupDocument.empty() ? workspace_->settings.source : startupDocument;
+    if (!startup.empty())
+        try
+        {
+            open(startup);
+        }
+        catch (const std::exception& error)
+        {
+            status_ = std::string("Could not reopen board: ") + error.what();
+        }
+    if (!workspace_->warning.empty())
+        status_ = workspace_->warning;
+    if (workspace_->pendingRecovery())
+    {
+        modal_ = Modal::Recovery;
+        recoveryStatus_ = "Recovery pending";
+    }
 }
 Rect App::board() const
 {
@@ -108,7 +135,12 @@ Vec2 App::screen(Vec2 p) const
 }
 bool App::dirty() const
 {
-    return editor_.document != savedDocument_;
+    if (editor_.document != savedDocument_)
+        return true;
+    if (inspected_ && (title_.focused() || description_.focused()))
+        if (const auto* card = editor_.document.find(inspected_))
+            return card->title != title_.text() || card->description != description_.text();
+    return false;
 }
 void App::fit()
 {
@@ -172,18 +204,92 @@ void App::setError(const std::string& message)
     error_ = message;
     modal_ = Modal::Error;
 }
+void App::captureSettings()
+{
+    workspace_->settings.dark = dark_;
+    workspace_->settings.grid = grid_;
+    workspace_->settings.snap = snap_;
+    workspace_->settings.view = {zoom_, pan_.x, pan_.y};
+    workspace_->settings.source = path_;
+}
+void App::rememberFile()
+{
+    try
+    {
+        workspace_->remember(path_);
+    }
+    catch (const std::exception& error)
+    {
+        status_ = std::string("Board opened/saved; recent list update failed: ") + error.what();
+    }
+    tickWorkspace(true);
+}
+void App::tickWorkspace(bool force)
+{
+    const auto now = std::chrono::steady_clock::now();
+    if (!force && now - lastWorkspaceWrite_ < std::chrono::seconds(30))
+        return;
+    lastWorkspaceWrite_ = now;
+    try
+    {
+        Document effective = editor_.document;
+        // Include in-progress text without committing its undo transaction.
+        if (inspected_ && (title_.focused() || description_.focused()))
+            if (auto* card = effective.find(inspected_))
+            {
+                card->title = title_.text();
+                card->description = description_.text();
+            }
+        const ViewState view{zoom_, pan_.x, pan_.y};
+        if (!checkpointDocument_ || *checkpointDocument_ != effective || !checkpointBaseline_ ||
+            *checkpointBaseline_ != savedDocument_ || checkpointSource_ != path_ || checkpointView_ != view)
+        {
+            const auto timestamp =
+                std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch())
+                    .count();
+            if (workspace_->checkpoint(
+                    {effective, savedDocument_, path_, {zoom_, pan_.x, pan_.y}, static_cast<uint64_t>(timestamp)}))
+            {
+                checkpointDocument_ = std::move(effective);
+                checkpointSource_ = path_;
+                checkpointBaseline_ = savedDocument_;
+                checkpointView_ = view;
+                recoveryStatus_ = *checkpointDocument_ != savedDocument_ ? "Recovery snapshot saved" : "Recovery ready";
+            }
+            else
+                recoveryStatus_ = "Recovery pending - save current work manually";
+        }
+        captureSettings();
+        workspace_->persistSettings();
+    }
+    catch (const std::exception& error)
+    {
+        recoveryStatus_ = "Workspace write failed";
+        status_ = std::string("Recovery/settings could not be saved: ") + error.what();
+    }
+}
 void App::open(const std::filesystem::path& path)
 {
-    auto document = readDocument(path);
+    const auto absolute = std::filesystem::absolute(path).lexically_normal();
+    workspace_->checkDocumentPath(absolute);
+    auto document = readDocument(absolute);
+    const bool restoreView = absolute == workspace_->settings.source;
+    const auto view = workspace_->settings.view;
     editor_.replace(std::move(document));
-    path_ = path;
+    path_ = absolute;
     savedDocument_ = editor_.document;
     selection_.clear();
     selectedEdge_ = 0;
     layerScroll_ = 0;
     syncFields();
     fit();
+    if (restoreView)
+    {
+        zoom_ = view.zoom;
+        pan_ = {view.x, view.y};
+    }
     status_ = "Opened " + pathUtf8(path.filename());
+    rememberFile();
 }
 bool App::save(bool choose)
 {
@@ -194,9 +300,11 @@ bool App::save(bool choose)
     }
     const auto content = serialize(editor_.document);
     (void)parse(content); // Validate size, IDs and text before replacing a file.
+    workspace_->checkDocumentPath(path_);
     writeAtomic(path_, content);
     savedDocument_ = editor_.document;
     status_ = "Saved " + pathUtf8(path_.filename());
+    rememberFile();
     return true;
 }
 void App::fileAction(Action kind)
@@ -208,6 +316,7 @@ void App::fileAction(Action kind)
         pending_ = Action::None;
         return;
     }
+    workspace_->checkDocumentPath(*chosen);
     if (kind == Action::Open)
         open(*chosen);
     else if (kind == Action::Export)
@@ -220,9 +329,10 @@ void App::fileAction(Action kind)
         const auto content = serialize(editor_.document);
         (void)parse(content);
         writeAtomic(*chosen, content);
-        path_ = *chosen;
+        path_ = std::filesystem::absolute(*chosen).lexically_normal();
         savedDocument_ = editor_.document;
         status_ = "Board saved";
+        rememberFile();
         completePending();
     }
 #else
@@ -232,28 +342,32 @@ void App::fileAction(Action kind)
     modalField_.selectAll();
 #endif
 }
-void App::guard(Action next)
+void App::guard(Action next, uint32_t value)
 {
     if (!dirty())
     {
-        action(next);
+        action(next, value);
         return;
     }
     pending_ = next;
+    pendingValue_ = value;
     modal_ = Modal::Unsaved;
 }
 void App::completePending()
 {
     const auto next = pending_;
+    const auto value = pendingValue_;
     pending_ = Action::None;
+    pendingValue_ = 0;
     if (next != Action::None)
-        action(next);
+        action(next, value);
 }
 void App::requestClose()
 {
     glfwSetWindowShouldClose(window_, GLFW_FALSE);
     commitFields();
     finishGesture();
+    tickWorkspace(true);
     guard(Action::Quit);
 }
 void App::action(Action kind, uint32_t value)
@@ -271,6 +385,7 @@ void App::action(Action kind, uint32_t value)
             syncFields();
             fit();
             status_ = "New board. Add a card to begin.";
+            tickWorkspace(true);
             break;
         case Action::Open:
             fileAction(kind);
@@ -371,7 +486,77 @@ void App::action(Action kind, uint32_t value)
             modal_ = Modal::Help;
             break;
         case Action::Quit:
+            // Reaching Quit means the user saved/discarded or the board was clean.
+            try
+            {
+                workspace_->clearOwnedRecovery();
+                captureSettings();
+                workspace_->persistSettings();
+            }
+            catch (const std::exception& error)
+            {
+                status_ = std::string("Workspace cleanup failed: ") + error.what();
+            }
             glfwSetWindowShouldClose(window_, GLFW_TRUE);
+            break;
+        case Action::Recent:
+            modal_ = Modal::Recent;
+            break;
+        case Action::RecentOpen:
+            modal_ = Modal::None;
+            guard(Action::RecentLoad, value);
+            break;
+        case Action::RecentLoad:
+            if (value < workspace_->settings.recent.size())
+                open(workspace_->settings.recent[value]);
+            break;
+        case Action::ClearRecent:
+            workspace_->settings.recent.clear();
+            workspace_->persistSettings();
+            break;
+        case Action::RecoveryMenu:
+            modal_ = Modal::Recovery;
+            break;
+        case Action::RestoreRecovery:
+            modal_ = Modal::None;
+            guard(Action::ApplyRecovery);
+            break;
+        case Action::ApplyRecovery:
+            if (workspace_->recovery)
+            {
+                const auto snapshot = *workspace_->recovery;
+                bool originalUnchanged = false;
+                if (!snapshot.source.empty())
+                    try
+                    {
+                        originalUnchanged = readDocument(snapshot.source) == snapshot.baseline;
+                    }
+                    catch (const std::exception&)
+                    {
+                    }
+                editor_.replace(snapshot.document);
+                savedDocument_ = snapshot.baseline;
+                path_ = originalUnchanged ? snapshot.source : std::filesystem::path{};
+                zoom_ = snapshot.view.zoom;
+                pan_ = {snapshot.view.x, snapshot.view.y};
+                selection_.clear();
+                selectedEdge_ = 0;
+                syncFields();
+                workspace_->acceptRecovery();
+                checkpointDocument_.reset();
+                modal_ = Modal::None;
+                status_ = originalUnchanged
+                              ? "Recovered unsaved changes. Save to keep them."
+                              : "Recovered work. Use Save As; the original file is missing, changed or untitled.";
+                tickWorkspace(true);
+            }
+            break;
+        case Action::DiscardRecovery:
+            workspace_->discardRecovery();
+            checkpointDocument_.reset();
+            modal_ = Modal::None;
+            status_ = "Previous recovery discarded";
+            tickWorkspace(true);
             break;
         case Action::Discard:
             modal_ = Modal::None;
@@ -398,18 +583,21 @@ void App::action(Action kind, uint32_t value)
                 open(utf8Path(modalField_.text()));
             else if (modal == Modal::PathExport)
             {
+                workspace_->checkDocumentPath(utf8Path(modalField_.text()));
                 writeAtomic(utf8Path(modalField_.text()), exportSvg(editor_.document));
                 status_ = "SVG exported";
             }
             else if (modal == Modal::PathSave)
             {
                 const auto target = utf8Path(modalField_.text());
+                workspace_->checkDocumentPath(target);
                 const auto content = serialize(editor_.document);
                 (void)parse(content);
                 writeAtomic(target, content);
-                path_ = target;
+                path_ = std::filesystem::absolute(target).lexically_normal();
                 savedDocument_ = editor_.document;
                 status_ = "Board saved";
+                rememberFile();
                 completePending();
             }
             break;
@@ -604,7 +792,8 @@ void App::drawChrome(float dt)
     button({bx + 278, 22, 74, 32}, "Save", Action::Save, 0, true);
     button({bx + 366, 22, 42, 32}, dark_ ? "Light" : "Dark", Action::Theme);
     button({bx + 416, 22, 48, 32}, "Help", Action::Help);
-    text("CARD LIBRARY", 20, 141, 10, muted);
+    button({16, 119, 192, 28}, "Open recent", Action::Recent);
+    text("CARD LIBRARY", 20, 152, 10, muted);
     const char* labels[] = {"+  Task", "?  Decision", "=  Note"};
     const char* descriptions[] = {"A step in your workflow", "A question or branching point", "Context for your team"};
     for (int i = 0; i < 3; ++i)
@@ -723,7 +912,7 @@ void App::drawChrome(float dt)
     outline({map.x + (view.x - left) * scale, map.y + (view.y - top) * scale, r.w / zoom_ * scale, r.h / zoom_ * scale},
             Color::hex(dark_ ? 0xdfd3ff : 0x4f426b), 0, 1);
     canvas.restore();
-    text(status_, 18, height_ - 23, 11, muted, width_ - 420);
+    text(status_ + " | " + recoveryStatus_, 18, height_ - 23, 11, muted, width_ - 420);
     text(std::to_string(editor_.document.cards.size()) + " cards   /   " +
              std::to_string(editor_.document.connections.size()) + " connections   /   " +
              (dirty()         ? "Unsaved changes"
@@ -739,18 +928,70 @@ void App::drawModal(float dt)
     hits_.clear();
     box({0, 0, width_, height_}, Color{0.08f, 0.04f, 0.17f, 0.4f});
     const bool help = modal_ == Modal::Help;
-    Rect r{width_ / 2 - 260, height_ / 2 - (help ? 210 : 140), 520, help ? 420.0f : 280.0f};
+    const float modalHeight = modal_ == Modal::Recent ? 540 : modal_ == Modal::Recovery ? 340 : help ? 420 : 280;
+    Rect r{width_ / 2 - 260, height_ / 2 - modalHeight / 2, 520, modalHeight};
     box(r, Color::hex(dark_ ? 0x252130 : 0xffffff), 18);
     const auto foreground = Color::hex(dark_ ? 0xeee6ff : 0x392f4d), muted = Color::hex(dark_ ? 0xb0a3c2 : 0x8d7f9f);
     std::string heading = modal_ == Modal::Unsaved      ? "Save your changes?"
                           : modal_ == Modal::Rename     ? "Rename board"
                           : modal_ == Modal::Error      ? "Something needs attention"
+                          : modal_ == Modal::Recent     ? "Open recent board"
+                          : modal_ == Modal::Recovery   ? "Recover your work"
                           : help                        ? "Find your flow"
                           : modal_ == Modal::PathOpen   ? "Open board"
                           : modal_ == Modal::PathExport ? "Export SVG"
                                                         : "Save board";
     text(heading, r.x + 28, r.y + 27, 23, foreground);
-    if (help)
+    if (modal_ == Modal::Recent)
+    {
+        float y = r.y + 78;
+        if (workspace_->pendingRecovery())
+        {
+            button({r.x + 28, y, 464, 36}, "Review interrupted session", Action::RecoveryMenu, 0, true);
+            y += 48;
+        }
+        if (workspace_->settings.recent.empty())
+            text("Saved and opened boards will appear here.", r.x + 28, y + 12, 13, muted);
+        for (std::size_t i = 0; i < workspace_->settings.recent.size(); ++i)
+        {
+            const auto& path = workspace_->settings.recent[i];
+            std::error_code error;
+            const bool available = std::filesystem::is_regular_file(path, error);
+            button({r.x + 28, y, 464, 30},
+                   pathUtf8(path.filename()) + " - " + pathUtf8(path.parent_path()) +
+                       (available ? "" : " (unavailable)"),
+                   Action::RecentOpen, static_cast<uint32_t>(i));
+            y += 36;
+        }
+        button({r.x + 28, r.y + r.h - 54, 116, 34}, "Clear recent", Action::ClearRecent, 0, false,
+               !workspace_->settings.recent.empty());
+        button({r.x + 372, r.y + r.h - 54, 120, 34}, "Close", Action::ModalCancel);
+    }
+    else if (modal_ == Modal::Recovery)
+    {
+        text("A previous session left a recovery snapshot.", r.x + 28, r.y + 82, 14, muted);
+        if (workspace_->recovery)
+        {
+            const auto& snapshot = *workspace_->recovery;
+            text(snapshot.document.name, r.x + 28, r.y + 119, 18, foreground, 464);
+            text(std::to_string(snapshot.document.cards.size()) + " cards / " +
+                     std::to_string(snapshot.document.connections.size()) + " connections",
+                 r.x + 28, r.y + 152, 13, muted);
+            text(snapshot.source.empty() ? "Untitled board" : pathUtf8(snapshot.source), r.x + 28, r.y + 181, 12, muted,
+                 464);
+        }
+        else
+        {
+            text("The snapshot could not be read. It remains on disk.", r.x + 28, r.y + 122, 13, muted);
+            text(workspace_->recoveryError, r.x + 28, r.y + 156, 12, muted, 464);
+        }
+        text("Saved boards are untouched. Later keeps this snapshot.", r.x + 28, r.y + 231, 12, muted);
+        button({r.x + 28, r.y + r.h - 54, 108, 34}, "Discard", Action::DiscardRecovery);
+        button({r.x + 250, r.y + r.h - 54, 108, 34}, "Later", Action::ModalCancel);
+        button({r.x + 370, r.y + r.h - 54, 120, 34}, "Restore", Action::RestoreRecovery, 0, true,
+               workspace_->recovery.has_value());
+    }
+    else if (help)
     {
         const char* lines[] = {"Drag a card to move it. Shift-click for multi-selection.",
                                "Drag empty space to select. Middle-drag or Space-drag to pan.",
@@ -1231,5 +1472,79 @@ void App::smokeTest(const std::filesystem::path& directory)
     fit();
     savedDocument_ = original;
     path_.clear();
+    tickWorkspace(true);
+    const auto profile = directory / "restart-profile";
+    const auto source = directory / "restart-board.json";
+    auto recoveredDocument = original;
+    recoveredDocument.name = "Recovered board";
+    const Recovery snapshot{recoveredDocument, original, source, {0.8f, 200, -90}, 1790000000};
+    writeAtomic(source, serialize(original));
+    {
+        Workspace writer(profile);
+        writer.settings.dark = true;
+        writer.settings.grid = false;
+        writer.settings.snap = false;
+        writer.settings.source = source;
+        writer.settings.view = snapshot.view;
+        writer.remember(source);
+        writer.persistSettings();
+        writer.checkpoint(snapshot);
+    }
+    {
+        App resumed(window_, font_, profile);
+        resumed.render(width_, height_, 1, 0);
+        if (resumed.modal_ != Modal::Recovery || !resumed.dark_ || resumed.grid_ || resumed.snap_ ||
+            resumed.zoom_ != snapshot.view.zoom || resumed.pan_.x != snapshot.view.x)
+            throw std::runtime_error("Startup recovery/preferences were not restored");
+        resumed.action(Action::ModalCancel); // Later preserves the previous session.
+        resumed.editor_.add(0, 50, 50);
+        resumed.tickWorkspace(true);
+        if (parseRecovery(serializeRecovery(*resumed.workspace_->recovery)).document != recoveredDocument)
+            throw std::runtime_error("Deferred recovery was overwritten by current edits");
+        resumed.action(Action::RestoreRecovery);
+        if (resumed.modal_ != Modal::Unsaved)
+            throw std::runtime_error("Recovery replaced dirty work without a prompt");
+        resumed.action(Action::Discard);
+        if (resumed.editor_.document != recoveredDocument || !resumed.dirty() || readDocument(source) != original)
+            throw std::runtime_error("Recovery restore changed the saved original");
+        if (!resumed.save(false) || std::filesystem::exists(profile / "recovery.json"))
+            throw std::runtime_error("Explicit recovery save left a stale snapshot");
+        const auto savedBoard = resumed.editor_.document;
+        resumed.selection_ = {savedBoard.cards.front().id};
+        resumed.syncFields();
+        resumed.title_.setFocused(true);
+        resumed.title_.setText("Uncommitted title");
+        resumed.tickWorkspace();
+        if (std::filesystem::exists(profile / "recovery.json"))
+            throw std::runtime_error("Recovery interval was ignored");
+        resumed.lastWorkspaceWrite_ = std::chrono::steady_clock::now() - std::chrono::seconds(31);
+        resumed.tickWorkspace();
+        if (!resumed.dirty() || resumed.editor_.document != savedBoard || resumed.editor_.canUndo() ||
+            resumed.workspace_->recovery->document.cards.front().title != "Uncommitted title")
+            throw std::runtime_error("Uncommitted text checkpoint changed the model or undo history");
+        resumed.syncFields(); // Escape/cancel returns to the saved state.
+        resumed.tickWorkspace(true);
+        if (resumed.dirty() || std::filesystem::exists(profile / "recovery.json"))
+            throw std::runtime_error("Canceled property edit left stale recovery");
+        resumed.workspace_->remember(directory / "missing-board.json");
+        resumed.action(Action::Recent);
+        resumed.render(width_, height_, 1, 0);
+        resumed.action(Action::RecentOpen, 0);
+        if (resumed.editor_.document != savedBoard || resumed.modal_ != Modal::Error)
+            throw std::runtime_error("Unavailable recent file replaced the current board");
+    }
+    auto external = original;
+    external.name = "Externally changed";
+    writeAtomic(source, serialize(external));
+    {
+        Workspace writer(profile);
+        writer.checkpoint(snapshot);
+    }
+    {
+        App resumed(window_, font_, profile);
+        resumed.action(Action::RestoreRecovery);
+        if (!resumed.path_.empty() || resumed.editor_.document != recoveredDocument || readDocument(source) != external)
+            throw std::runtime_error("Recovery overwrote an externally changed original instead of requiring Save As");
+    }
 }
 } // namespace flow

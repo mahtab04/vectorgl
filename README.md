@@ -49,7 +49,8 @@ It also includes an SVG loader, TrueType font rendering, and a post-processing e
 [Flow Studio](apps/diagram_editor/README.md) is a complete local diagram workspace
 built with VectorGL: task/decision/note cards, editable properties, connections,
 multi-selection, pan/zoom, undo/redo, JSON save/load, SVG export, a minimap and
-light/dark themes. Windows includes native file dialogs and unsaved-change prompts.
+light/dark themes, recent files, remembered workspace settings and recovery
+snapshots. Windows includes native file dialogs and unsaved-change prompts.
 
 Build the `flow_studio` target (`VECTORGL_BUILD_APPS=ON`) and run
 `build/windows-debug/apps/diagram_editor/Debug/flow_studio.exe`. See the app guide
