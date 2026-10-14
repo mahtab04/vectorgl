@@ -38,6 +38,9 @@ their previous setting until explicitly changed.
 - Card library, scrollable board list, properties inspector, overview minimap,
   fit-to-board controls, and light/dark themes.
 - New/Open/Save/Save as, board renaming, SVG export, and an in-app shortcut guide.
+- Open Recent (10 files), remembered theme/grid/snapping and last board viewport.
+- Separate recovery snapshots every 30 seconds, including untitled boards and
+  uncommitted property text. Startup offers Restore, Discard or Later.
 - Unsaved-change prompts for closing, creating or opening boards.
 - Undo/redo transactions; an entire drag or completed property edit is one action.
 
@@ -78,8 +81,50 @@ connections are rejected. Deleting a card removes incident connections.
 Saves write a temporary file in the destination directory and rename/replace it
 only after a successful write. A failed save leaves the previous board intact.
 Undo/redo retains up to 100 snapshots with a 16 MiB accounted-storage limit per
-stack. Saved-state tracking also works across undo/redo. There is no automatic
-cloud synchronization or crash recovery; save documents explicitly.
+stack. Saved-state tracking also works across undo/redo. Recovery is a local
+backup, not a replacement for explicitly saving documents. Changes since the
+last successful snapshot can be lost after an abrupt shutdown.
+
+## Workspace persistence and recovery
+
+Flow Studio reopens the last available saved board and restores its viewport,
+theme, grid and snapping settings. Choose **Open recent** in the sidebar to
+reopen one of the last 10 saved/opened boards or clear the history. Missing files
+remain listed as unavailable; a failed open preserves the current board.
+
+Every 30 seconds the app writes changed work to `recovery.json` in its workspace
+data folder, independently of the original board. It also checkpoints before a
+close confirmation. Snapshots include the last saved baseline and viewport so a
+restart can distinguish unsaved edits from externally changed files. Saving,
+undoing back to the saved state, or explicitly discarding current work clears an
+owned snapshot. A successful restore remains recoverable until saved/discarded.
+
+On startup, **Restore** opens the snapshot as unsaved work; **Discard** removes
+it; **Later** retains it for review through Open Recent. Unresolved snapshots,
+including corrupt ones, are never overwritten automatically. While a previous
+snapshot remains pending, current edits require explicit saves. Restore also
+honors the current board's unsaved-change prompt.
+
+If the original saved file is missing or differs from the snapshot's baseline,
+restored work becomes an untitled board and requires Save As. Recovery never
+automatically writes to the source board. Corrupt settings fall back to defaults
+with a status message; corrupt recovery stays on disk until explicitly discarded.
+
+Default data locations:
+
+- Windows: `%LOCALAPPDATA%/FlowStudio`
+- Linux: `$XDG_STATE_HOME/flow-studio`, or `~/.local/state/flow-studio`
+- macOS: `~/Library/Application Support/FlowStudio`
+
+Use `--state-dir path/to/folder` for a separate or portable workspace. One app
+instance may use each folder at a time; the OS releases its lock on exit/crash.
+`settings.json`, `recovery.json` and `workspace.lock` are reserved paths, not
+document/export destinations. Workspace files retain local board content and
+file paths; there is no cloud synchronization. Recovery files are capped at
+12 MiB and settings at 128 KiB, and their contents are validated before use.
+
+Smoke tests always use isolated temporary workspaces and ignore `--state-dir`;
+they do not read/write the normal user profile.
 
 ## Verification
 
@@ -89,8 +134,12 @@ ctest --test-dir build/windows-debug -C Debug -R 'flow_' --output-on-failure
 
 `flow_document_tests` exercises JSON roundtrips/validation, Unicode escapes,
 history, connection deletion/duplication, rollback and file replacement.
+`flow_workspace_tests` covers interrupted-session recovery, preferences, recent
+files, locking, corrupt-data preservation and checkpoint failure. Both model
+tests also build with apps/examples/GPU tests disabled, without GLFW.
 With `VECTORGL_BUILD_GPU_TESTS=ON`, `flow_studio_smoke` also exercises rendering,
-property editing, save/reopen, SVG export and toolbar input in a hidden window.
+property editing, save/reopen, SVG export, recovery prompts, external-file
+conflicts, deferred snapshots and toolbar input in a hidden window.
 
 To capture a preview with a real font:
 
@@ -99,4 +148,5 @@ To capture a preview with a real font:
 ```
 
 `document.*` contains the GL-independent document model, persistence and history;
-`app.*` contains drawing/input; `main.cpp` owns the window/context lifecycle.
+`workspace.*` manages persistent settings, locks and recovery; `app.*` contains
+drawing/input; `main.cpp` owns the window/context lifecycle.
