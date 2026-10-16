@@ -38,6 +38,18 @@ Document parse(const std::string& json);
 Document readDocument(const std::filesystem::path& path);
 void writeAtomic(const std::filesystem::path& path, const std::string& content);
 std::string exportSvg(const Document& document);
+enum class Arrangement
+{
+    Left,
+    CenterX,
+    Right,
+    Top,
+    CenterY,
+    Bottom,
+    DistributeX,
+    DistributeY
+};
+std::string copyCards(const Document& document, const std::vector<uint32_t>& ids);
 
 class Editor
 {
@@ -60,6 +72,9 @@ public:
     bool connect(uint32_t from, uint32_t to);
     void erase(const std::vector<uint32_t>& ids, uint32_t connection = 0);
     std::vector<uint32_t> duplicate(const std::vector<uint32_t>& ids);
+    std::vector<uint32_t> paste(const std::string& payload, float x, float y);
+    bool arrange(const std::vector<uint32_t>& ids, Arrangement arrangement);
+    bool move(const std::vector<uint32_t>& ids, float dx, float dy, bool recordHistory = true);
 
 private:
     std::vector<Document> undo_, redo_;

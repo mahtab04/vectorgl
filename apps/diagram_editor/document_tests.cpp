@@ -126,6 +126,97 @@ int main()
         while (editor.undo())
             ++count;
         expect(count == 100, "Undo history limit incorrect");
+        editor.replace(initial);
+        const auto clipboard = flow::copyCards(initial, {1, 2, 2});
+        expect(!clipboard.empty() && flow::copyCards(initial, {}).empty(),
+               "Empty or duplicate selection handling failed");
+        const auto pasted = editor.paste(clipboard, 100, 200);
+        expect(pasted.size() == 2 && pasted[0] != 1 && pasted[1] != 2, "Paste did not allocate fresh IDs");
+        expect(editor.document.find(pasted[0])->x == 100 && editor.document.find(pasted[1])->x == 400,
+               "Paste did not preserve relative positions");
+        expect(editor.document.connections.size() == initial.connections.size() + 1 &&
+                   editor.document.connections.back().from == pasted[0] &&
+                   editor.document.connections.back().to == pasted[1],
+               "Paste included external edges or failed to remap endpoints");
+        const auto afterPaste = editor.document;
+        expect(editor.undo() && editor.document == initial && editor.redo() && editor.document == afterPaste,
+               "Paste was not one reversible transaction");
+        rejects([&] { editor.paste("ordinary clipboard text", 0, 0); });
+        rejects([&] { editor.paste("FLOWSTUDIO-CARDS/1\n{}", 0, 0); });
+        rejects([&] { editor.paste(std::string(2 * 1024 * 1024 + 33, 'x'), 0, 0); });
+        expect(editor.document == afterPaste, "Invalid clipboard mutated the document");
+        editor.replace(initial);
+        expect(editor.arrange({1, 2}, flow::Arrangement::Left) && editor.document.find(2)->x == 0,
+               "Left alignment failed");
+        expect(editor.undo() && editor.document == initial, "Alignment undo failed");
+        editor.arrange({1, 2}, flow::Arrangement::CenterX);
+        expect(editor.document.find(1)->x == 150 && editor.document.find(2)->x == 150, "Center alignment failed");
+        editor.replace(initial);
+        editor.document.find(2)->x = 100;
+        const auto beforeDistribution = editor.document;
+        editor.arrange({1, 2, 3}, flow::Arrangement::DistributeX);
+        expect(editor.document.find(2)->x == 300 && editor.document.find(1)->x == 0 &&
+                   editor.document.find(3)->x == 600,
+               "Distribution did not preserve extremes and equalize spacing");
+        expect(editor.undo() && editor.document == beforeDistribution, "Distribution undo failed");
+        auto arrangementBase = initial;
+        arrangementBase.find(2)->y = 40;
+        arrangementBase.find(3)->y = 220;
+        const std::pair<flow::Arrangement, float> arrangements[] = {{flow::Arrangement::Right, 600.0f},
+                                                                    {flow::Arrangement::Top, 0.0f},
+                                                                    {flow::Arrangement::CenterY, 110.0f},
+                                                                    {flow::Arrangement::Bottom, 220.0f}};
+        for (const auto& [mode, expected] : arrangements)
+        {
+            editor.replace(arrangementBase);
+            editor.arrange({1, 2, 3}, mode);
+            for (auto selected : {1, 2, 3})
+                expect((mode == flow::Arrangement::Right ? editor.document.find(selected)->x
+                                                         : editor.document.find(selected)->y) == expected,
+                       "Arrangement mode produced incorrect bounds");
+            expect(*editor.document.find(4) == *arrangementBase.find(4), "Arrangement changed an unselected card");
+            expect(editor.undo() && editor.document == arrangementBase, "Arrangement was not one undo transaction");
+        }
+        editor.replace(arrangementBase);
+        editor.arrange({1, 2, 3}, flow::Arrangement::DistributeY);
+        expect(editor.document.find(2)->y == 110 && editor.document.find(1)->y == 0 &&
+                   editor.document.find(3)->y == 220,
+               "Vertical distribution changed extremes or spacing");
+        auto unicode = initial;
+        unicode.find(1)->title = "Caf\xc3\xa9";
+        unicode.find(1)->kind = 2;
+        unicode.find(1)->color = 5;
+        editor.replace(initial);
+        const auto boundaryPaste = editor.paste(flow::copyCards(unicode, {1, 2}), 999999, 999999);
+        expect(editor.document.find(boundaryPaste[0])->title == unicode.find(1)->title &&
+                   editor.document.find(boundaryPaste[0])->kind == 2 &&
+                   editor.document.find(boundaryPaste[0])->color == 5,
+               "Clipboard lost Unicode text, card type or style");
+        expect(editor.document.find(boundaryPaste[1])->x == 1000000 &&
+                   editor.document.find(boundaryPaste[1])->x - editor.document.find(boundaryPaste[0])->x == 300,
+               "Boundary paste distorted group placement");
+        editor.replace(initial);
+        expect(!editor.arrange({1}, flow::Arrangement::Top) && !editor.canUndo(), "No-op alignment recorded history");
+        editor.move({1, 2}, 10, -5);
+        expect(editor.document.find(1)->x == 10 && editor.document.find(2)->x == 310 &&
+                   editor.document.find(1)->y == -5,
+               "Selection movement changed relative placement");
+        expect(editor.undo() && editor.document == initial, "Movement undo failed");
+        editor.document.find(1)->x = 999998;
+        editor.document.find(2)->x = 999999;
+        editor.move({1, 2}, 10, 0);
+        expect(editor.document.find(1)->x == 999999 && editor.document.find(2)->x == 1000000,
+               "Boundary movement distorted group spacing");
+        editor.replace(initial);
+        while (editor.document.cards.size() < flow::maxCards)
+        {
+            auto card = initial.cards.front();
+            card.id = editor.document.nextId++;
+            editor.document.cards.push_back(card);
+        }
+        const auto full = editor.document;
+        rejects([&] { editor.paste(clipboard, 0, 0); });
+        expect(editor.document == full && !editor.canUndo(), "Over-limit paste partially mutated the document");
         const auto svg = flow::exportSvg(d);
         expect(svg.find("&lt;&amp;&gt;") != std::string::npos && svg.find("<path") != std::string::npos,
                "SVG export did not escape text or include connections");
