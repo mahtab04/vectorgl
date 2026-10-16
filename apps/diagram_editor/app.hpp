@@ -51,6 +51,10 @@ private:
         Add,
         Delete,
         Duplicate,
+        Copy,
+        Cut,
+        Paste,
+        Arrange,
         Fit,
         ZoomIn,
         ZoomOut,
@@ -108,6 +112,13 @@ private:
     std::string recoveryStatus_ = "Recovery ready";
     std::string status_ = "Ready. Drag cards to arrange your ideas.", error_;
     std::vector<uint32_t> selection_;
+    std::string pastePayload_;
+    // The GUI smoke test injects text so it never replaces the user's clipboard.
+    std::optional<std::string> clipboardSimulation_;
+    vectorgl::Vec2 pasteAnchor_{};
+    uint32_t pasteCount_ = 0;
+    std::optional<Document> nudgeBefore_;
+    int nudgeKey_ = -1;
     uint32_t selectedEdge_ = 0, connecting_ = 0, inspected_ = 0;
     vectorgl::Vec2 cursor_{}, last_{}, start_{}, pan_{}, dragWorld_{};
     float zoom_ = 1, width_ = 1440, height_ = 900, layerScroll_ = 0;
@@ -127,6 +138,7 @@ private:
     void syncFields();
     void commitFields();
     void finishGesture();
+    void finishNudge();
     void action(Action action, uint32_t value = 0);
     bool save(bool choose);
     void fileAction(Action action);

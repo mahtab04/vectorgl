@@ -34,6 +34,7 @@ their previous setting until explicitly changed.
 - Connections: drag a card's right port onto another card's left port.
 - Single/multiple selection, box selection, group dragging, grid snapping,
   duplication (including connections within the selection), and deletion.
+- Card copy/cut/paste, alignment and distribution, and arrow-key nudging.
 - Scroll to zoom around the pointer; middle-drag or Space-drag to pan.
 - Card library, scrollable board list, properties inspector, overview minimap,
   fit-to-board controls, and light/dark themes.
@@ -60,12 +61,36 @@ provided by this app.
 | Ctrl/Cmd+Z | Undo |
 | Ctrl/Cmd+Shift+Z or Ctrl/Cmd+Y | Redo |
 | Ctrl/Cmd+D | Duplicate selected cards |
+| Ctrl/Cmd+C / X / V | Copy / cut / paste cards (or text in a focused field) |
+| Arrow keys | Move selected cards by 1 world unit |
+| Shift+Arrow keys | Move selected cards by 10 world units |
 | Ctrl/Cmd+A | Select all (or select text in a field) |
 | Delete / Backspace | Delete selected cards or connection |
 | F | Fit board |
 | Escape | Deselect / cancel field or dialog |
 
 Windows uses native file dialogs; Linux/macOS use a file-path dialog in the app.
+
+## Arrange and reuse cards
+
+Use the contextual Copy/Cut/Paste toolbar above the canvas, or keyboard shortcuts.
+Copy includes selected cards and connections whose endpoints are both selected.
+Paste gives every card/connection a fresh ID, preserves text/style and relative
+positions, and places the group near the viewport center. Repeated pastes offset
+the group by 24 world units. Cut removes incident connections; undo restores them.
+Selections can be pasted between boards or running app instances. Clipboard data
+is validated before insertion; invalid text or document-limit failures leave the
+board unchanged. Ordinary text paste still works in focused property fields.
+
+For multiple selected cards, the inspector offers left/right/top/bottom and
+horizontal/vertical center alignment. **Space across/down** requires three cards
+and keeps the outermost cards fixed while spacing the rest evenly. Alignment,
+distribution, paste and cut each create one undo action. Holding an arrow key
+groups its repeats into one undo action, completed on release, focus loss or
+another operation. Nudging ignores grid snapping for precise positioning. Group
+movement/paste at coordinate limits preserves spacing rather than clamping each
+card separately.
+
 SVG exports contain editable vector cards, connections and text; text wrapping
 and font appearance may differ from the app. Exports include the entire board,
 independent of the current zoom/pan and selection.
@@ -133,13 +158,15 @@ ctest --test-dir build/windows-debug -C Debug -R 'flow_' --output-on-failure
 ```
 
 `flow_document_tests` exercises JSON roundtrips/validation, Unicode escapes,
-history, connection deletion/duplication, rollback and file replacement.
+history, clipboard validation/remapping, arrangement and movement bounds,
+connection deletion/duplication, rollback and file replacement.
 `flow_workspace_tests` covers interrupted-session recovery, preferences, recent
 files, locking, corrupt-data preservation and checkpoint failure. Both model
 tests also build with apps/examples/GPU tests disabled, without GLFW.
 With `VECTORGL_BUILD_GPU_TESTS=ON`, `flow_studio_smoke` also exercises rendering,
 property editing, save/reopen, SVG export, recovery prompts, external-file
 conflicts, deferred snapshots and toolbar input in a hidden window.
+Clipboard GUI checks inject text instead of changing the user's system clipboard.
 
 To capture a preview with a real font:
 

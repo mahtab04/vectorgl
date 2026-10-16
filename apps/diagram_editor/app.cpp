@@ -43,6 +43,19 @@ std::string pathUtf8(const std::filesystem::path& path)
     const auto value = path.u8string();
     return {reinterpret_cast<const char*>(value.data()), value.size()};
 }
+std::string cardClipboard(GLFWwindow* window)
+{
+    const char* value = glfwGetClipboardString(window);
+    if (!value)
+        throw std::runtime_error("Clipboard is empty or does not contain text");
+    constexpr std::size_t limit = 2 * 1024 * 1024 + 32;
+    std::size_t length = 0;
+    while (length <= limit && value[length])
+        ++length;
+    if (length > limit)
+        throw std::runtime_error("Clipboard card selection exceeds 2 MiB");
+    return {value, length};
+}
 float segmentDistance(Vec2 p, Vec2 a, Vec2 b)
 {
     const auto d = b - a;
@@ -189,8 +202,18 @@ void App::commitFields()
     description_.setFocused(false);
     fieldDragging_ = false;
 }
+void App::finishNudge()
+{
+    if (nudgeBefore_)
+    {
+        editor_.record(*nudgeBefore_);
+        nudgeBefore_.reset();
+    }
+    nudgeKey_ = -1;
+}
 void App::finishGesture()
 {
+    finishNudge();
     if (dragBefore_)
     {
         editor_.record(*dragBefore_);
@@ -374,6 +397,7 @@ void App::action(Action kind, uint32_t value)
 {
     try
     {
+        finishNudge();
         switch (kind)
         {
         case Action::New:
@@ -429,6 +453,59 @@ void App::action(Action kind, uint32_t value)
             selection_.clear();
             selectedEdge_ = 0;
             syncFields();
+            break;
+        case Action::Copy:
+        case Action::Cut:
+        {
+            const auto payload = copyCards(editor_.document, selection_);
+            if (payload.empty())
+            {
+                status_ = "Select cards to copy";
+                break;
+            }
+            if (clipboardSimulation_)
+                *clipboardSimulation_ = payload;
+            else
+                glfwSetClipboardString(window_, payload.c_str());
+            if ((clipboardSimulation_ ? *clipboardSimulation_ : cardClipboard(window_)) != payload)
+                throw std::runtime_error("Clipboard write failed; selected cards were retained");
+            status_ = "Cards copied";
+            if (kind == Action::Cut)
+            {
+                editor_.erase(selection_);
+                selection_.clear();
+                selectedEdge_ = 0;
+                syncFields();
+                status_ = "Cards cut. Paste to move them.";
+            }
+            break;
+        }
+        case Action::Paste:
+        {
+            const auto payload = clipboardSimulation_ ? *clipboardSimulation_ : cardClipboard(window_);
+            const auto r = board();
+            const auto center = world({r.x + r.w / 2, r.y + r.h / 2});
+            const bool repeat = payload == pastePayload_ && center.x == pasteAnchor_.x && center.y == pasteAnchor_.y;
+            const uint32_t count = repeat ? pasteCount_ : 0;
+            auto pasted =
+                editor_.paste(payload, center.x - cardWidth / 2 + count * 24, center.y - cardHeight / 2 + count * 24);
+            if (pasted.empty())
+            {
+                status_ = "Clipboard selection contains no cards";
+                break;
+            }
+            selection_ = std::move(pasted);
+            selectedEdge_ = 0;
+            syncFields();
+            pastePayload_ = payload;
+            pasteAnchor_ = center;
+            pasteCount_ = std::min(count + 1, 2000u);
+            status_ = "Cards pasted with new IDs";
+            break;
+        }
+        case Action::Arrange:
+            editor_.arrange(selection_, static_cast<Arrangement>(value));
+            status_ = "Selection arranged";
             break;
         case Action::Duplicate:
             selection_ = editor_.duplicate(selection_);
@@ -834,6 +911,16 @@ void App::drawChrome(float dt)
     {
         text(selection_.size() == 1 ? "Card details" : std::to_string(selection_.size()) + " cards selected", ix, 132,
              21, foreground);
+        if (selection_.size() > 1)
+        {
+            text("ALIGN SELECTION", ix, 182, 10, muted);
+            const char* labels[] = {"Left", "H center", "Right", "Top", "V center", "Bottom"};
+            for (uint32_t i = 0; i < 6; ++i)
+                button({ix + (i % 3) * 82, 205.0f + (i / 3) * 40, 76, 32}, labels[i], Action::Arrange, i);
+            button({ix, 292, 116, 32}, "Space across", Action::Arrange, 6, false, selection_.size() >= 3);
+            button({ix + 124, 292, 116, 32}, "Space down", Action::Arrange, 7, false, selection_.size() >= 3);
+            text("Arrows move 1; Shift+Arrows move 10", ix, 341, 11, muted);
+        }
         if (selection_.size() == 1)
         {
             text("TITLE", ix, 182, 10, muted);
@@ -881,9 +968,15 @@ void App::drawChrome(float dt)
         button({ix + 38, 397, 164, 36}, "+  Add a task", Action::Add, 0, true);
     }
     const auto r = board();
-    box({r.x + 18, r.y + 16, 172, 42}, background, 10);
+    box({r.x + 18, r.y + 16, selection_.empty() ? 246.0f : 384.0f, 42}, background, 10);
     button({r.x + 24, r.y + 21, 76, 32}, "Undo", Action::Undo, 0, false, editor_.canUndo());
     button({r.x + 106, r.y + 21, 76, 32}, "Redo", Action::Redo, 0, false, editor_.canRedo());
+    button({r.x + 188, r.y + 21, 64, 32}, "Paste", Action::Paste);
+    if (!selection_.empty())
+    {
+        button({r.x + 258, r.y + 21, 64, 32}, "Copy", Action::Copy);
+        button({r.x + 328, r.y + 21, 64, 32}, "Cut", Action::Cut);
+    }
     const float zx = r.x + r.w / 2 - 120, zy = r.y + r.h - 58;
     box({zx - 6, zy - 6, 250, 46}, background, 12);
     button({zx, zy, 36, 32}, "-", Action::ZoomOut);
@@ -928,7 +1021,7 @@ void App::drawModal(float dt)
     hits_.clear();
     box({0, 0, width_, height_}, Color{0.08f, 0.04f, 0.17f, 0.4f});
     const bool help = modal_ == Modal::Help;
-    const float modalHeight = modal_ == Modal::Recent ? 540 : modal_ == Modal::Recovery ? 340 : help ? 420 : 280;
+    const float modalHeight = modal_ == Modal::Recent ? 540 : modal_ == Modal::Recovery ? 340 : help ? 472 : 280;
     Rect r{width_ / 2 - 260, height_ / 2 - modalHeight / 2, 520, modalHeight};
     box(r, Color::hex(dark_ ? 0x252130 : 0xffffff), 18);
     const auto foreground = Color::hex(dark_ ? 0xeee6ff : 0x392f4d), muted = Color::hex(dark_ ? 0xb0a3c2 : 0x8d7f9f);
@@ -1000,10 +1093,12 @@ void App::drawModal(float dt)
                                "Ctrl+Shift+S       Save as",
                                "Ctrl+Z / Ctrl+Shift+Z    Undo / Redo",
                                "Ctrl+D / Delete   Duplicate / Delete selection",
+                               "Ctrl+C / X / V    Copy / Cut / Paste selected cards",
+                               "Arrows: move 1 / Shift+Arrows: move 10",
                                "Ctrl+A               Select all cards",
                                "F                        Fit board",
                                "Double-click a card to edit its title."};
-        for (int i = 0; i < 10; ++i)
+        for (int i = 0; i < 12; ++i)
             text(lines[i], r.x + 28, r.y + 76 + i * 26.0f, 12, muted);
         button({r.x + 372, r.y + r.h - 54, 120, 34}, "Got it", Action::ModalCancel, 0, true);
     }
@@ -1131,6 +1226,7 @@ void App::mouse(int button, int state, int modifiers)
     }
     if (state != GLFW_PRESS)
         return;
+    finishNudge();
     if (modal_ != Modal::None)
     {
         if (button != GLFW_MOUSE_BUTTON_LEFT)
@@ -1288,6 +1384,12 @@ void App::character(uint32_t cp)
 }
 void App::key(int code, int state, int modifiers)
 {
+    if (state == GLFW_RELEASE)
+    {
+        if (code == nudgeKey_)
+            finishNudge();
+        return;
+    }
     if (state != GLFW_PRESS && state != GLFW_REPEAT)
         return;
     const bool control = (modifiers & (GLFW_MOD_CONTROL | GLFW_MOD_SUPER)) != 0;
@@ -1365,6 +1467,36 @@ void App::key(int code, int state, int modifiers)
             action(Action::ModalCancel);
         return;
     }
+    if (!control && (code == GLFW_KEY_LEFT || code == GLFW_KEY_RIGHT || code == GLFW_KEY_UP || code == GLFW_KEY_DOWN))
+    {
+        if (selection_.empty())
+            return;
+        try
+        {
+            if (nudgeKey_ != code)
+            {
+                finishGesture();
+                nudgeBefore_ = editor_.document;
+                nudgeKey_ = code;
+            }
+            const float step = shift ? 10.0f : 1.0f;
+            editor_.move(selection_,
+                         code == GLFW_KEY_LEFT    ? -step
+                         : code == GLFW_KEY_RIGHT ? step
+                                                  : 0,
+                         code == GLFW_KEY_UP     ? -step
+                         : code == GLFW_KEY_DOWN ? step
+                                                 : 0,
+                         false);
+            status_ = "Selection moved";
+        }
+        catch (const std::exception& error)
+        {
+            finishNudge();
+            setError(error.what());
+        }
+        return;
+    }
     finishGesture();
     if (control)
     {
@@ -1384,6 +1516,15 @@ void App::key(int code, int state, int modifiers)
             break;
         case GLFW_KEY_Y:
             action(Action::Redo);
+            break;
+        case GLFW_KEY_C:
+            action(Action::Copy);
+            break;
+        case GLFW_KEY_X:
+            action(Action::Cut);
+            break;
+        case GLFW_KEY_V:
+            action(Action::Paste);
             break;
         case GLFW_KEY_D:
             action(Action::Duplicate);
@@ -1414,6 +1555,63 @@ void App::key(int code, int state, int modifiers)
 void App::smokeTest(const std::filesystem::path& directory)
 {
     const auto original = editor_.document;
+    selection_ = {1};
+    syncFields();
+    key(GLFW_KEY_RIGHT, GLFW_PRESS, 0);
+    key(GLFW_KEY_RIGHT, GLFW_REPEAT, 0);
+    key(GLFW_KEY_RIGHT, GLFW_RELEASE, 0);
+    if (editor_.document.find(1)->x != original.find(1)->x + 2)
+        throw std::runtime_error("Arrow repeat did not move the card");
+    key(GLFW_KEY_Z, GLFW_PRESS, GLFW_MOD_CONTROL);
+    if (editor_.document != original)
+        throw std::runtime_error("Held arrow movement was not one undo transaction");
+    selection_ = {1};
+    syncFields();
+    key(GLFW_KEY_DOWN, GLFW_PRESS, GLFW_MOD_SHIFT);
+    key(GLFW_KEY_DOWN, GLFW_RELEASE, GLFW_MOD_SHIFT);
+    if (editor_.document.find(1)->y != original.find(1)->y + 10)
+        throw std::runtime_error("Shift arrow did not use the larger step");
+    action(Action::Undo);
+    clipboardSimulation_ = std::string{};
+    selection_ = {1, 2};
+    syncFields();
+    key(GLFW_KEY_C, GLFW_PRESS, GLFW_MOD_CONTROL);
+    key(GLFW_KEY_V, GLFW_PRESS, GLFW_MOD_CONTROL);
+    if (selection_.size() != 2 || editor_.document.cards.size() != original.cards.size() + 2 ||
+        editor_.document.connections.size() != original.connections.size() + 1)
+        throw std::runtime_error("GUI clipboard paste did not preserve the selected subgraph");
+    const auto firstPaste = editor_.document;
+    const auto firstIds = selection_;
+    key(GLFW_KEY_V, GLFW_PRESS, GLFW_MOD_CONTROL);
+    if (std::abs(editor_.document.find(selection_[0])->x - firstPaste.find(firstIds[0])->x - 24) > 0.001f)
+        throw std::runtime_error("Repeated paste did not offset the selection");
+    action(Action::Undo);
+    selection_ = firstIds;
+    syncFields();
+    key(GLFW_KEY_X, GLFW_PRESS, GLFW_MOD_CONTROL);
+    if (editor_.document.cards.size() != original.cards.size())
+        throw std::runtime_error("GUI cut did not remove cards");
+    action(Action::Undo);
+    if (editor_.document != firstPaste)
+        throw std::runtime_error("GUI cut undo did not restore connections");
+    selection_ = {1, 2, 3};
+    syncFields();
+    render(width_, height_, 1, 0); // Exercise the selection toolbar/arrangement inspector.
+    action(Action::Arrange, static_cast<uint32_t>(Arrangement::Left));
+    if (editor_.document.find(3)->x != original.find(1)->x)
+        throw std::runtime_error("GUI alignment failed");
+    action(Action::Undo);
+    if (editor_.document != firstPaste)
+        throw std::runtime_error("GUI alignment undo failed");
+    clipboardSimulation_ = "not a card selection";
+    action(Action::Paste);
+    if (editor_.document != firstPaste || modal_ != Modal::Error)
+        throw std::runtime_error("Invalid clipboard changed the board");
+    action(Action::ModalCancel);
+    editor_.replace(original);
+    selection_.clear();
+    syncFields();
+    clipboardSimulation_.reset();
     // Exercise pointer dragging and transaction boundaries on the rendered UI.
     const auto point = screen({original.cards.front().x + 100, original.cards.front().y + 40});
     pointer(point.x, point.y);

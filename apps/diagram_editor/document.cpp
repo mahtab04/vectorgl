@@ -11,6 +11,7 @@
 #include <set>
 #include <sstream>
 #include <stdexcept>
+#include <string_view>
 #include <utility>
 
 #include "workspace.hpp"
@@ -826,5 +827,143 @@ std::vector<uint32_t> Editor::duplicate(const std::vector<uint32_t>& ids)
                 }
         });
     return result;
+}
+namespace
+{
+constexpr std::string_view clipboardPrefix = "FLOWSTUDIO-CARDS/1\n";
+std::vector<Card*> selectedCards(Document& document, const std::vector<uint32_t>& ids)
+{
+    std::vector<Card*> result;
+    for (auto& card : document.cards)
+        if (std::find(ids.begin(), ids.end(), card.id) != ids.end())
+            result.push_back(&card);
+    return result;
+}
+} // namespace
+std::string copyCards(const Document& document, const std::vector<uint32_t>& ids)
+{
+    Document selection;
+    selection.name = "Clipboard selection";
+    selection.nextId = document.nextId;
+    for (const auto& card : document.cards)
+        if (std::find(ids.begin(), ids.end(), card.id) != ids.end())
+            selection.cards.push_back(card);
+    for (const auto& edge : document.connections)
+        if (selection.find(edge.from) && selection.find(edge.to))
+            selection.connections.push_back(edge);
+    if (selection.cards.empty())
+        return {};
+    const auto content = serialize(selection);
+    (void)parse(content);
+    return std::string(clipboardPrefix) + content;
+}
+std::vector<uint32_t> Editor::paste(const std::string& payload, float x, float y)
+{
+    if (payload.size() > 2 * 1024 * 1024 + clipboardPrefix.size() || !payload.starts_with(clipboardPrefix))
+        throw std::runtime_error("Clipboard does not contain a valid Flow Studio card selection");
+    if (!std::isfinite(x) || !std::isfinite(y))
+        throw std::runtime_error("Paste position must be finite");
+    const auto selection = parse(payload.substr(clipboardPrefix.size()));
+    if (selection.cards.empty())
+        return {};
+    if (document.cards.size() + selection.cards.size() > maxCards ||
+        document.connections.size() + selection.connections.size() > maxConnections ||
+        document.nextId + selection.cards.size() + selection.connections.size() > 1000000000)
+        throw std::runtime_error("Paste exceeds the document card, connection or ID limits");
+    float left = selection.cards.front().x, right = left, top = selection.cards.front().y, bottom = top;
+    for (const auto& c : selection.cards)
+    {
+        left = std::min(left, c.x);
+        right = std::max(right, c.x);
+        top = std::min(top, c.y);
+        bottom = std::max(bottom, c.y);
+    }
+    const float dx = std::clamp(x - left, -1000000 - left, 1000000 - right);
+    const float dy = std::clamp(y - top, -1000000 - top, 1000000 - bottom);
+    std::vector<uint32_t> result;
+    change(
+        [&](Document& d)
+        {
+            std::map<uint32_t, uint32_t> mapping;
+            for (auto card : selection.cards)
+            {
+                const auto original = card.id;
+                card.id = d.nextId++;
+                mapping[original] = card.id;
+                card.x += dx;
+                card.y += dy;
+                result.push_back(card.id);
+                d.cards.push_back(std::move(card));
+            }
+            for (const auto& edge : selection.connections)
+                d.connections.push_back({d.nextId++, mapping.at(edge.from), mapping.at(edge.to)});
+        });
+    return result;
+}
+bool Editor::arrange(const std::vector<uint32_t>& ids, Arrangement arrangement)
+{
+    return change(
+        [&](Document& d)
+        {
+            auto cards = selectedCards(d, ids);
+            const bool horizontal = arrangement == Arrangement::Left || arrangement == Arrangement::CenterX ||
+                                    arrangement == Arrangement::Right || arrangement == Arrangement::DistributeX;
+            const bool distribute = arrangement == Arrangement::DistributeX || arrangement == Arrangement::DistributeY;
+            if (cards.size() < (distribute ? 3u : 2u))
+                return;
+            const auto coordinate = [&](const Card* c) { return horizontal ? c->x : c->y; };
+            std::stable_sort(cards.begin(), cards.end(),
+                             [&](const Card* a, const Card* b) { return coordinate(a) < coordinate(b); });
+            const float first = coordinate(cards.front()), last = coordinate(cards.back());
+            for (std::size_t i = 0; i < cards.size(); ++i)
+            {
+                // Cards have equal dimensions; equal origin spacing gives equal gaps.
+                const float value =
+                    distribute ? first + (last - first) * (static_cast<float>(i) / static_cast<float>(cards.size() - 1))
+                    : arrangement == Arrangement::Left || arrangement == Arrangement::Top     ? first
+                    : arrangement == Arrangement::Right || arrangement == Arrangement::Bottom ? last
+                                                                                              : (first + last) * 0.5f;
+                if (horizontal)
+                    cards[i]->x = value;
+                else
+                    cards[i]->y = value;
+            }
+        });
+}
+bool Editor::move(const std::vector<uint32_t>& ids, float dx, float dy, bool recordHistory)
+{
+    if (!std::isfinite(dx) || !std::isfinite(dy))
+        throw std::runtime_error("Movement must be finite");
+    auto cards = selectedCards(document, ids);
+    if (cards.empty())
+        return false;
+    float left = cards.front()->x, right = left, top = cards.front()->y, bottom = top;
+    for (const auto* c : cards)
+    {
+        left = std::min(left, c->x);
+        right = std::max(right, c->x);
+        top = std::min(top, c->y);
+        bottom = std::max(bottom, c->y);
+    }
+    dx = std::clamp(dx, -1000000 - left, 1000000 - right);
+    dy = std::clamp(dy, -1000000 - top, 1000000 - bottom);
+    if (dx == 0 && dy == 0)
+        return false;
+    if (recordHistory)
+        return change(
+            [&](Document&)
+            {
+                for (auto* c : cards)
+                {
+                    c->x += dx;
+                    c->y += dy;
+                }
+            });
+    for (auto* c : cards)
+    {
+        c->x += dx;
+        c->y += dy;
+    }
+    return true;
 }
 } // namespace flow
