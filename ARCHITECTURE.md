@@ -132,6 +132,12 @@ before upload, without consuming stencil bits. Antialias fringes are generated
 only along exposed mesh boundaries, in framebuffer pixels. Picking uses the
 same rule; boundary hits resolve against the filled mesh. Strokes retain their
 original contours and are expanded into triangles separately.
+Unchanged scene paths reuse local fill meshes for each fill rule. Path edits
+discard their derived contours and meshes; transforms and colors leave local
+geometry reusable. Copies can share the derived cache until edited. Rendering
+still transforms and uploads vertices each frame, so this cache reduces CPU
+tessellation work rather than GPU draw calls. Synchronize concurrent access to
+paths sharing a lazy cache.
 This path is flexible but more CPU-intensive than SDF primitives.
 
 ### Text and images

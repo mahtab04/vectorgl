@@ -3,20 +3,54 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <optional>
 
 #include "vectorgl/detail/path_tessellation.hpp"
 
 namespace vectorgl
 {
 
+namespace detail
+{
+struct PathCache
+{
+    std::vector<std::vector<Vec2>> contours;
+    std::optional<PathMesh> meshes[2];
+};
+
+const std::vector<std::vector<Vec2>>& pathContours(const Path2D& path)
+{
+    if (!path.cache_)
+    {
+        auto cache = std::make_shared<PathCache>();
+        cache->contours = path.buildSubPaths();
+        path.cache_ = std::move(cache);
+    }
+    return path.cache_->contours;
+}
+
+const PathMesh& pathMesh(const Path2D& path, FillRule rule, bool* cacheHit)
+{
+    const auto& contours = pathContours(path);
+    auto& mesh = path.cache_->meshes[rule == FillRule::EvenOdd ? 1 : 0];
+    if (cacheHit)
+        *cacheHit = mesh.has_value();
+    if (!mesh)
+        mesh = tessellatePath(contours, rule);
+    return *mesh;
+}
+} // namespace detail
+
 void Path2D::moveTo(float x, float y)
 {
+    cache_.reset();
     cursor_ = {x, y};
     points_.push_back({PathCmd::MoveTo, cursor_});
 }
 
 void Path2D::lineTo(float x, float y)
 {
+    cache_.reset();
     cursor_ = {x, y};
     points_.push_back({PathCmd::LineTo, cursor_});
 }
@@ -133,16 +167,23 @@ void Path2D::rect(float x, float y, float w, float h)
 
 void Path2D::closePath()
 {
+    cache_.reset();
     points_.push_back({PathCmd::Close, {}});
 }
 
 void Path2D::clear()
 {
+    cache_.reset();
     points_.clear();
     cursor_ = {0, 0};
 }
 
 std::vector<std::vector<Vec2>> Path2D::getSubPaths() const
+{
+    return detail::pathContours(*this);
+}
+
+std::vector<std::vector<Vec2>> Path2D::buildSubPaths() const
 {
     std::vector<std::vector<Vec2>> subPaths;
     std::vector<Vec2> current;
@@ -181,7 +222,7 @@ bool Path2D::contains(float x, float y, FillRule rule) const
 {
     if (!std::isfinite(x) || !std::isfinite(y))
         return false;
-    const auto contours = getSubPaths();
+    const auto& contours = detail::pathContours(*this);
     for (const auto& contour : contours)
         for (const auto p : contour)
             if (!std::isfinite(p.x) || !std::isfinite(p.y) || std::abs(p.x) > 8388608 || std::abs(p.y) > 8388608)
@@ -216,7 +257,7 @@ bool Path2D::contains(float x, float y, FillRule rule) const
 
     // Resolve boundary hits against the actual filled mesh. This excludes
     // degenerate contours and edges cancelled by the chosen winding rule.
-    const auto mesh = detail::tessellatePath(contours, rule);
+    const auto& mesh = detail::pathMesh(*this, rule);
     for (size_t i = 0; i < mesh.triangles.size(); i += 3)
     {
         const auto a = mesh.triangles[i], b = mesh.triangles[i + 1], c = mesh.triangles[i + 2];

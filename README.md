@@ -121,6 +121,16 @@ Draw calls include clipping masks and effects; upload bytes count streamed
 vertex/instance buffers, excluding glyph/image texture uploads. Rendered nodes
 means submissions retained after culling, including missing-resource nodes.
 
+Unchanged scene paths retain local contours and a fill mesh for each rule.
+Changing transforms, opacity, or colors reuses geometry; editing the path
+discards its derived cache. Copies may share caches until edited. Picking and
+Canvas path commands reuse contour arrays; Canvas fills still tessellate their
+submitted contours. `pathTessellations` and `pathMeshCacheHits` count renderer
+work per frame, excluding cache work performed by CPU picking. GPU uploads and
+draw calls still happen each frame. At most two meshes are retained per cached
+path geometry, with storage proportional to its complexity. Synchronize access
+when using paths or copies sharing a lazy cache across threads.
+
 Scene SDF shapes and images are conservatively culled against the framebuffer,
 including transformed quad bounds and SDF stroke/antialias padding. Text,
 paths, effect-bearing nodes, and nonfinite/unsupported bounds are retained.

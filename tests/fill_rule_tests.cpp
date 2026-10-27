@@ -115,6 +115,40 @@ int main()
     expect(scene.pick(140, 190) == node, "original contour stroke remains pickable");
 
     using namespace vectorgl::detail::svg;
+    // Reuse and invalidation must preserve ordinary value semantics.
+    Path2D cached;
+    cached.rect(0, 0, 100, 100);
+    cached.rect(20, 20, 60, 60);
+    bool hit = true;
+    const auto* firstMesh = &detail::pathMesh(cached, FillRule::NonZero, &hit);
+    expect(!hit, "first access builds path mesh");
+    expect(&detail::pathMesh(cached, FillRule::NonZero, &hit) == firstMesh && hit, "unchanged geometry reuses mesh");
+    (void)detail::pathMesh(cached, FillRule::EvenOdd, &hit);
+    expect(!hit, "fill rules have separate mesh entries");
+    (void)detail::pathMesh(cached, FillRule::EvenOdd, &hit);
+    expect(hit, "alternating rules retain both meshes");
+    Path2D copied = cached;
+    copied.rect(200, 0, 10, 10);
+    (void)detail::pathMesh(copied, FillRule::NonZero, &hit);
+    expect(!hit && copied.contains(205, 5), "editing a copied path builds new geometry");
+    expect(!cached.contains(205, 5) && &detail::pathMesh(cached, FillRule::NonZero) == firstMesh,
+           "editing a copy preserves original cache and geometry");
+    auto exported = cached.getSubPaths();
+    exported.clear();
+    expect(cached.contains(5, 5), "public contour getter still returns an independent copy");
+    copied.clear();
+    expect(!copied.contains(205, 5) && detail::pathMesh(copied, FillRule::NonZero).triangles.empty(),
+           "clear invalidates all derived geometry");
+    copied.moveTo(0, 0);
+    copied.lineTo(100, 0);
+    (void)detail::pathMesh(copied, FillRule::NonZero);
+    copied.lineTo(0, 100);
+    expect(copied.contains(10, 10), "lineTo invalidates cached contours");
+    (void)detail::pathMesh(copied, FillRule::NonZero);
+    copied.closePath();
+    (void)detail::pathMesh(copied, FillRule::NonZero, &hit);
+    expect(!hit, "closePath invalidates cached mesh");
+
     Style parent;
     XmlElement group;
     group.attrs = {{"fill-rule", "evenodd"}};
