@@ -1,5 +1,6 @@
 #pragma once
 #include <cmath>
+#include <memory>
 #include <numbers>
 #include <vector>
 
@@ -45,6 +46,15 @@ enum class FillRule
     EvenOdd  //!< Fill regions crossed an odd number of times, regardless of direction.
 };
 
+class Path2D;
+namespace detail
+{
+struct PathCache;
+struct PathMesh;
+const std::vector<std::vector<Vec2>>& pathContours(const Path2D& path);
+const PathMesh& pathMesh(const Path2D& path, FillRule rule, bool* cacheHit = nullptr);
+} // namespace detail
+
 enum class PathCmd
 {
     MoveTo,
@@ -62,6 +72,9 @@ struct PathPoint
  *
  *  Build complex shapes from lines, cubic/quadratic Bézier curves, arcs,
  *  and ellipses.  The resulting path can be filled or stroked via Canvas.
+ *  Contours and fill meshes are cached lazily and discarded on edits. Copies
+ *  share cached geometry until edited. Concurrent access to a shared path or
+ *  copies sharing a cache requires external synchronization.
  *
  *  @code
  *  vectorgl::Path2D path;
@@ -147,8 +160,13 @@ public:
     bool contains(float x, float y, FillRule rule = FillRule::NonZero) const;
 
 private:
+    friend const std::vector<std::vector<Vec2>>& detail::pathContours(const Path2D& path);
+    friend const detail::PathMesh& detail::pathMesh(const Path2D& path, FillRule rule, bool* cacheHit);
+    std::vector<std::vector<Vec2>> buildSubPaths() const;
     std::vector<PathPoint> points_;
     Vec2 cursor_{0, 0};
+    // Copies may share derived geometry; edits discard only this path's cache.
+    mutable std::shared_ptr<detail::PathCache> cache_;
 };
 
 } // namespace vectorgl

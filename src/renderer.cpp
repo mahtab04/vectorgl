@@ -65,18 +65,16 @@ uint32_t buildShaderProgram(const char* vertexFile, const char* fragmentFile, co
     return detail::buildShaderProgramFromSource(vertSource, fragSource, vertexFile, fragmentFile, label);
 }
 
-std::vector<float> pathBuffer(const std::vector<std::vector<Vec2>>& contours, Color color, const Mat3x3& transform,
-                              FillRule rule)
+std::vector<float> pathBuffer(const detail::PathMesh& mesh, Color color, const Mat3x3& transform)
 {
-    const auto mesh = detail::tessellatePath(contours, rule);
     std::vector<float> buffer;
     const size_t maxVertices = static_cast<size_t>(std::numeric_limits<GLsizei>::max());
     if (mesh.triangles.size() > maxVertices || mesh.boundary.size() > (maxVertices - mesh.triangles.size()) / 6)
         throw std::length_error("Path mesh exceeds the OpenGL vertex limit");
-    buffer.reserve((mesh.triangles.size() + mesh.boundary.size() * 6) * 7);
     const float determinant = transform.m[0] * transform.m[4] - transform.m[1] * transform.m[3];
     if (determinant == 0 || !std::isfinite(determinant))
         return buffer;
+    buffer.reserve((mesh.triangles.size() + mesh.boundary.size() * 6) * 7);
     auto add = [&](Vec2 p, float coverage)
     { buffer.insert(buffer.end(), {p.x, p.y, color.r, color.g, color.b, color.a, coverage}); };
     for (const auto p : mesh.triangles)
@@ -695,8 +693,14 @@ public:
     void fillPath(const std::vector<std::vector<Vec2>>& subPaths, Color color, const Mat3x3& transform,
                   FillRule rule = FillRule::NonZero)
     {
+        ++stats_.pathTessellations;
+        fillPathMesh(detail::tessellatePath(subPaths, rule), color, transform);
+    }
+
+    void fillPathMesh(const detail::PathMesh& mesh, Color color, const Mat3x3& transform)
+    {
         flushSDF();
-        auto buffer = pathBuffer(subPaths, color, transform, rule);
+        auto buffer = pathBuffer(mesh, color, transform);
 
         if (buffer.empty())
             return;
@@ -726,7 +730,8 @@ public:
 
         flushSDF();
 
-        auto buffer = pathBuffer(subPaths, {1, 1, 1, opacity}, transform, rule);
+        ++stats_.pathTessellations;
+        auto buffer = pathBuffer(detail::tessellatePath(subPaths, rule), {1, 1, 1, opacity}, transform);
         const float transformScale = std::hypot(transform.m[0], transform.m[3]);
 
         if (buffer.empty())
@@ -1150,15 +1155,22 @@ public:
             break;
         case ShapeType::Path:
         {
-            auto subPaths = node->path().getSubPaths();
             Color fill = style.fillColor, stroke = style.strokeColor;
             fill.a *= style.opacity;
             stroke.a *= style.opacity;
             if (style.fillColor.a > 0)
-                fillPath(subPaths, fill, worldTransform, style.fillRule);
+            {
+                bool hit = false;
+                const auto& mesh = detail::pathMesh(node->path(), style.fillRule, &hit);
+                if (hit)
+                    ++stats_.pathMeshCacheHits;
+                else
+                    ++stats_.pathTessellations;
+                fillPathMesh(mesh, fill, worldTransform);
+            }
             if (style.strokeWidth > 0 && style.strokeColor.a > 0)
             {
-                strokePath(subPaths, stroke, style.strokeWidth, worldTransform);
+                strokePath(detail::pathContours(node->path()), stroke, style.strokeWidth, worldTransform);
             }
             break;
         }

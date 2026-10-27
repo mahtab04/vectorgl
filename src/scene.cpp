@@ -6,6 +6,7 @@
 #include <limits>
 #include <utility>
 
+#include "vectorgl/detail/path_tessellation.hpp"
 #include "vectorgl/font.hpp"
 #include "vectorgl/image.hpp"
 #include "vectorgl/renderer.hpp"
@@ -89,12 +90,13 @@ bool containsPoint(const Node& node, Vec2 point)
             return false;
         if (fill && node.path().contains(local.x, local.y, style.fillRule))
             return true;
-        for (const auto& polygon : node.path().getSubPaths())
+        if (!stroke)
+            return false;
+        for (const auto& polygon : detail::pathContours(node.path()))
         {
-            if (stroke)
-                for (size_t i = 1; i < polygon.size(); ++i)
-                    if (inSegment(local, polygon[i - 1], polygon[i], style.strokeWidth * 0.5f))
-                        return true;
+            for (size_t i = 1; i < polygon.size(); ++i)
+                if (inSegment(local, polygon[i - 1], polygon[i], style.strokeWidth * 0.5f))
+                    return true;
         }
         return false;
     }

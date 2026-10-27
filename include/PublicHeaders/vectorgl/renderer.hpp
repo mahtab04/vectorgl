@@ -27,6 +27,8 @@ public:
      * vertex/instance buffers, not textures. Pending batches count on flush.
      * Node counters include visible renderNode submissions: rendered means
      * retained after culling, including nodes without drawable resources.
+     * Path counters count renderer tessellations and retained mesh reuse;
+     * CPU picking/cache preparation outside rendering is excluded.
      */
     struct FrameStats
     {
@@ -34,6 +36,7 @@ public:
         uint64_t sdfInstances = 0, glyphQuads = 0, effectPasses = 0;
         uint64_t nodesSubmitted = 0, nodesRendered = 0, nodesCulled = 0;
         uint64_t textLayoutHits = 0, textLayoutMisses = 0;
+        uint64_t pathTessellations = 0, pathMeshCacheHits = 0;
     };
     [[nodiscard]] FrameStats frameStats() const noexcept;
     /*! Conservative framebuffer culling for scene SDF shapes and images.

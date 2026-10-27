@@ -803,6 +803,39 @@ int main()
             compoundScene.render(canvas.renderer(), 128, 128);
             if (!pixelIs(readPixel(64, 64), 0, 0, 0) || !pixelIs(readPixel(16, 16), 0, 255, 0))
                 result = fail("reflected scene path fill rule failed");
+            if (canvas.renderer().frameStats().pathTessellations != 1)
+                result = fail("first scene path render should tessellate once");
+            std::vector<unsigned char> firstPathFrame(128 * 128 * 4), cachedPathFrame(firstPathFrame.size());
+            glReadPixels(0, 0, 128, 128, GL_RGBA, GL_UNSIGNED_BYTE, firstPathFrame.data());
+            clear();
+            compoundScene.render(canvas.renderer(), 128, 128);
+            glReadPixels(0, 0, 128, 128, GL_RGBA, GL_UNSIGNED_BYTE, cachedPathFrame.data());
+            if (firstPathFrame != cachedPathFrame || canvas.renderer().frameStats().pathTessellations != 0 ||
+                canvas.renderer().frameStats().pathMeshCacheHits != 1)
+                result = fail("cached scene path changed pixels or repeated tessellation");
+            ringNode->setFill(Color::Blue);
+            ringNode->setPosition(127, 0);
+            clear();
+            compoundScene.render(canvas.renderer(), 128, 128);
+            if (canvas.renderer().frameStats().pathTessellations != 0 || !pixelIs(readPixel(16, 16), 0, 0, 255))
+                result = fail("style and transform edits should reuse the local mesh");
+            ringNode->setFillRule(FillRule::NonZero);
+            clear();
+            compoundScene.render(canvas.renderer(), 128, 128);
+            if (canvas.renderer().frameStats().pathTessellations != 1 || !pixelIs(readPixel(64, 64), 0, 0, 255))
+                result = fail("changing the fill rule did not build the appropriate mesh");
+            Path2D replacement;
+            replacement.rect(50, 50, 20, 20);
+            ringNode->setPath(replacement);
+            clear();
+            compoundScene.render(canvas.renderer(), 128, 128);
+            if (canvas.renderer().frameStats().pathTessellations != 1 || !pixelIs(readPixel(16, 16), 0, 0, 0) ||
+                !pixelIs(readPixel(64, 64), 0, 0, 255))
+                result = fail("replacing a path retained stale cached geometry");
+            ringNode->setFillRule(FillRule::EvenOdd);
+            ringNode->setFill(Color::Green);
+            ringNode->setPosition(128, 0);
+            ringNode->setPath(ring);
             ringNode->setBlur(2);
             clear();
             compoundScene.render(canvas.renderer(), 128, 128);
