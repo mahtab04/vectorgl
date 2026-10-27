@@ -41,24 +41,6 @@ bool inSegment(Vec2 point, Vec2 a, Vec2 b, float halfWidth)
     return along >= 0 && along <= length && std::abs(across) <= halfWidth;
 }
 
-bool inPolygon(Vec2 point, const std::vector<Vec2>& polygon)
-{
-    if (polygon.size() < 3)
-        return false;
-    double area = 0;
-    bool inside = false, boundary = false;
-    for (size_t i = 0, j = polygon.size() - 1; i < polygon.size(); j = i++)
-    {
-        const Vec2 a = polygon[j], b = polygon[i];
-        area += static_cast<double>(a.x) * b.y - static_cast<double>(b.x) * a.y;
-        boundary = boundary || inSegment(point, a, b, 0);
-        if ((a.y > point.y) != (b.y > point.y) &&
-            point.x < (static_cast<double>(b.x) - a.x) * (point.y - a.y) / (b.y - a.y) + a.x)
-            inside = !inside;
-    }
-    return area != 0 && (inside || boundary);
-}
-
 bool containsPoint(const Node& node, Vec2 point)
 {
     const auto& style = node.style();
@@ -105,11 +87,10 @@ bool containsPoint(const Node& node, Vec2 point)
                                                         (style.strokeWidth > 0 ? style.strokeWidth : 1.0f) * 0.5f);
         if (!fill && !stroke)
             return false;
-        // Each subpath is filled independently, as in Renderer::fillPath.
+        if (fill && node.path().contains(local.x, local.y, style.fillRule))
+            return true;
         for (const auto& polygon : node.path().getSubPaths())
         {
-            if (fill && inPolygon(local, polygon))
-                return true;
             if (stroke)
                 for (size_t i = 1; i < polygon.size(); ++i)
                     if (inSegment(local, polygon[i - 1], polygon[i], style.strokeWidth * 0.5f))

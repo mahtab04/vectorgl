@@ -384,12 +384,12 @@ void renderShapeElement(const XmlElement& element, Canvas& canvas, const Style& 
                         // coordinates which default to 0-1 range covering the shape
                         Paint paint = gradientToPaint(*fillGradient, bbox);
                         float opacity = style.fillOpacity * style.opacity;
-                        canvas.fillWithPaint(paint, opacity);
+                        canvas.fillWithPaint(paint, opacity, style.fillRule);
                     }
                     else
                     {
                         applyFill(canvas, style);
-                        canvas.fill();
+                        canvas.fill(style.fillRule);
                     }
                 }
                 if (style.hasStroke)
@@ -446,7 +446,7 @@ void renderShapeElement(const XmlElement& element, Canvas& canvas, const Style& 
                             canvas.lineTo(x, y + h);
                             canvas.closePath();
                         }
-                        canvas.fillWithPaint(paint, opacity);
+                        canvas.fillWithPaint(paint, opacity, style.fillRule);
                     }
                     else
                     {
@@ -485,7 +485,7 @@ void renderShapeElement(const XmlElement& element, Canvas& canvas, const Style& 
                         canvas.beginPath();
                         canvas.arc(cx, cy, r, 0.0f, 2.0f * kPi);
                         canvas.closePath();
-                        canvas.fillWithPaint(paint, opacity);
+                        canvas.fillWithPaint(paint, opacity, style.fillRule);
                     }
                     else
                     {
@@ -520,7 +520,7 @@ void renderShapeElement(const XmlElement& element, Canvas& canvas, const Style& 
                         canvas.arc(cx, cy, 1.0f, 0.0f, 2.0f * kPi); // approximate
                         canvas.closePath();
                         // For ellipse, scale the path
-                        canvas.fillWithPaint(paint, opacity);
+                        canvas.fillWithPaint(paint, opacity, style.fillRule);
                     }
                     else
                     {
@@ -607,12 +607,12 @@ void renderShapeElement(const XmlElement& element, Canvas& canvas, const Style& 
                         BBox bbox = computeShapeBBox(element);
                         Paint paint = gradientToPaint(*fillGradient, bbox);
                         float opacity = style.fillOpacity * style.opacity;
-                        canvas.fillWithPaint(paint, opacity);
+                        canvas.fillWithPaint(paint, opacity, style.fillRule);
                     }
                     else
                     {
                         applyFill(canvas, style);
-                        canvas.fill();
+                        canvas.fill(style.fillRule);
                     }
                 }
                 if (style.hasStroke)
@@ -760,88 +760,11 @@ void renderElementWithContext(const XmlElement& element, Canvas& canvas, const S
     const auto& visibility = getAttribute(element, "visibility");
     bool hidden = (visibility == "hidden" || visibility == "collapse");
 
-    Style style = resolveStyle(element, parentStyle);
-
-    // Apply CSS rules
+    std::string stylesheet;
     for (const auto& rule : ctx.cssRules)
-    {
         if (cssSelectorMatches(rule.selector, element))
-        {
-            // Parse and apply the CSS declarations
-            std::istringstream stream(rule.declarations);
-            std::string declaration;
-            while (std::getline(stream, declaration, ';'))
-            {
-                auto colon = declaration.find(':');
-                if (colon == std::string::npos)
-                    continue;
-                std::string property = trimWhitespace(declaration.substr(0, colon));
-                std::string value = trimWhitespace(declaration.substr(colon + 1));
-                // Use the same style property application
-                if (property == "fill")
-                {
-                    std::string ref;
-                    if (value.size() > 5 && value.substr(0, 4) == "url(" && value.back() == ')')
-                    {
-                        std::string inner = value.substr(4, value.size() - 5);
-                        while (!inner.empty() &&
-                               (inner.front() == ' ' || inner.front() == '\'' || inner.front() == '"'))
-                            inner.erase(inner.begin());
-                        while (!inner.empty() && (inner.back() == ' ' || inner.back() == '\'' || inner.back() == '"'))
-                            inner.pop_back();
-                        if (!inner.empty() && inner[0] == '#')
-                            inner = inner.substr(1);
-                        ref = inner;
-                    }
-                    if (!ref.empty())
-                    {
-                        style.fillRef = ref;
-                        style.hasFill = true;
-                    }
-                    else if (value == "none")
-                    {
-                        style.hasFill = false;
-                        style.fillRef.clear();
-                    }
-                    else
-                    {
-                        style.hasFill = true;
-                        style.fill = parseColor(value);
-                        style.fillRef.clear();
-                    }
-                }
-                else if (property == "stroke")
-                {
-                    if (value == "none")
-                    {
-                        style.hasStroke = false;
-                        style.strokeRef.clear();
-                    }
-                    else
-                    {
-                        style.hasStroke = true;
-                        style.stroke = parseColor(value);
-                    }
-                }
-                else if (property == "stroke-width")
-                {
-                    style.strokeWidth = std::strtof(value.c_str(), nullptr);
-                }
-                else if (property == "opacity")
-                {
-                    style.opacity = std::strtof(value.c_str(), nullptr);
-                }
-                else if (property == "fill-opacity")
-                {
-                    style.fillOpacity = std::strtof(value.c_str(), nullptr);
-                }
-                else if (property == "stroke-opacity")
-                {
-                    style.strokeOpacity = std::strtof(value.c_str(), nullptr);
-                }
-            }
-        }
-    }
+            stylesheet += rule.declarations + ";";
+    const Style style = resolveStyle(element, parentStyle, stylesheet);
 
     // Compose this element's transform with the parent
     Transform xf = parentTransform;

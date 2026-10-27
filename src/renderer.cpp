@@ -6,12 +6,14 @@
 #include <array>
 #include <cmath>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <stdexcept>
 #include <utility>
 #include <vector>
 
 #include "vectorgl/detail/gl_handle.hpp"
+#include "vectorgl/detail/path_tessellation.hpp"
 #include "vectorgl/detail/shader_utils.hpp"
 #include "vectorgl/font.hpp"
 #include "vectorgl/image.hpp"
@@ -63,86 +65,40 @@ uint32_t buildShaderProgram(const char* vertexFile, const char* fragmentFile, co
     return detail::buildShaderProgramFromSource(vertSource, fragSource, vertexFile, fragmentFile, label);
 }
 
-std::vector<Vec2> triangulatePolygon(const std::vector<Vec2>& polygon)
+std::vector<float> pathBuffer(const std::vector<std::vector<Vec2>>& contours, Color color, const Mat3x3& transform,
+                              FillRule rule)
 {
-    std::vector<Vec2> result;
-    if (polygon.size() < 3)
-        return result;
+    const auto mesh = detail::tessellatePath(contours, rule);
+    std::vector<float> buffer;
+    const size_t maxVertices = static_cast<size_t>(std::numeric_limits<GLsizei>::max());
+    if (mesh.triangles.size() > maxVertices || mesh.boundary.size() > (maxVertices - mesh.triangles.size()) / 6)
+        throw std::length_error("Path mesh exceeds the OpenGL vertex limit");
+    buffer.reserve((mesh.triangles.size() + mesh.boundary.size() * 6) * 7);
+    const float determinant = transform.m[0] * transform.m[4] - transform.m[1] * transform.m[3];
+    if (determinant == 0 || !std::isfinite(determinant))
+        return buffer;
+    auto add = [&](Vec2 p, float coverage)
+    { buffer.insert(buffer.end(), {p.x, p.y, color.r, color.g, color.b, color.a, coverage}); };
+    for (const auto p : mesh.triangles)
+        add(transform.transformPoint(p), 1);
 
-    std::vector<Vec2> pts(polygon.begin(), polygon.end());
-    if (pts.size() > 1 && std::abs(pts.front().x - pts.back().x) < 1e-5f &&
-        std::abs(pts.front().y - pts.back().y) < 1e-5f)
+    // Only exposed edges receive a fringe; overlapping contours and internal
+    // triangulation edges must never be blended a second time.
+    for (const auto& edge : mesh.boundary)
     {
-        pts.pop_back();
+        const Vec2 a = transform.transformPoint(edge[0]), b = transform.transformPoint(edge[1]);
+        const Vec2 direction = (b - a).normalized();
+        // One framebuffer pixel, including under shear and nonuniform scale.
+        const Vec2 normal = direction.perp() * (determinant < 0 ? 1.0f : -1.0f);
+        const Vec2 outerA = a + normal, outerB = b + normal;
+        add(a, 1);
+        add(b, 1);
+        add(outerA, 0);
+        add(b, 1);
+        add(outerB, 0);
+        add(outerA, 0);
     }
-    if (pts.size() < 3)
-        return result;
-
-    float area = 0;
-    for (size_t i = 0; i < pts.size(); ++i)
-    {
-        const auto& a = pts[i];
-        const auto& b = pts[(i + 1) % pts.size()];
-        area += (b.x - a.x) * (b.y + a.y);
-    }
-    if (area > 0)
-        std::reverse(pts.begin(), pts.end());
-
-    std::vector<int> indices(pts.size());
-    for (size_t i = 0; i < pts.size(); ++i)
-    {
-        indices[i] = static_cast<int>(i);
-    }
-
-    auto cross = [](Vec2 o, Vec2 a, Vec2 b) { return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x); };
-    auto pointInTriangle = [&](Vec2 p, Vec2 a, Vec2 b, Vec2 c)
-    {
-        float d1 = cross(p, a, b);
-        float d2 = cross(p, b, c);
-        float d3 = cross(p, c, a);
-        return !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0));
-    };
-
-    int n = static_cast<int>(indices.size());
-    int failCount = 0;
-    int current = 0;
-    while (n > 2 && failCount < n)
-    {
-        int prev = (current - 1 + n) % n;
-        int next = (current + 1) % n;
-        Vec2 a = pts[indices[prev]];
-        Vec2 b = pts[indices[current]];
-        Vec2 c = pts[indices[next]];
-        if (cross(a, b, c) > 0)
-        {
-            bool ear = true;
-            for (int j = 0; j < n; ++j)
-            {
-                if (j == prev || j == current || j == next)
-                    continue;
-                if (pointInTriangle(pts[indices[j]], a, b, c))
-                {
-                    ear = false;
-                    break;
-                }
-            }
-            if (ear)
-            {
-                result.push_back(a);
-                result.push_back(b);
-                result.push_back(c);
-                indices.erase(indices.begin() + current);
-                --n;
-                failCount = 0;
-                if (current >= n)
-                    current = 0;
-                continue;
-            }
-        }
-        ++failCount;
-        current = (current + 1) % n;
-    }
-    return result;
+    return buffer;
 }
 
 void configureEffectTexture(uint32_t texture, int width, int height)
@@ -736,43 +692,11 @@ public:
         sdfBatch_.clear();
     }
 
-    void fillPath(const std::vector<std::vector<Vec2>>& subPaths, Color color, const Mat3x3& transform)
+    void fillPath(const std::vector<std::vector<Vec2>>& subPaths, Color color, const Mat3x3& transform,
+                  FillRule rule = FillRule::NonZero)
     {
         flushSDF();
-        std::vector<float> buffer;
-        for (const auto& subPath : subPaths)
-        {
-            auto triangles = triangulatePolygon(subPath);
-            for (const auto& vertex : triangles)
-            {
-                Vec2 transformed = transform.transformPoint(vertex);
-                buffer.insert(buffer.end(), {transformed.x, transformed.y, color.r, color.g, color.b, color.a, 1.0f});
-            }
-        }
-
-        // Compute fringe in world-space that maps to ~1 screen pixel
-        float transformScale = std::sqrt(transform.m[0] * transform.m[0] + transform.m[3] * transform.m[3]);
-        float fringe = (transformScale > 1e-4f) ? (1.0f / transformScale) : 1.0f;
-        for (const auto& subPath : subPaths)
-        {
-            for (size_t i = 0; i + 1 < subPath.size(); ++i)
-            {
-                Vec2 a = subPath[i];
-                Vec2 b = subPath[i + 1];
-                Vec2 direction = (b - a).normalized();
-                Vec2 normal = direction.perp() * fringe;
-                Vec2 a0 = transform.transformPoint(a);
-                Vec2 b0 = transform.transformPoint(b);
-                Vec2 a1 = transform.transformPoint(a + normal);
-                Vec2 b1 = transform.transformPoint(b + normal);
-                buffer.insert(buffer.end(), {a0.x, a0.y, color.r, color.g, color.b, color.a, 1.0f});
-                buffer.insert(buffer.end(), {b0.x, b0.y, color.r, color.g, color.b, color.a, 1.0f});
-                buffer.insert(buffer.end(), {a1.x, a1.y, color.r, color.g, color.b, color.a, 0.0f});
-                buffer.insert(buffer.end(), {b0.x, b0.y, color.r, color.g, color.b, color.a, 1.0f});
-                buffer.insert(buffer.end(), {b1.x, b1.y, color.r, color.g, color.b, color.a, 0.0f});
-                buffer.insert(buffer.end(), {a1.x, a1.y, color.r, color.g, color.b, color.a, 0.0f});
-            }
-        }
+        auto buffer = pathBuffer(subPaths, color, transform, rule);
 
         if (buffer.empty())
             return;
@@ -790,61 +714,20 @@ public:
     }
 
     void fillPathWithPaint(const std::vector<std::vector<Vec2>>& subPaths, const Paint& paint, float opacity,
-                           const Mat3x3& transform)
+                           const Mat3x3& transform, FillRule rule = FillRule::NonZero)
     {
         if (paint.type == PaintType::Solid)
         {
             Color c = paint.color;
             c.a *= opacity;
-            fillPath(subPaths, c, transform);
+            fillPath(subPaths, c, transform, rule);
             return;
         }
 
         flushSDF();
 
-        // Build geometry the same way as fillPath but with white placeholder color
-        // (the shader will compute the actual color from gradient uniforms)
-        Color placeholder{1.0f, 1.0f, 1.0f, opacity};
-        std::vector<float> buffer;
-        for (const auto& subPath : subPaths)
-        {
-            auto triangles = triangulatePolygon(subPath);
-            for (const auto& vertex : triangles)
-            {
-                Vec2 transformed = transform.transformPoint(vertex);
-                buffer.insert(buffer.end(), {transformed.x, transformed.y, placeholder.r, placeholder.g, placeholder.b,
-                                             placeholder.a, 1.0f});
-            }
-        }
-
-        float transformScale = std::sqrt(transform.m[0] * transform.m[0] + transform.m[3] * transform.m[3]);
-        float fringe = (transformScale > 1e-4f) ? (1.0f / transformScale) : 1.0f;
-        for (const auto& subPath : subPaths)
-        {
-            for (size_t i = 0; i + 1 < subPath.size(); ++i)
-            {
-                Vec2 a = subPath[i];
-                Vec2 b = subPath[i + 1];
-                Vec2 direction = (b - a).normalized();
-                Vec2 normal = direction.perp() * fringe;
-                Vec2 a0 = transform.transformPoint(a);
-                Vec2 b0 = transform.transformPoint(b);
-                Vec2 a1 = transform.transformPoint(a + normal);
-                Vec2 b1 = transform.transformPoint(b + normal);
-                buffer.insert(buffer.end(),
-                              {a0.x, a0.y, placeholder.r, placeholder.g, placeholder.b, placeholder.a, 1.0f});
-                buffer.insert(buffer.end(),
-                              {b0.x, b0.y, placeholder.r, placeholder.g, placeholder.b, placeholder.a, 1.0f});
-                buffer.insert(buffer.end(),
-                              {a1.x, a1.y, placeholder.r, placeholder.g, placeholder.b, placeholder.a, 0.0f});
-                buffer.insert(buffer.end(),
-                              {b0.x, b0.y, placeholder.r, placeholder.g, placeholder.b, placeholder.a, 1.0f});
-                buffer.insert(buffer.end(),
-                              {b1.x, b1.y, placeholder.r, placeholder.g, placeholder.b, placeholder.a, 0.0f});
-                buffer.insert(buffer.end(),
-                              {a1.x, a1.y, placeholder.r, placeholder.g, placeholder.b, placeholder.a, 0.0f});
-            }
-        }
+        auto buffer = pathBuffer(subPaths, {1, 1, 1, opacity}, transform, rule);
+        const float transformScale = std::hypot(transform.m[0], transform.m[3]);
 
         if (buffer.empty())
             return;
@@ -1272,7 +1155,7 @@ public:
             fill.a *= style.opacity;
             stroke.a *= style.opacity;
             if (style.fillColor.a > 0)
-                fillPath(subPaths, fill, worldTransform);
+                fillPath(subPaths, fill, worldTransform, style.fillRule);
             if (style.strokeWidth > 0 && style.strokeColor.a > 0)
             {
                 strokePath(subPaths, stroke, style.strokeWidth, worldTransform);
@@ -1449,17 +1332,18 @@ void Renderer::flush()
     impl_->flushSDF();
 }
 
-void Renderer::fillPath(const std::vector<std::vector<Vec2>>& subPaths, Color color, const Mat3x3& transform)
+void Renderer::fillPath(const std::vector<std::vector<Vec2>>& subPaths, Color color, const Mat3x3& transform,
+                        FillRule rule)
 {
     impl_->requireFrame("fillPath()");
-    impl_->fillPath(subPaths, color, transform);
+    impl_->fillPath(subPaths, color, transform, rule);
 }
 
 void Renderer::fillPathWithPaint(const std::vector<std::vector<Vec2>>& subPaths, const Paint& paint, float opacity,
-                                 const Mat3x3& transform)
+                                 const Mat3x3& transform, FillRule rule)
 {
     impl_->requireFrame("fillPathWithPaint()");
-    impl_->fillPathWithPaint(subPaths, paint, opacity, transform);
+    impl_->fillPathWithPaint(subPaths, paint, opacity, transform, rule);
 }
 
 void Renderer::strokePath(const std::vector<std::vector<Vec2>>& subPaths, Color color, float width,

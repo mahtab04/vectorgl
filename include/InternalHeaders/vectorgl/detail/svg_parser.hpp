@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "vectorgl/color.hpp"
+#include "vectorgl/path.hpp"
 
 namespace vectorgl
 {
@@ -69,6 +70,7 @@ Color parseColor(const std::string& str);
 
 struct Style
 {
+    FillRule fillRule = FillRule::NonZero;
     Color fill = Color::Black;
     Color stroke = Color::Transparent;
     float strokeWidth = 1.0f;
@@ -85,8 +87,8 @@ struct Style
 };
 
 /// Resolve the style for an element by inheriting from the parent style and
-/// applying any fill/stroke/opacity attributes or inline `style=""` properties.
-Style resolveStyle(const XmlElement& element, const Style& parentStyle);
+/// applying presentation attributes, matching stylesheet declarations, then inline style.
+Style resolveStyle(const XmlElement& element, const Style& parentStyle, const std::string& stylesheet = {});
 
 // ============================================================================
 // SVG Transform

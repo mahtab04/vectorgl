@@ -13,7 +13,9 @@
 #include <vectorgl/color.hpp>
 #include <vectorgl/font.hpp>
 #include <vectorgl/image.hpp>
+#include <vectorgl/paint.hpp>
 #include <vectorgl/scene.hpp>
+#include <vectorgl/svg.hpp>
 #include <vectorgl/text_box.hpp>
 
 namespace
@@ -741,6 +743,126 @@ int main()
                     result = fail("SDF fill/stroke antialias coverage darkened RGB");
                     break;
                 }
+        }
+
+        if (result == 0)
+        {
+            using namespace vectorgl;
+            const auto clear = []
+            {
+                glClearColor(0, 0, 0, 1);
+                glClear(GL_COLOR_BUFFER_BIT);
+            };
+            const auto compound = [&]
+            {
+                canvas.beginPath();
+                for (const auto bounds : {std::array<float, 2>{8, 120}, std::array<float, 2>{32, 96}})
+                {
+                    canvas.moveTo(bounds[0], bounds[0]);
+                    canvas.lineTo(bounds[1], bounds[0]);
+                    canvas.lineTo(bounds[1], bounds[1]);
+                    canvas.lineTo(bounds[0], bounds[1]);
+                    canvas.closePath();
+                }
+            };
+            for (auto rule : {FillRule::NonZero, FillRule::EvenOdd})
+            {
+                clear();
+                canvas.beginFrame(128, 128);
+                compound();
+                canvas.setFillColor({1, 0, 0, 0.5f});
+                canvas.fill(rule);
+                canvas.endFrame();
+                const auto center = readPixel(64, 64);
+                if (std::abs(static_cast<int>(readPixel(16, 16)[0]) - 128) > 3 ||
+                    std::abs(static_cast<int>(center[0]) - (rule == FillRule::NonZero ? 128 : 0)) > 3)
+                    result = fail("compound fill holes/overlap opacity are incorrect");
+            }
+            clear();
+            canvas.beginFrame(128, 128);
+            canvas.save();
+            canvas.clipRoundedRect(4, 4, 120, 120, 12);
+            compound();
+            canvas.fillWithPaint(Paint::linearGradient({8, 0}, {120, 0}, {{0, Color::Red}, {1, Color::Blue}}), 1,
+                                 FillRule::EvenOdd);
+            canvas.restore();
+            canvas.endFrame();
+            if (!pixelIs(readPixel(64, 64), 0, 0, 0) || readPixel(16, 64)[0] < 200)
+                result = fail("gradient hole failed under rounded clipping");
+
+            Path2D ring;
+            ring.rect(8, 8, 112, 112);
+            ring.rect(32, 32, 64, 64);
+            Scene compoundScene;
+            auto ringNode = compoundScene.path(ring);
+            ringNode->setFill(Color::Green);
+            ringNode->setFillRule(FillRule::EvenOdd);
+            ringNode->setScale(-1, 1);
+            ringNode->setPosition(128, 0);
+            clear();
+            compoundScene.render(canvas.renderer(), 128, 128);
+            if (!pixelIs(readPixel(64, 64), 0, 0, 0) || !pixelIs(readPixel(16, 16), 0, 255, 0))
+                result = fail("reflected scene path fill rule failed");
+            ringNode->setBlur(2);
+            clear();
+            compoundScene.render(canvas.renderer(), 128, 128);
+            if (readPixel(64, 64)[1] > 3 || readPixel(16, 16)[1] < 200)
+                result = fail("compound hole was lost in an effect framebuffer");
+
+            // Includes stylesheet resolution, inherited group rules, use and gradient fills.
+            SvgImage svg;
+            if (!svg.loadFromString(R"SVG(<svg width="128" height="128" xmlns="http://www.w3.org/2000/svg">
+<style>.hole { fill-rule: evenodd; }</style>
+<defs><linearGradient id="g"><stop offset="0" stop-color="red"/>
+<stop offset="1" stop-color="red"/></linearGradient>
+<path id="ring" d="M8 8H120V120H8Z M32 32H96V96H32Z"/></defs>
+<g class="hole" fill="url(#g)"><use href="#ring"/></g></svg>)SVG"))
+                result = fail("fill-rule SVG failed to load");
+            clear();
+            canvas.beginFrame(128, 128);
+            svg.render(canvas);
+            canvas.endFrame();
+            if (!pixelIs(readPixel(64, 64), 0, 0, 0) || !pixelIs(readPixel(16, 16), 255, 0, 0))
+                result = fail("SVG inherited stylesheet fill rule failed");
+
+            clear();
+            canvas.beginFrame(128, 128);
+            canvas.beginPath();
+            canvas.moveTo(8, 8);
+            canvas.lineTo(120, 120);
+            canvas.lineTo(8, 120);
+            canvas.lineTo(120, 8);
+            canvas.setFillColor(Color::White);
+            canvas.fill();
+            canvas.endFrame();
+            if (!pixelIs(readPixel(64, 16), 255, 255, 255) || !pixelIs(readPixel(16, 64), 0, 0, 0))
+                result = fail("self-intersecting open path failed to render");
+
+            // A color-only framebuffer proves filling does not consume stencil bits.
+            GLuint framebuffer = 0, texture = 0;
+            glGenFramebuffers(1, &framebuffer);
+            glGenTextures(1, &texture);
+            glBindTexture(GL_TEXTURE_2D, texture);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 128, 128, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
+            if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+                result = fail("color-only framebuffer is incomplete");
+            clear();
+            canvas.beginFrame(128, 128);
+            Mat3x3 shear = Mat3x3::identity();
+            shear.m[3] = 0.2f;
+            canvas.renderer().fillPath(ring.getSubPaths(), Color::White, shear, FillRule::EvenOdd);
+            canvas.endFrame();
+            if (!pixelIs(readPixel(76, 64), 0, 0, 0) || !pixelIs(readPixel(20, 16), 255, 255, 255))
+                result = fail("sheared compound path failed without stencil storage");
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            glDeleteFramebuffers(1, &framebuffer);
+            glDeleteTextures(1, &texture);
+            if (glGetError() != GL_NO_ERROR)
+                result = fail("compound path rendering produced an OpenGL error");
         }
 
         canvas.destroy();

@@ -13,6 +13,23 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(stb)
 
+# Pin the tessellator source and verify the archive before compiling it into
+# vectorgl. No separate library or dependency is exported to package consumers.
+function(vectorgl_fetch_libtess2)
+    if(POLICY CMP0135)
+        cmake_policy(SET CMP0135 NEW)
+    endif()
+    FetchContent_Declare(vectorgl_libtess2
+        URL https://codeload.github.com/memononen/libtess2/tar.gz/8dbd6483e920311a58c9af10a10beb278efebc36
+        URL_HASH SHA256=083f507dd3b27eba01fa540b9efe3bbeed36d5bd4ea0e8869897d21f52c5f98b
+    )
+    FetchContent_MakeAvailable(vectorgl_libtess2)
+    set(VECTORGL_LIBTESS2_DIR "${vectorgl_libtess2_SOURCE_DIR}" PARENT_SCOPE)
+    install(FILES "${vectorgl_libtess2_SOURCE_DIR}/LICENSE.txt"
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/vectorgl/libtess2)
+endfunction()
+vectorgl_fetch_libtess2()
+
 # Build a pinned, static FreeType with no optional codec/shaping dependencies.
 # Function scope avoids changing the parent project's dependency preferences.
 function(vectorgl_fetch_freetype)

@@ -125,8 +125,13 @@ them together.
 
 ### Complex paths
 
-`Path2D` records commands and approximates curves with line segments. Filled
-subpaths are triangulated before upload. Strokes are expanded into triangles.
+`Path2D` records commands and approximates curves with line segments. All fill
+contours are tessellated together by libtess2 (fetched from a pinned, hash-verified archive), using `FillRule::NonZero`
+or `FillRule::EvenOdd`. This resolves holes, overlaps, and self-intersections
+before upload, without consuming stencil bits. Antialias fringes are generated
+only along exposed mesh boundaries, in framebuffer pixels. Picking uses the
+same rule; boundary hits resolve against the filled mesh. Strokes retain their
+original contours and are expanded into triangles separately.
 This path is flexible but more CPU-intensive than SDF primitives.
 
 ### Text and images

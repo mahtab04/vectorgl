@@ -334,6 +334,15 @@ canvas.fillRoundedRect(-60, -40, 120, 80, 12);
 canvas.endFrame();`
     },
     {
+        title: "fill_rules_demo.cpp",
+        text: "Compare NonZero and EvenOdd compound paths: rings, translucent overlaps, and self-intersecting stars.",
+        bullets: ["Space reverses the inner contour; hover tests the actual filled region.", "Gradient fills and CPU containment use the same rule; no stencil buffer is required."],
+        code: `canvas.fill(FillRule::EvenOdd);
+canvas.fillWithPaint(gradient, 1.0f, FillRule::EvenOdd);
+node->setFillRule(FillRule::EvenOdd);
+path.contains(x, y, FillRule::EvenOdd);`
+    },
+    {
         title: "paths_demo.cpp",
         text: "Focuses on the custom path pipeline. It builds flowers, stars, gears, waves, and spirograph-like curves using path commands and then fills or strokes them.",
         bullets: [
@@ -474,8 +483,8 @@ const apiReference = [
                     { signature: "void quadraticCurveTo(float cpx, float cpy, float x, float y)", description: "Adds a quadratic Bezier segment." },
                     { signature: "void arc(float cx, float cy, float r, float start, float end, bool ccw = false)", description: "Adds a circular arc segment to the current path." },
                     { signature: "void closePath()", description: "Closes the current sub-path with a straight segment back to the start." },
-                    { signature: "void fill()", description: "Fills the current path using the current fill color." },
-                    { signature: "void fillWithPaint(const Paint& paint, float opacity = 1.0f)", description: "Fills the current path with a solid, gradient, or pattern paint descriptor." },
+                    { signature: "void fill(FillRule rule = FillRule::NonZero)", description: "Fills all contours together. EvenOdd creates holes regardless of winding; NonZero is the default." },
+                    { signature: "void fillWithPaint(const Paint& paint, float opacity = 1.0f, FillRule rule = FillRule::NonZero)", description: "Fills the current path with a solid, gradient, or pattern paint descriptor." },
                     { signature: "void stroke()", description: "Strokes the current path with the current stroke color and line width." }
                 ]
             },
@@ -588,8 +597,8 @@ const apiReference = [
             {
                 title: "Paths, textures, effects, nodes",
                 methods: [
-                    { signature: "void fillPath(const std::vector<std::vector<Vec2>>& subPaths, Color color, const Mat3x3& transform)", description: "Fills tessellated path geometry with a solid color." },
-                    { signature: "void fillPathWithPaint(const std::vector<std::vector<Vec2>>& subPaths, const Paint& paint, float opacity, const Mat3x3& transform)", description: "Fills path geometry with a Paint descriptor such as a gradient or pattern." },
+                    { signature: "void fillPath(const std::vector<std::vector<Vec2>>& subPaths, Color color, const Mat3x3& transform, FillRule rule = FillRule::NonZero)", description: "Fills tessellated path geometry with a solid color." },
+                    { signature: "void fillPathWithPaint(const std::vector<std::vector<Vec2>>& subPaths, const Paint& paint, float opacity, const Mat3x3& transform, FillRule rule = FillRule::NonZero)", description: "Fills path geometry with a Paint descriptor such as a gradient or pattern." },
                     { signature: "void strokePath(const std::vector<std::vector<Vec2>>& subPaths, Color color, float width, const Mat3x3& transform)", description: "Strokes tessellated path outlines." },
                     { signature: "void drawTexturedQuad(float x, float y, float w, float h, uint32_t texture, Color tint, const Mat3x3& transform)", description: "Draws a raster-textured quad." },
                     { signature: "void drawGlyph(float x, float y, float w, float h, float u0, float v0, float u1, float v1, uint32_t texture, Color color, const Mat3x3& transform)", description: "Draws a single font atlas glyph quad." },
@@ -631,6 +640,7 @@ const apiReference = [
                     { signature: "void clear()", description: "Clears all stored path commands and resets the internal cursor." },
                     { signature: "const std::vector<PathPoint>& points() const", description: "Returns the raw point command list." },
                     { signature: "bool empty() const", description: "Reports whether the path contains any commands." },
+                    { signature: "bool contains(float x, float y, FillRule rule = FillRule::NonZero) const", description: "Tests local filled regions, including boundaries. Handles holes and intersections without OpenGL." },
                     { signature: "std::vector<std::vector<Vec2>> getSubPaths() const", description: "Expands the command list into concrete sub-path point arrays for tessellation and rendering." }
                 ]
             }
@@ -664,6 +674,7 @@ const apiReference = [
                 title: "Style and effects",
                 methods: [
                     { signature: "void setFill(Color c)", description: "Sets fill color." },
+                    { signature: "void setFillRule(FillRule rule)", description: "Sets the compound path fill rule for rendering and picking." },
                     { signature: "void setStroke(Color c, float width)", description: "Sets stroke color and stroke width." },
                     { signature: "void setOpacity(float o)", description: "Sets node opacity." },
                     { signature: "void setCornerRadii(float tl, float tr, float br, float bl)", description: "Sets per-corner radii for rounded rectangles." },
@@ -947,7 +958,7 @@ const apiReference = [
                     { signature: "struct Mat3x3", description: "3x3 affine transform matrix with identity(), translation(), rotation(), scaling(), operator*(), and transformPoint()." },
                     { signature: "enum class DirtyFlag", description: "Bitflags that classify transform, style, and geometry dirtiness." },
                     { signature: "enum class ShapeType", description: "Values: None, Rect, RoundedRect, Circle, Ellipse, Line, Path, Text, Image, Group." },
-                    { signature: "struct NodeStyle", description: "Holds fillColor, strokeColor, strokeWidth, opacity, and per-corner radii." }
+                    { signature: "struct NodeStyle", description: "Holds fillColor, strokeColor, strokeWidth, opacity, per-corner radii, and fillRule." }
                 ]
             }
         ]

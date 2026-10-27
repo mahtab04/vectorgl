@@ -88,6 +88,7 @@ struct NodeStyle
     float strokeWidth = 0.0f;
     float opacity = 1.0f;
     std::array<float, 4> cornerRadii = {0, 0, 0, 0}; // TL, TR, BR, BL
+    FillRule fillRule = FillRule::NonZero;
 };
 
 // Effect descriptors
@@ -197,6 +198,8 @@ public:
      *  @param[in] c  Fill color.
      */
     void setFill(Color c);
+    /*! @brief Sets the fill rule for compound paths (also used by Scene::pick). */
+    void setFillRule(FillRule rule);
 
     /*! @brief Sets stroke color and width.
      *  @param[in] c      Stroke color.
