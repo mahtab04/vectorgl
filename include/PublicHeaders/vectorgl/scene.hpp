@@ -112,7 +112,7 @@ public:
 
     /*! @brief Returns the topmost painted shape at a scene/framebuffer coordinate.
      *  Supports rectangles, rounded rectangles, circles, ellipses, lines and
-     *  simple paths (each subpath fills independently, as in the renderer).
+     *  compound paths (using the node fill rule, including holes).
      *  Uses render z-order (later traversal wins ties), visibility, fill/stroke
      *  alpha and opacity. Groups are traversed but never returned.
      *  Refreshes transforms without advancing animations; no GL context is needed.

@@ -48,6 +48,14 @@ include(cmake/tooling.cmake)
 add_library(vectorgl STATIC
     src/canvas.cpp
     src/path.cpp
+    src/path_tessellation.cpp
+    ${VECTORGL_LIBTESS2_DIR}/Source/bucketalloc.c
+    ${VECTORGL_LIBTESS2_DIR}/Source/dict.c
+    ${VECTORGL_LIBTESS2_DIR}/Source/geom.c
+    ${VECTORGL_LIBTESS2_DIR}/Source/mesh.c
+    ${VECTORGL_LIBTESS2_DIR}/Source/priorityq.c
+    ${VECTORGL_LIBTESS2_DIR}/Source/sweep.c
+    ${VECTORGL_LIBTESS2_DIR}/Source/tess.c
     src/font.cpp
     src/text.cpp
     src/image.cpp
@@ -85,6 +93,7 @@ target_include_directories(vectorgl PUBLIC
 )
 
 target_include_directories(vectorgl PRIVATE
+    ${VECTORGL_LIBTESS2_DIR}/Include
     ${VECTORGL_INTERNAL_INCLUDE_DIR}
     ${stb_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/src/svg

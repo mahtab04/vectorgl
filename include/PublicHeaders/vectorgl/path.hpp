@@ -38,6 +38,13 @@ struct Vec2
     }
 };
 
+/*! @brief Determines which regions of a compound path are filled. */
+enum class FillRule
+{
+    NonZero, //!< Fill regions with nonzero signed winding (default).
+    EvenOdd  //!< Fill regions crossed an odd number of times, regardless of direction.
+};
+
 enum class PathCmd
 {
     MoveTo,
@@ -132,6 +139,12 @@ public:
     }
 
     std::vector<std::vector<Vec2>> getSubPaths() const;
+
+    /*! @brief Tests the filled area in local coordinates, including its boundary.
+     *  Open contours are implicitly closed. Nonfinite coordinates and coordinates
+     *  outside +/-8388608 return false. No OpenGL context is needed.
+     */
+    bool contains(float x, float y, FillRule rule = FillRule::NonZero) const;
 
 private:
     std::vector<PathPoint> points_;

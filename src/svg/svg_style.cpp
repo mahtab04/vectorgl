@@ -81,6 +81,13 @@ void applyStyleProperty(Style& style, const std::string& property, const std::st
             style.strokeRef.clear();
         }
     }
+    else if (property == "fill-rule")
+    {
+        if (value == "evenodd")
+            style.fillRule = FillRule::EvenOdd;
+        else if (value == "nonzero")
+            style.fillRule = FillRule::NonZero;
+    }
     else if (property == "stroke-width")
     {
         style.strokeWidth = std::strtof(value.c_str(), nullptr);
@@ -128,7 +135,7 @@ void parseInlineStyle(Style& style, const std::string& styleAttr)
 
 } // anonymous namespace
 
-Style resolveStyle(const XmlElement& element, const Style& parentStyle)
+Style resolveStyle(const XmlElement& element, const Style& parentStyle, const std::string& stylesheet)
 {
     Style style = parentStyle;
     // Don't inherit paint references from parent — they are not inherited per SVG spec
@@ -159,6 +166,10 @@ Style resolveStyle(const XmlElement& element, const Style& parentStyle)
     if (!so.empty())
         applyStyleProperty(style, "stroke-opacity", so);
 
+    const auto& fr = getAttribute(element, "fill-rule");
+    if (!fr.empty())
+        applyStyleProperty(style, "fill-rule", fr);
+
     // Marker attributes
     const auto& ms = getAttribute(element, "marker-start");
     if (!ms.empty())
@@ -169,6 +180,9 @@ Style resolveStyle(const XmlElement& element, const Style& parentStyle)
     const auto& me = getAttribute(element, "marker-end");
     if (!me.empty())
         applyStyleProperty(style, "marker-end", me);
+
+    // Stylesheets override presentation attributes; inline style wins last.
+    parseInlineStyle(style, stylesheet);
 
     // Inline style attribute (highest priority, overrides XML attributes)
     const auto& styleAttr = getAttribute(element, "style");

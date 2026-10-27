@@ -236,14 +236,20 @@ public:
     /*! @brief Closes the current sub-path with a straight line back to its start. */
     void closePath();
 
-    /*! @brief Fills the current path with the current fill color. */
-    void fill();
+    /*! @brief Fills all contours together with the current color and fill rule.
+     *  Open contours are implicitly closed. NonZero is the default; EvenOdd
+     *  makes nested contours into holes regardless of direction.
+     *  @throws std::invalid_argument For nonfinite coordinates or coordinates
+     *  outside +/-8388608. Stroke geometry is unaffected.
+     */
+    void fill(FillRule rule = FillRule::NonZero);
 
     /*! @brief Fills the current path with a Paint (supports gradients).
      *  @param[in] paint    Paint descriptor (solid, linear gradient, or radial gradient).
      *  @param[in] opacity  Overall opacity multiplier [0, 1].
+     *  @param[in] rule     Compound path fill rule (open contours close implicitly).
      */
-    void fillWithPaint(const Paint& paint, float opacity = 1.0f);
+    void fillWithPaint(const Paint& paint, float opacity = 1.0f, FillRule rule = FillRule::NonZero);
 
     /*! @brief Strokes the current path with the current stroke color and line width. */
     void stroke();

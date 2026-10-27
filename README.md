@@ -35,7 +35,7 @@ It also includes an SVG loader, TrueType font rendering, and a post-processing e
 | Feature | Description |
 |---|---|
 | **SDF Primitives** | Rectangles, circles, ellipses, and rounded rectangles rendered on the GPU via signed distance fields — hundreds of shapes in a single draw call. |
-| **Path Rendering** | Lines, cubic/quadratic Bézier curves, arcs, and ellipses with adaptive tessellation and antialiased contours. |
+| **Path Rendering** | Lines, cubic/quadratic Bézier curves, arcs, and ellipses; nonzero/even-odd compound fills with holes, overlaps, and self-intersections. |
 | **SVG Support** | Load and render SVG files via `SvgImage` (single file) or `SvgCache` (handle-based asset manager). |
 | **Text Rendering** | TrueType fonts rasterized to a GPU texture atlas via `stb_truetype`. |
 | **Animation System** | Tween (22 easing curves), spring (critically-damped), and keyframe animations with loop/ping-pong modes. |
@@ -43,6 +43,47 @@ It also includes an SVG loader, TrueType font rendering, and a post-processing e
 | **Scene Graph** | Parent/child hierarchy with transform inheritance, dirty tracking, and z-index ordering. |
 | **Paint System** | Solid colors, linear/radial gradients, and texture patterns. |
 | **Nested Clipping** | Transformed rectangular and rounded clipping with intersection, reset, and automatic `save()` / `restore()` state. |
+
+## Compound paths and fill rules
+
+All contours in a path are filled together. `FillRule::NonZero` is the default:
+oppositely directed inner contours create holes. `FillRule::EvenOdd` creates
+holes regardless of contour direction. Open contours close implicitly for
+filling; strokes keep their original geometry.
+
+```cpp
+canvas.beginPath();
+canvas.moveTo(20, 20); canvas.lineTo(180, 20);
+canvas.lineTo(180, 180); canvas.lineTo(20, 180); canvas.closePath();
+canvas.moveTo(60, 60); canvas.lineTo(140, 60);
+canvas.lineTo(140, 140); canvas.lineTo(60, 140); canvas.closePath();
+canvas.fill(vectorgl::FillRule::EvenOdd); // Square with a hole
+// Gradient fills accept the same rule:
+canvas.fillWithPaint(gradient, 1.0f, vectorgl::FillRule::EvenOdd);
+
+node->setFillRule(vectorgl::FillRule::EvenOdd); // Retained path rendering + picking
+bool inside = path.contains(x, y, vectorgl::FillRule::EvenOdd); // Local coordinates
+```
+
+SVG `fill-rule="evenodd"` / `"nonzero"` works in presentation attributes,
+stylesheets and inline styles, including group inheritance and gradient fills.
+Translucent overlapping contours are filled once. Tessellation uses
+[libtess2](https://github.com/memononen/libtess2), fetched by CMake from a pinned,
+SHA-256-verified archive, and requires no stencil buffer
+or extra package for installed consumers. Fill coordinates must be finite and
+within +/-8388608; rendering rejects invalid paths and `contains()` returns false.
+
+The first configure downloads libtess2 into the build directory. For offline
+builds, reuse populated dependencies or pass
+`-DFETCHCONTENT_SOURCE_DIR_VECTORGL_LIBTESS2=/path/to/libtess2`.
+
+This replaces the previous independent filling of each contour. Existing paths
+with opposite contour directions can now have holes under the default rule.
+
+Run [`vectorgl_fill_rules`](example/fill_rules_demo.cpp) to compare rings,
+overlapping translucent rectangles, and self-intersecting stars side by side.
+Press **Space** to reverse the inner ring; hover to check filled regions.
+Use `--font path/to/font.ttf` if a system font is unavailable.
 
 ## Flow Studio desktop app
 

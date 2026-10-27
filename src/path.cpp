@@ -2,6 +2,9 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
+
+#include "vectorgl/detail/path_tessellation.hpp"
 
 namespace vectorgl
 {
@@ -172,6 +175,56 @@ std::vector<std::vector<Vec2>> Path2D::getSubPaths() const
     if (!current.empty())
         subPaths.push_back(std::move(current));
     return subPaths;
+}
+
+bool Path2D::contains(float x, float y, FillRule rule) const
+{
+    if (!std::isfinite(x) || !std::isfinite(y))
+        return false;
+    const auto contours = getSubPaths();
+    for (const auto& contour : contours)
+        for (const auto p : contour)
+            if (!std::isfinite(p.x) || !std::isfinite(p.y) || std::abs(p.x) > 8388608 || std::abs(p.y) > 8388608)
+                return false;
+    auto cross = [](Vec2 a, Vec2 b, Vec2 p)
+    {
+        return (static_cast<double>(b.x) - a.x) * (static_cast<double>(p.y) - a.y) -
+               (static_cast<double>(b.y) - a.y) * (static_cast<double>(p.x) - a.x);
+    };
+    const Vec2 point{x, y};
+    std::int64_t winding = 0;
+    bool boundary = false;
+    for (const auto& contour : contours)
+    {
+        if (contour.size() < 3)
+            continue;
+        for (size_t i = 0; i < contour.size(); ++i)
+        {
+            const Vec2 a = contour[i], b = contour[(i + 1) % contour.size()];
+            const double side = cross(a, b, point);
+            if (side == 0 && x >= std::min(a.x, b.x) && x <= std::max(a.x, b.x) && y >= std::min(a.y, b.y) &&
+                y <= std::max(a.y, b.y))
+                boundary = true;
+            if (a.y <= y && b.y > y && side > 0)
+                ++winding;
+            else if (a.y > y && b.y <= y && side < 0)
+                --winding;
+        }
+    }
+    if (!boundary)
+        return rule == FillRule::EvenOdd ? winding % 2 != 0 : winding != 0;
+
+    // Resolve boundary hits against the actual filled mesh. This excludes
+    // degenerate contours and edges cancelled by the chosen winding rule.
+    const auto mesh = detail::tessellatePath(contours, rule);
+    for (size_t i = 0; i < mesh.triangles.size(); i += 3)
+    {
+        const auto a = mesh.triangles[i], b = mesh.triangles[i + 1], c = mesh.triangles[i + 2];
+        const double ab = cross(a, b, point), bc = cross(b, c, point), ca = cross(c, a, point);
+        if (cross(a, b, c) != 0 && !((ab < 0 || bc < 0 || ca < 0) && (ab > 0 || bc > 0 || ca > 0)))
+            return true;
+    }
+    return false;
 }
 
 } // namespace vectorgl

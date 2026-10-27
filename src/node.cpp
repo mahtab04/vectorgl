@@ -105,6 +105,15 @@ void Node::setScale(float sx, float sy)
     }
 }
 
+void Node::setFillRule(FillRule rule)
+{
+    if (style_.fillRule != rule)
+    {
+        style_.fillRule = rule;
+        markDirty(DirtyFlag::StyleDirty);
+    }
+}
+
 void Node::setFill(Color c)
 {
     if (style_.fillColor != c)

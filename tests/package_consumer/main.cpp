@@ -15,5 +15,8 @@ int main()
     path.closePath();
 
     const auto color = vectorgl::Color::hex(0x3366FF);
+    path.rect(8, 2, 4, 2);
+    if (!path.contains(10, 3) || path.contains(10, 3, vectorgl::FillRule::EvenOdd))
+        return 1;
     return path.empty() || color.a != 1.0f ? 1 : 0;
 }

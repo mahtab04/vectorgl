@@ -146,21 +146,25 @@ public:
 
     // --- Complex path rendering ---
 
-    /*! @brief Fills a tessellated path.
+    /*! @brief Fills all path contours together, including holes and intersections.
      *  @param[in] subPaths   Tessellated sub-paths (each a vector of points).
      *  @param[in] color      Fill color.
      *  @param[in] transform  World transform matrix.
+     *  @param[in] rule       Compound fill rule; open contours close implicitly.
+     *  @throws std::invalid_argument For nonfinite coordinates or coordinates outside +/-8388608.
      */
-    void fillPath(const std::vector<std::vector<Vec2>>& subPaths, Color color, const Mat3x3& transform);
+    void fillPath(const std::vector<std::vector<Vec2>>& subPaths, Color color, const Mat3x3& transform,
+                  FillRule rule = FillRule::NonZero);
 
     /*! @brief Fills a complex path with a Paint (supports gradients).
      *  @param[in] subPaths   Tessellated sub-paths.
      *  @param[in] paint      Paint descriptor (solid, linear gradient, or radial gradient).
      *  @param[in] opacity    Overall opacity multiplier [0, 1].
      *  @param[in] transform  World transform matrix.
+     *  @param[in] rule       Compound fill rule; same coordinate limits as fillPath().
      */
     void fillPathWithPaint(const std::vector<std::vector<Vec2>>& subPaths, const Paint& paint, float opacity,
-                           const Mat3x3& transform);
+                           const Mat3x3& transform, FillRule rule = FillRule::NonZero);
 
     /*! @brief Strokes a complex path.
      *  @param[in] subPaths   Tessellated sub-paths.

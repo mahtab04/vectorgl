@@ -323,16 +323,16 @@ void Canvas::closePath()
     currentPath_.closePath();
 }
 
-void Canvas::fill()
+void Canvas::fill(FillRule rule)
 {
     auto sp = currentPath_.getSubPaths();
-    renderer_.fillPath(sp, currentState_.fillColor, currentState_.transform);
+    renderer_.fillPath(sp, currentState_.fillColor, currentState_.transform, rule);
 }
 
-void Canvas::fillWithPaint(const Paint& paint, float opacity)
+void Canvas::fillWithPaint(const Paint& paint, float opacity, FillRule rule)
 {
     auto sp = currentPath_.getSubPaths();
-    renderer_.fillPathWithPaint(sp, paint, opacity, currentState_.transform);
+    renderer_.fillPathWithPaint(sp, paint, opacity, currentState_.transform, rule);
 }
 
 void Canvas::stroke()
