@@ -14,6 +14,12 @@ namespace vectorgl
 {
 class Font;
 class Image;
+class Node;
+namespace detail
+{
+struct LineGeometry;
+const Path2D& linePath(const Node& node);
+} // namespace detail
 
 /*! @brief A 3×3 affine transform matrix for 2D operations.
  *
@@ -89,6 +95,7 @@ struct NodeStyle
     float opacity = 1.0f;
     std::array<float, 4> cornerRadii = {0, 0, 0, 0}; // TL, TR, BR, BL
     FillRule fillRule = FillRule::NonZero;
+    StrokeStyle strokeStyle{};
 };
 
 // Effect descriptors
@@ -206,6 +213,10 @@ public:
      *  @param[in] width  Stroke width in pixels.
      */
     void setStroke(Color c, float width);
+    /*! @brief Sets path/line stroke joins, caps and miter limit.
+     *  @throws std::invalid_argument For a nonfinite miter limit or a limit below 1.
+     */
+    void setStrokeStyle(const StrokeStyle& style);
 
     /*! @brief Sets node opacity.
      *  @param[in] o  Opacity [0, 1].
@@ -373,6 +384,8 @@ public:
     void setVisible(bool v);
 
 private:
+    friend const Path2D& detail::linePath(const Node& node);
+    mutable std::shared_ptr<detail::LineGeometry> lineGeometry_;
     static inline std::atomic<uint32_t> nextId_{1};
 
     uint32_t id_ = nextId_.fetch_add(1, std::memory_order_relaxed);

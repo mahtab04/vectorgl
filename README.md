@@ -85,6 +85,54 @@ overlapping translucent rectangles, and self-intersecting stars side by side.
 Press **Space** to reverse the inner ring; hover to check filled regions.
 Use `--font path/to/font.ttf` if a system font is unavailable.
 
+## Stroke joins and caps
+
+Path strokes support `LineJoin::Miter`, `Round`, and `Bevel`, plus
+`LineCap::Butt`, `Round`, and `Square`. Miter joins fall back to bevel when the
+join center-to-tip distance divided by the half-width exceeds the miter limit. Canvas and
+scene paths default to miter joins, butt caps, and a limit of 10.
+
+```cpp
+canvas.setLineWidth(20);
+canvas.setLineJoin(vectorgl::LineJoin::Round);
+canvas.setLineCap(vectorgl::LineCap::Square);
+canvas.setMiterLimit(4);
+canvas.beginPath();
+canvas.moveTo(20, 80); canvas.lineTo(60, 80); canvas.lineTo(60, 40);
+canvas.stroke();
+
+node->setStrokeStyle({vectorgl::LineJoin::Bevel, vectorgl::LineCap::Round, 4});
+bool hit = path.strokeContains(x, y, 20,
+    {vectorgl::LineJoin::Round, vectorgl::LineCap::Round, 4});
+```
+
+Stroke settings participate in Canvas `save()` / `restore()`. Joins also apply
+to `strokeRect()`; scene stroke styling applies to path and line nodes. Other
+SDF primitives retain their existing analytic outlines. Widths and geometry are
+in local coordinates, then transformed by the full affine transform. Round
+boundaries use bounded curve sampling. Nonfinite path stroke inputs are rejected and miter
+limits must be at least 1. Nonpositive widths produce no path stroke.
+
+Open endpoints receive caps; `closePath()` connects the endpoints with a join.
+Returning to the start with `lineTo()` keeps an open path. Explicit zero-length
+lines or closed zero-length subpaths paint round/square dots, while butt caps and move-only contours paint
+nothing. Strokes are unioned before drawing, so translucent overlaps do not
+darken. Scene picking tests the same sampled mesh, excluding antialias fringes.
+Each path caches its most recent stroke width/style alongside its fill meshes.
+
+SVG presentation attributes, CSS, inline styles and inheritance support
+`stroke-linejoin`, `stroke-linecap` and `stroke-miterlimit` (SVG defaults to a
+miter limit of 4). Dash patterns are not implemented in this pass.
+
+Run [`vectorgl_strokes`](example/strokes_demo.cpp) for a side-by-side comparison.
+Use **Up/Down** for width, **Left/Right** for miter limit, and hover to test picking.
+The example accepts `--font path/to/font.ttf` and `--smoke-test`.
+
+Compatibility: path segments now connect with miter joins by default, replacing
+the previous independent segment rectangles. Stroke corners can extend farther.
+`Canvas::strokeRect()` now uses path geometry to honor joins; use the existing
+SDF shape APIs when batching analytic primitive outlines is the priority.
+
 ## Flow Studio desktop app
 
 [Flow Studio](apps/diagram_editor/README.md) is a complete local diagram workspace
@@ -127,8 +175,8 @@ discards its derived cache. Copies may share caches until edited. Picking and
 Canvas path commands reuse contour arrays; Canvas fills still tessellate their
 submitted contours. `pathTessellations` and `pathMeshCacheHits` count renderer
 work per frame, excluding cache work performed by CPU picking. GPU uploads and
-draw calls still happen each frame. At most two meshes are retained per cached
-path geometry, with storage proportional to its complexity. Synchronize access
+draw calls still happen each frame. At most two fill meshes and the latest stroke
+mesh are retained per cached path geometry, with storage proportional to complexity. Synchronize access
 when using paths or copies sharing a lazy cache across threads.
 
 Scene SDF shapes and images are conservatively culled against the framebuffer,

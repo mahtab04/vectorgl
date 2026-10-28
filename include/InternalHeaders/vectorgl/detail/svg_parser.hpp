@@ -74,6 +74,7 @@ struct Style
     Color fill = Color::Black;
     Color stroke = Color::Transparent;
     float strokeWidth = 1.0f;
+    StrokeStyle strokeStyle{LineJoin::Miter, LineCap::Butt, 4.0f};
     float opacity = 1.0f;
     float fillOpacity = 1.0f;
     float strokeOpacity = 1.0f;

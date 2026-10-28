@@ -53,6 +53,9 @@ void applyStroke(Canvas& canvas, const Style& style)
     sc.a *= style.strokeOpacity * style.opacity;
     canvas.setStrokeColor(sc);
     canvas.setLineWidth(style.strokeWidth);
+    canvas.setLineJoin(style.strokeStyle.join);
+    canvas.setLineCap(style.strokeStyle.cap);
+    canvas.setMiterLimit(style.strokeStyle.miterLimit);
 }
 
 float parseFontSize(const std::string& str)
@@ -463,7 +466,15 @@ void renderShapeElement(const XmlElement& element, Canvas& canvas, const Style& 
                     if (rx > 0)
                         canvas.strokeRoundedRect(x, y, w, h, rx);
                     else
-                        canvas.strokeRect(x, y, w, h);
+                    {
+                        canvas.beginPath();
+                        canvas.moveTo(x, y);
+                        canvas.lineTo(x + w, y);
+                        canvas.lineTo(x + w, y + h);
+                        canvas.lineTo(x, y + h);
+                        canvas.closePath();
+                        canvas.stroke();
+                    }
                 }
             });
     }

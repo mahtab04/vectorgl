@@ -898,6 +898,157 @@ int main()
                 result = fail("compound path rendering produced an OpenGL error");
         }
 
+        if (result == 0)
+        {
+            using namespace vectorgl;
+            const auto clearStroke = []
+            {
+                glClearColor(0, 0, 0, 1);
+                glClear(GL_COLOR_BUFFER_BIT);
+            };
+            Path2D corner;
+            corner.moveTo(20, 80);
+            corner.lineTo(60, 80);
+            corner.lineTo(60, 40);
+            for (auto join : {LineJoin::Miter, LineJoin::Round, LineJoin::Bevel})
+            {
+                clearStroke();
+                canvas.beginFrame(128, 128);
+                canvas.renderer().strokePath(corner, {1, 0, 0, 0.5f}, 20, Mat3x3::identity(),
+                                             {join, LineCap::Butt, 10});
+                canvas.endFrame();
+                if (std::abs(static_cast<int>(readPixel(57, 77)[0]) - 128) > 3)
+                    result = fail("translucent stroke overlap was blended more than once");
+                if (join == LineJoin::Miter && std::abs(static_cast<int>(readPixel(69, 89)[0]) - 128) > 3)
+                    result = fail("miter stroke tip missing");
+                if (join != LineJoin::Miter && readPixel(69, 89)[0] > 3)
+                    result = fail("bevel/round stroke leaked into miter tip");
+                if (join == LineJoin::Round && std::abs(static_cast<int>(readPixel(66, 86)[0]) - 128) > 3)
+                    result = fail("round join sector missing");
+                if (join == LineJoin::Bevel && readPixel(66, 86)[0] > 3)
+                    result = fail("bevel join did not trim the corner");
+            }
+            Path2D segment;
+            segment.moveTo(20, 50);
+            segment.lineTo(80, 50);
+            for (auto cap : {LineCap::Butt, LineCap::Round, LineCap::Square})
+            {
+                clearStroke();
+                canvas.beginFrame(128, 128);
+                canvas.renderer().strokePath(segment, Color::White, 20, Mat3x3::identity(), {LineJoin::Miter, cap, 10});
+                canvas.endFrame();
+                if (!pixelIs(readPixel(15, 50), cap == LineCap::Butt ? 0 : 255, cap == LineCap::Butt ? 0 : 255,
+                             cap == LineCap::Butt ? 0 : 255))
+                    result = fail("line cap endpoint coverage incorrect");
+                const int expected = cap == LineCap::Square ? 255 : 0;
+                if (!pixelIs(readPixel(11, 41), expected, expected, expected))
+                    result = fail("round/square cap corners incorrect");
+            }
+            clearStroke();
+            canvas.beginFrame(128, 128);
+            canvas.setStrokeColor(Color::White);
+            canvas.setLineWidth(20);
+            canvas.setLineCap(LineCap::Butt);
+            canvas.save();
+            canvas.setLineCap(LineCap::Round);
+            canvas.beginPath();
+            canvas.moveTo(20, 30);
+            canvas.lineTo(80, 30);
+            canvas.stroke();
+            canvas.restore();
+            canvas.beginPath();
+            canvas.moveTo(20, 90);
+            canvas.lineTo(80, 90);
+            canvas.stroke();
+            if (!throws<std::invalid_argument>([&] { canvas.setMiterLimit(0); }))
+                result = fail("Canvas accepted invalid miter limit");
+            canvas.endFrame();
+            if (!pixelIs(readPixel(15, 30), 255, 255, 255) || !pixelIs(readPixel(15, 90), 0, 0, 0))
+                result = fail("stroke state was not restored by Canvas restore");
+            for (auto join : {LineJoin::Miter, LineJoin::Bevel})
+            {
+                clearStroke();
+                canvas.beginFrame(128, 128);
+                canvas.setLineJoin(join);
+                canvas.setMiterLimit(10);
+                canvas.setStrokeColor(Color::White);
+                canvas.setLineWidth(20);
+                canvas.strokeRect(30, 30, 60, 60);
+                canvas.endFrame();
+                const int expected = join == LineJoin::Miter ? 255 : 0;
+                if (!pixelIs(readPixel(21, 21), expected, expected, expected))
+                    result = fail("Canvas strokeRect ignored line join style");
+            }
+            canvas.setLineJoin(LineJoin::Miter);
+
+            Scene strokes;
+            auto node = strokes.path(corner);
+            node->setStroke(Color::Blue, 20);
+            node->setStrokeStyle({LineJoin::Miter, LineCap::Butt, 10});
+            node->setScale(-1, 1);
+            node->setPosition(128, 0);
+            clearStroke();
+            strokes.render(canvas.renderer(), 128, 128);
+            if (strokes.pick(58.5f, 89.5f) != node || !pixelIs(readPixel(58, 89), 0, 0, 255))
+                result = fail("reflected stroke rendering disagrees with picking");
+            clearStroke();
+            strokes.render(canvas.renderer(), 128, 128);
+            if (canvas.renderer().frameStats().pathTessellations != 0 ||
+                canvas.renderer().frameStats().pathMeshCacheHits != 1)
+                result = fail("unchanged stroke was not cached");
+            node->setStrokeStyle({LineJoin::Bevel, LineCap::Butt, 10});
+            clearStroke();
+            strokes.render(canvas.renderer(), 128, 128);
+            if (strokes.pick(58.5f, 89.5f) || !pixelIs(readPixel(58, 89), 0, 0, 0))
+                result = fail("stroke join edit did not update pixels and picking");
+            node->setStrokeStyle({LineJoin::Miter, LineCap::Butt, 1});
+            clearStroke();
+            strokes.render(canvas.renderer(), 128, 128);
+            if (!pixelIs(readPixel(58, 89), 0, 0, 0))
+                result = fail("miter limit did not produce bevel fallback");
+            Mat3x3 strokeTransform = Mat3x3::identity();
+            strokeTransform.m[0] = -1;
+            strokeTransform.m[3] = 0.25f;
+            strokeTransform.m[4] = 0.8f;
+            strokeTransform.m[6] = 110;
+            strokeTransform.m[7] = 10;
+            clearStroke();
+            canvas.beginFrame(128, 128);
+            canvas.renderer().strokePath(corner, Color::White, 20, strokeTransform);
+            canvas.endFrame();
+            if (!pixelIs(readPixel(63, 81), 255, 255, 255))
+                result = fail("stroke miter tip failed under shear and reflection");
+            clearStroke();
+            canvas.beginFrame(128, 128);
+            canvas.save();
+            canvas.clipRoundedRect(32, 32, 64, 64, 12);
+            canvas.setStrokeColor(Color::White);
+            canvas.setLineWidth(20);
+            canvas.setLineCap(LineCap::Round);
+            canvas.beginPath();
+            canvas.moveTo(8, 64);
+            canvas.lineTo(120, 64);
+            canvas.stroke();
+            canvas.restore();
+            canvas.endFrame();
+            if (!pixelIs(readPixel(16, 64), 0, 0, 0) || !pixelIs(readPixel(64, 64), 255, 255, 255))
+                result = fail("stroke caps did not respect rounded clipping");
+
+            SvgImage strokeSvg;
+            if (!strokeSvg.loadFromString(R"SVG(<svg width="128" height="128">
+<style>.caps { stroke-linecap: round; stroke-linejoin: bevel; stroke-miterlimit: 1; }</style>
+<g class="caps" fill="none" stroke="white" stroke-width="20"><path d="M20 50H80"/></g></svg>)SVG"))
+                result = fail("stroke style SVG failed to load");
+            clearStroke();
+            canvas.beginFrame(128, 128);
+            strokeSvg.render(canvas);
+            canvas.endFrame();
+            if (!pixelIs(readPixel(15, 50), 255, 255, 255) || !pixelIs(readPixel(11, 41), 0, 0, 0))
+                result = fail("SVG inherited stroke caps rendered incorrectly");
+            if (glGetError() != GL_NO_ERROR)
+                result = fail("stroke rendering produced an OpenGL error");
+        }
+
         canvas.destroy();
         if (canvas.renderer().isInitialized())
             result = fail("renderer stayed initialized after destroy");

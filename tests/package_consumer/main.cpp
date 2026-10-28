@@ -18,5 +18,10 @@ int main()
     path.rect(8, 2, 4, 2);
     if (!path.contains(10, 3) || path.contains(10, 3, vectorgl::FillRule::EvenOdd))
         return 1;
+    vectorgl::Path2D stroke;
+    stroke.moveTo(0, 0);
+    stroke.lineTo(20, 0);
+    if (!stroke.strokeContains(-2, 0, 6, {vectorgl::LineJoin::Round, vectorgl::LineCap::Round, 4}))
+        return 1;
     return path.empty() || color.a != 1.0f ? 1 : 0;
 }

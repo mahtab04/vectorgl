@@ -46,6 +46,28 @@ enum class FillRule
     EvenOdd  //!< Fill regions crossed an odd number of times, regardless of direction.
 };
 
+enum class LineJoin
+{
+    Miter,
+    Round,
+    Bevel
+};
+enum class LineCap
+{
+    Butt,
+    Round,
+    Square
+};
+
+/*! @brief Styling for path strokes in local coordinates. */
+struct StrokeStyle
+{
+    LineJoin join = LineJoin::Miter;
+    LineCap cap = LineCap::Butt;
+    float miterLimit = 10.0f; //!< Maximum join center-to-tip distance / half-width; bevel fallback.
+    bool operator==(const StrokeStyle&) const = default;
+};
+
 class Path2D;
 namespace detail
 {
@@ -53,6 +75,7 @@ struct PathCache;
 struct PathMesh;
 const std::vector<std::vector<Vec2>>& pathContours(const Path2D& path);
 const PathMesh& pathMesh(const Path2D& path, FillRule rule, bool* cacheHit = nullptr);
+const PathMesh& strokeMesh(const Path2D& path, float width, const StrokeStyle& style, bool* cacheHit = nullptr);
 } // namespace detail
 
 enum class PathCmd
@@ -72,7 +95,7 @@ struct PathPoint
  *
  *  Build complex shapes from lines, cubic/quadratic Bézier curves, arcs,
  *  and ellipses.  The resulting path can be filled or stroked via Canvas.
- *  Contours and fill meshes are cached lazily and discarded on edits. Copies
+ *  Contours, fill meshes and the last stroke mesh are cached lazily and discarded on edits. Copies
  *  share cached geometry until edited. Concurrent access to a shared path or
  *  copies sharing a cache requires external synchronization.
  *
@@ -159,9 +182,17 @@ public:
      */
     bool contains(float x, float y, FillRule rule = FillRule::NonZero) const;
 
+    /*! @brief Tests the stroked mesh in local coordinates, including its boundary.
+     *  Ignores the antialias fringe. Nonpositive widths return false.
+     *  Invalid coordinates/styles return false. Uses the same mesh as rendering.
+     */
+    bool strokeContains(float x, float y, float width, const StrokeStyle& style = {}) const;
+
 private:
     friend const std::vector<std::vector<Vec2>>& detail::pathContours(const Path2D& path);
     friend const detail::PathMesh& detail::pathMesh(const Path2D& path, FillRule rule, bool* cacheHit);
+    friend const detail::PathMesh& detail::strokeMesh(const Path2D& path, float width, const StrokeStyle& style,
+                                                      bool* cacheHit);
     std::vector<std::vector<Vec2>> buildSubPaths() const;
     std::vector<PathPoint> points_;
     Vec2 cursor_{0, 0};

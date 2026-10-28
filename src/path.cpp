@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdint>
 #include <optional>
+#include <stdexcept>
 
 #include "vectorgl/detail/path_tessellation.hpp"
 
@@ -14,8 +15,15 @@ namespace detail
 {
 struct PathCache
 {
+    struct StrokeEntry
+    {
+        float width;
+        StrokeStyle style;
+        PathMesh mesh;
+    };
     std::vector<std::vector<Vec2>> contours;
     std::optional<PathMesh> meshes[2];
+    std::optional<StrokeEntry> stroke;
 };
 
 const std::vector<std::vector<Vec2>>& pathContours(const Path2D& path)
@@ -38,6 +46,18 @@ const PathMesh& pathMesh(const Path2D& path, FillRule rule, bool* cacheHit)
     if (!mesh)
         mesh = tessellatePath(contours, rule);
     return *mesh;
+}
+
+const PathMesh& strokeMesh(const Path2D& path, float width, const StrokeStyle& style, bool* cacheHit)
+{
+    (void)pathContours(path);
+    auto& entry = path.cache_->stroke;
+    const bool hit = entry && entry->width == width && entry->style == style;
+    if (cacheHit)
+        *cacheHit = hit;
+    if (!hit)
+        entry = PathCache::StrokeEntry{width, style, tessellateStroke(path, width, style)};
+    return entry->mesh;
 }
 } // namespace detail
 
@@ -169,6 +189,13 @@ void Path2D::closePath()
 {
     cache_.reset();
     points_.push_back({PathCmd::Close, {}});
+    // Subsequent segments start at the closed subpath's initial point.
+    for (auto it = points_.rbegin(); it != points_.rend(); ++it)
+        if (it->cmd == PathCmd::MoveTo)
+        {
+            cursor_ = it->pos;
+            break;
+        }
 }
 
 void Path2D::clear()
@@ -188,6 +215,7 @@ std::vector<std::vector<Vec2>> Path2D::buildSubPaths() const
     std::vector<std::vector<Vec2>> subPaths;
     std::vector<Vec2> current;
     Vec2 subPathStart{0, 0};
+    bool havePoint = false;
 
     for (auto& pt : points_)
     {
@@ -199,9 +227,18 @@ std::vector<std::vector<Vec2>> Path2D::buildSubPaths() const
             current.clear();
             current.push_back(pt.pos);
             subPathStart = pt.pos;
+            havePoint = true;
             break;
         case PathCmd::LineTo:
+            if (current.empty())
+            {
+                if (havePoint)
+                    current.push_back(subPathStart);
+                else
+                    subPathStart = pt.pos;
+            }
             current.push_back(pt.pos);
+            havePoint = true;
             break;
         case PathCmd::Close:
             if (!current.empty())
@@ -266,6 +303,20 @@ bool Path2D::contains(float x, float y, FillRule rule) const
             return true;
     }
     return false;
+}
+
+bool Path2D::strokeContains(float x, float y, float width, const StrokeStyle& style) const
+{
+    if (!std::isfinite(x) || !std::isfinite(y))
+        return false;
+    try
+    {
+        return detail::meshContains(detail::strokeMesh(*this, width, style), {x, y});
+    }
+    catch (const std::invalid_argument&)
+    {
+        return false;
+    }
 }
 
 } // namespace vectorgl
