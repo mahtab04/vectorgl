@@ -6,6 +6,8 @@
 #include <cstdint>
 #include <stdexcept>
 
+#include "vectorgl/detail/path_tessellation.hpp"
+
 namespace vectorgl
 {
 Canvas::Canvas() = default;
@@ -153,6 +155,30 @@ void Canvas::setLineWidth(float w)
     currentState_.lineWidth = w;
 }
 
+void Canvas::setLineJoin(LineJoin join)
+{
+    StrokeStyle style = currentState_.strokeStyle;
+    style.join = join;
+    detail::validateStrokeStyle(style);
+    currentState_.strokeStyle = style;
+}
+
+void Canvas::setLineCap(LineCap cap)
+{
+    StrokeStyle style = currentState_.strokeStyle;
+    style.cap = cap;
+    detail::validateStrokeStyle(style);
+    currentState_.strokeStyle = style;
+}
+
+void Canvas::setMiterLimit(float limit)
+{
+    StrokeStyle style = currentState_.strokeStyle;
+    style.miterLimit = limit;
+    detail::validateStrokeStyle(style);
+    currentState_.strokeStyle = style;
+}
+
 bool Canvas::setFont(const std::string& fontPath, float size)
 {
     for (auto it = fonts_.begin(); it != fonts_.end(); ++it)
@@ -214,13 +240,10 @@ void Canvas::fillRect(float x, float y, float w, float h)
 
 void Canvas::strokeRect(float x, float y, float w, float h)
 {
-    NodeStyle style;
-    style.fillColor = Color{0, 0, 0, 0};
-    style.strokeColor = currentState_.strokeColor;
-    style.strokeWidth = currentState_.lineWidth;
-    style.opacity = 1.0f;
-    Vec2 center = {x + w * 0.5f, y + h * 0.5f};
-    renderer_.drawSDFRect(center, {w, h}, style, currentState_.transform);
+    Path2D rectangle;
+    rectangle.rect(x, y, w, h);
+    renderer_.strokePath(rectangle, currentState_.strokeColor, currentState_.lineWidth, currentState_.transform,
+                         currentState_.strokeStyle);
 }
 
 void Canvas::fillCircle(float cx, float cy, float r)
@@ -337,8 +360,8 @@ void Canvas::fillWithPaint(const Paint& paint, float opacity, FillRule rule)
 
 void Canvas::stroke()
 {
-    const auto& sp = detail::pathContours(currentPath_);
-    renderer_.strokePath(sp, currentState_.strokeColor, currentState_.lineWidth, currentState_.transform);
+    renderer_.strokePath(currentPath_, currentState_.strokeColor, currentState_.lineWidth, currentState_.transform,
+                         currentState_.strokeStyle);
 }
 
 // ============================================================

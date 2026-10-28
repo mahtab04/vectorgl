@@ -49,6 +49,7 @@ add_library(vectorgl STATIC
     src/canvas.cpp
     src/path.cpp
     src/path_tessellation.cpp
+    src/stroke_tessellation.cpp
     ${VECTORGL_LIBTESS2_DIR}/Source/bucketalloc.c
     ${VECTORGL_LIBTESS2_DIR}/Source/dict.c
     ${VECTORGL_LIBTESS2_DIR}/Source/geom.c

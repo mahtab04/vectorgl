@@ -2,6 +2,7 @@
 // svg_style.cpp — SVG style resolution
 // ============================================================================
 
+#include <cmath>
 #include <cstdlib>
 #include <sstream>
 
@@ -92,6 +93,32 @@ void applyStyleProperty(Style& style, const std::string& property, const std::st
     {
         style.strokeWidth = std::strtof(value.c_str(), nullptr);
     }
+    else if (property == "stroke-linejoin")
+    {
+        if (value == "miter")
+            style.strokeStyle.join = LineJoin::Miter;
+        else if (value == "round")
+            style.strokeStyle.join = LineJoin::Round;
+        else if (value == "bevel")
+            style.strokeStyle.join = LineJoin::Bevel;
+    }
+    else if (property == "stroke-linecap")
+    {
+        if (value == "butt")
+            style.strokeStyle.cap = LineCap::Butt;
+        else if (value == "round")
+            style.strokeStyle.cap = LineCap::Round;
+        else if (value == "square")
+            style.strokeStyle.cap = LineCap::Square;
+    }
+    else if (property == "stroke-miterlimit")
+    {
+        const auto number = trimWhitespace(value);
+        char* end = nullptr;
+        const float limit = std::strtof(number.c_str(), &end);
+        if (end != number.c_str() && *end == '\0' && std::isfinite(limit) && limit >= 1)
+            style.strokeStyle.miterLimit = limit;
+    }
     else if (property == "opacity")
     {
         style.opacity = std::strtof(value.c_str(), nullptr);
@@ -153,6 +180,13 @@ Style resolveStyle(const XmlElement& element, const Style& parentStyle, const st
     const auto& sw = getAttribute(element, "stroke-width");
     if (!sw.empty())
         applyStyleProperty(style, "stroke-width", sw);
+
+    for (const char* property : {"stroke-linejoin", "stroke-linecap", "stroke-miterlimit"})
+    {
+        const auto& value = getAttribute(element, property);
+        if (!value.empty())
+            applyStyleProperty(style, property, value);
+    }
 
     const auto& op = getAttribute(element, "opacity");
     if (!op.empty())

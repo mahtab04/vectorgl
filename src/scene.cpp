@@ -29,19 +29,6 @@ bool toLocal(Vec2 point, const Mat3x3& transform, Vec2& local)
     return std::isfinite(local.x) && std::isfinite(local.y);
 }
 
-bool inSegment(Vec2 point, Vec2 a, Vec2 b, float halfWidth)
-{
-    const Vec2 delta = b - a;
-    const double length = std::hypot(delta.x, delta.y);
-    if (length == 0 || !std::isfinite(length))
-        return false;
-    const Vec2 offset = point - a;
-    const double along = (offset.x * delta.x + offset.y * delta.y) / length;
-    const double across = (offset.x * delta.y - offset.y * delta.x) / length;
-    // Renderer strokes have butt caps and independent segment joins.
-    return along >= 0 && along <= length && std::abs(across) <= halfWidth;
-}
-
 bool containsPoint(const Node& node, Vec2 point)
 {
     const auto& style = node.style();
@@ -84,20 +71,16 @@ bool containsPoint(const Node& node, Vec2 point)
         if (!toLocal(point, transform, local))
             return false;
         if (node.type() == ShapeType::Line)
-            return style.strokeColor.a > 0 && inSegment(local, {-size.x * 0.5f, 0}, {size.x * 0.5f, 0},
-                                                        (style.strokeWidth > 0 ? style.strokeWidth : 1.0f) * 0.5f);
-        if (!fill && !stroke)
-            return false;
+        {
+            if (!(style.strokeColor.a > 0))
+                return false;
+            return detail::linePath(node).strokeContains(
+                local.x, local.y, style.strokeWidth > 0 ? style.strokeWidth : 1.0f, style.strokeStyle);
+        }
         if (fill && node.path().contains(local.x, local.y, style.fillRule))
             return true;
-        if (!stroke)
-            return false;
-        for (const auto& polygon : detail::pathContours(node.path()))
-        {
-            for (size_t i = 1; i < polygon.size(); ++i)
-                if (inSegment(local, polygon[i - 1], polygon[i], style.strokeWidth * 0.5f))
-                    return true;
-        }
+        if (stroke)
+            return node.path().strokeContains(local.x, local.y, style.strokeWidth, style.strokeStyle);
         return false;
     }
     if (!fill && !stroke)

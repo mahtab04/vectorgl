@@ -784,67 +784,23 @@ public:
         glUniform1i(pathLoc_paintType_, 0);
     }
 
-    void strokePath(const std::vector<std::vector<Vec2>>& subPaths, Color color, float width, const Mat3x3& transform)
+    void strokePath(const std::vector<std::vector<Vec2>>& subPaths, Color color, float width, const Mat3x3& transform,
+                    const StrokeStyle& style = {})
     {
-        flushSDF();
-        const float halfWidth = width * 0.5f;
-        // Compute fringe in world-space that maps to ~1 screen pixel
-        float transformScale = std::sqrt(transform.m[0] * transform.m[0] + transform.m[3] * transform.m[3]);
-        float fringe = (transformScale > 1e-4f) ? (1.0f / transformScale) : 1.0f;
-        std::vector<float> buffer;
-        for (const auto& subPath : subPaths)
-        {
-            if (subPath.size() < 2)
-                continue;
-            for (size_t i = 0; i + 1 < subPath.size(); ++i)
-            {
-                Vec2 a = subPath[i];
-                Vec2 b = subPath[i + 1];
-                Vec2 direction = (b - a).normalized();
-                Vec2 normal = direction.perp();
-                Vec2 i0 = transform.transformPoint(a + normal * halfWidth);
-                Vec2 o0 = transform.transformPoint(a - normal * halfWidth);
-                Vec2 i1 = transform.transformPoint(b + normal * halfWidth);
-                Vec2 o1 = transform.transformPoint(b - normal * halfWidth);
-                buffer.insert(buffer.end(), {i0.x, i0.y, color.r, color.g, color.b, color.a, 1.0f});
-                buffer.insert(buffer.end(), {o0.x, o0.y, color.r, color.g, color.b, color.a, 1.0f});
-                buffer.insert(buffer.end(), {i1.x, i1.y, color.r, color.g, color.b, color.a, 1.0f});
-                buffer.insert(buffer.end(), {o0.x, o0.y, color.r, color.g, color.b, color.a, 1.0f});
-                buffer.insert(buffer.end(), {o1.x, o1.y, color.r, color.g, color.b, color.a, 1.0f});
-                buffer.insert(buffer.end(), {i1.x, i1.y, color.r, color.g, color.b, color.a, 1.0f});
+        ++stats_.pathTessellations;
+        fillPathMesh(detail::tessellateStroke(subPaths, width, style), color, transform);
+    }
 
-                Vec2 fo0 = transform.transformPoint(a - normal * (halfWidth + fringe));
-                Vec2 fo1 = transform.transformPoint(b - normal * (halfWidth + fringe));
-                Vec2 fi0 = transform.transformPoint(a + normal * (halfWidth + fringe));
-                Vec2 fi1 = transform.transformPoint(b + normal * (halfWidth + fringe));
-                buffer.insert(buffer.end(), {o0.x, o0.y, color.r, color.g, color.b, color.a, 1.0f});
-                buffer.insert(buffer.end(), {fo0.x, fo0.y, color.r, color.g, color.b, color.a, 0.0f});
-                buffer.insert(buffer.end(), {o1.x, o1.y, color.r, color.g, color.b, color.a, 1.0f});
-                buffer.insert(buffer.end(), {o1.x, o1.y, color.r, color.g, color.b, color.a, 1.0f});
-                buffer.insert(buffer.end(), {fo0.x, fo0.y, color.r, color.g, color.b, color.a, 0.0f});
-                buffer.insert(buffer.end(), {fo1.x, fo1.y, color.r, color.g, color.b, color.a, 0.0f});
-                buffer.insert(buffer.end(), {i0.x, i0.y, color.r, color.g, color.b, color.a, 1.0f});
-                buffer.insert(buffer.end(), {i1.x, i1.y, color.r, color.g, color.b, color.a, 1.0f});
-                buffer.insert(buffer.end(), {fi0.x, fi0.y, color.r, color.g, color.b, color.a, 0.0f});
-                buffer.insert(buffer.end(), {i1.x, i1.y, color.r, color.g, color.b, color.a, 1.0f});
-                buffer.insert(buffer.end(), {fi1.x, fi1.y, color.r, color.g, color.b, color.a, 0.0f});
-                buffer.insert(buffer.end(), {fi0.x, fi0.y, color.r, color.g, color.b, color.a, 0.0f});
-            }
-        }
-
-        if (buffer.empty())
-            return;
-        glUseProgram(pathProgram_);
-        glUniform2f(pathLoc_viewSize_, static_cast<float>(fbWidth_), static_cast<float>(fbHeight_));
-        glUniform1i(pathLoc_paintType_, 0); // solid color
-        glBindVertexArray(pathVAO_);
-        glBindBuffer(GL_ARRAY_BUFFER, pathVBO_);
-        stats_.bufferUploadBytes += static_cast<GLsizeiptr>(buffer.size() * sizeof(float));
-        glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(buffer.size() * sizeof(float)), buffer.data(),
-                     GL_STREAM_DRAW);
-        ++stats_.drawCalls;
-        glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(buffer.size() / 7));
-        glBindVertexArray(0);
+    void strokePath(const Path2D& path, Color color, float width, const Mat3x3& transform,
+                    const StrokeStyle& style = {})
+    {
+        bool hit = false;
+        const auto& mesh = detail::strokeMesh(path, width, style, &hit);
+        if (hit)
+            ++stats_.pathMeshCacheHits;
+        else
+            ++stats_.pathTessellations;
+        fillPathMesh(mesh, color, transform);
     }
 
     void drawTexturedQuad(float x, float y, float w, float h, uint32_t texture, Color tint, const Mat3x3& transform,
@@ -1170,17 +1126,17 @@ public:
             }
             if (style.strokeWidth > 0 && style.strokeColor.a > 0)
             {
-                strokePath(detail::pathContours(node->path()), stroke, style.strokeWidth, worldTransform);
+                strokePath(node->path(), stroke, style.strokeWidth, worldTransform, style.strokeStyle);
             }
             break;
         }
         case ShapeType::Line:
         {
-            float halfLength = size.x * 0.5f;
-            std::vector<std::vector<Vec2>> paths = {{{-halfLength, 0}, {halfLength, 0}}};
             Color stroke = style.strokeColor;
             stroke.a *= style.opacity;
-            strokePath(paths, stroke, style.strokeWidth > 0 ? style.strokeWidth : 1.0f, worldTransform);
+            if (stroke.a > 0)
+                strokePath(detail::linePath(*node), stroke, style.strokeWidth > 0 ? style.strokeWidth : 1.0f,
+                           worldTransform, style.strokeStyle);
             break;
         }
         default:
@@ -1359,10 +1315,17 @@ void Renderer::fillPathWithPaint(const std::vector<std::vector<Vec2>>& subPaths,
 }
 
 void Renderer::strokePath(const std::vector<std::vector<Vec2>>& subPaths, Color color, float width,
-                          const Mat3x3& transform)
+                          const Mat3x3& transform, const StrokeStyle& style)
 {
     impl_->requireFrame("strokePath()");
-    impl_->strokePath(subPaths, color, width, transform);
+    impl_->strokePath(subPaths, color, width, transform, style);
+}
+
+void Renderer::strokePath(const Path2D& path, Color color, float width, const Mat3x3& transform,
+                          const StrokeStyle& style)
+{
+    impl_->requireFrame("strokePath()");
+    impl_->strokePath(path, color, width, transform, style);
 }
 
 void Renderer::drawTexturedQuad(float x, float y, float w, float h, uint32_t texture, Color tint,

@@ -169,13 +169,21 @@ public:
     void fillPathWithPaint(const std::vector<std::vector<Vec2>>& subPaths, const Paint& paint, float opacity,
                            const Mat3x3& transform, FillRule rule = FillRule::NonZero);
 
-    /*! @brief Strokes a complex path.
+    /*! @brief Strokes contour arrays; repeated first/last points designate closed contours.
      *  @param[in] subPaths   Tessellated sub-paths.
      *  @param[in] color      Stroke color.
      *  @param[in] width      Stroke width in pixels.
      *  @param[in] transform  World transform matrix.
+     *  @param[in] style      Joins, caps, and miter limit in local coordinates.
      */
-    void strokePath(const std::vector<std::vector<Vec2>>& subPaths, Color color, float width, const Mat3x3& transform);
+    void strokePath(const std::vector<std::vector<Vec2>>& subPaths, Color color, float width, const Mat3x3& transform,
+                    const StrokeStyle& style = {});
+    /*! @brief Strokes a path, preserving explicit closure and reusing its cached stroke mesh.
+     *  Widths are in local coordinates. Joins/caps apply before the full affine transform.
+     *  Nonpositive widths draw nothing. Nonfinite widths/styles/coordinates are rejected.
+     */
+    void strokePath(const Path2D& path, Color color, float width, const Mat3x3& transform,
+                    const StrokeStyle& style = {});
 
     // --- Textured rendering ---
 

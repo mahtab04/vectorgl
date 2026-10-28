@@ -5,11 +5,35 @@
 #include <stdexcept>
 #include <utility>
 
+#include "vectorgl/detail/path_tessellation.hpp"
 #include "vectorgl/font.hpp"
 #include "vectorgl/image.hpp"
 
 namespace vectorgl
 {
+
+namespace detail
+{
+struct LineGeometry
+{
+    float length;
+    Path2D path;
+};
+
+const Path2D& linePath(const Node& node)
+{
+    const float length = node.size().x;
+    if (!node.lineGeometry_ || node.lineGeometry_->length != length)
+    {
+        auto geometry = std::make_shared<LineGeometry>();
+        geometry->length = length;
+        geometry->path.moveTo(-length * 0.5f, 0);
+        geometry->path.lineTo(length * 0.5f, 0);
+        node.lineGeometry_ = std::move(geometry);
+    }
+    return node.lineGeometry_->path;
+}
+} // namespace detail
 
 // --- Mat3x3 ---
 
@@ -129,6 +153,16 @@ void Node::setStroke(Color c, float width)
     {
         style_.strokeColor = c;
         style_.strokeWidth = width;
+        markDirty(DirtyFlag::StyleDirty);
+    }
+}
+
+void Node::setStrokeStyle(const StrokeStyle& style)
+{
+    detail::validateStrokeStyle(style);
+    if (style_.strokeStyle != style)
+    {
+        style_.strokeStyle = style;
         markDirty(DirtyFlag::StyleDirty);
     }
 }

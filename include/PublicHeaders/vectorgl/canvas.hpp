@@ -136,6 +136,14 @@ public:
      *  @param[in] w  Line width in pixels.
      */
     void setLineWidth(float w);
+    /*! @brief Sets path joins (also used by strokeRect); saved/restored with state. */
+    void setLineJoin(LineJoin join);
+    /*! @brief Sets open path endpoint caps; saved/restored with state. */
+    void setLineCap(LineCap cap);
+    /*! @brief Sets the path miter limit (finite and at least 1).
+     *  @throws std::invalid_argument For an invalid limit.
+     */
+    void setMiterLimit(float limit);
 
     /*! @brief Loads a TrueType font and sets it as the active font for text rendering.
      *
@@ -337,6 +345,7 @@ private:
         Color fillColor{Color::Black};
         Color strokeColor{Color::Black};
         float lineWidth = 1.0f;
+        StrokeStyle strokeStyle{};
         bool textPixelSnap = true;
         TextRenderingMode textRenderingMode = TextRenderingMode::Auto;
         Mat3x3 transform = Mat3x3::identity();

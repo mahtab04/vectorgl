@@ -334,6 +334,15 @@ canvas.fillRoundedRect(-60, -40, 120, 80, 12);
 canvas.endFrame();`
     },
     {
+        title: "strokes_demo.cpp",
+        text: "Compare miter, round and bevel joins, plus butt, round and square caps. Hover tests the actual stroke mesh.",
+        bullets: ["Up/Down changes width; Left/Right changes miter limit.", "Stroke geometry is merged before drawing to preserve translucent overlap opacity."],
+        code: `canvas.setLineJoin(LineJoin::Round);
+canvas.setLineCap(LineCap::Square);
+canvas.setMiterLimit(4);
+canvas.stroke();`
+    },
+    {
         title: "fill_rules_demo.cpp",
         text: "Compare NonZero and EvenOdd compound paths: rings, translucent overlaps, and self-intersecting stars.",
         bullets: ["Space reverses the inner contour; hover tests the actual filled region.", "Gradient fills and CPU containment use the same rule; no stencil buffer is required."],
@@ -456,6 +465,8 @@ const apiReference = [
                     { signature: "void resetClip()", description: "Removes the active clipping region for subsequent drawing." },
                     { signature: "void setFillColor(Color c)", description: "Sets the active fill color for fillRect(), fillCircle(), fill(), fillText(), and other fill operations." },
                     { signature: "void setStrokeColor(Color c)", description: "Sets the active stroke color for strokeRect(), strokeCircle(), stroke(), and other stroke operations." },
+                    { signature: "void setLineJoin(LineJoin join) / void setLineCap(LineCap cap)", description: "Sets path joins and open endpoint caps; save()/restore() preserves both." },
+                    { signature: "void setMiterLimit(float limit)", description: "Sets a finite path miter limit of at least 1; long miters fall back to bevel." },
                     { signature: "void setLineWidth(float w)", description: "Sets the current stroke width in pixels." },
                     { signature: "bool setFont(const std::string& fontPath, float size)", description: "Loads a TrueType font and makes it the active font for subsequent fillText() calls.", notes: ["Returns false if the file cannot be loaded or atlas generation fails.", "This is the normal public entry point for text rendering."] }
                 ]
@@ -599,7 +610,7 @@ const apiReference = [
                 methods: [
                     { signature: "void fillPath(const std::vector<std::vector<Vec2>>& subPaths, Color color, const Mat3x3& transform, FillRule rule = FillRule::NonZero)", description: "Fills tessellated path geometry with a solid color." },
                     { signature: "void fillPathWithPaint(const std::vector<std::vector<Vec2>>& subPaths, const Paint& paint, float opacity, const Mat3x3& transform, FillRule rule = FillRule::NonZero)", description: "Fills path geometry with a Paint descriptor such as a gradient or pattern." },
-                    { signature: "void strokePath(const std::vector<std::vector<Vec2>>& subPaths, Color color, float width, const Mat3x3& transform)", description: "Strokes tessellated path outlines." },
+                    { signature: "void strokePath(const std::vector<std::vector<Vec2>>& subPaths, Color color, float width, const Mat3x3& transform, const StrokeStyle& style = {})", description: "Strokes tessellated path outlines." },
                     { signature: "void drawTexturedQuad(float x, float y, float w, float h, uint32_t texture, Color tint, const Mat3x3& transform)", description: "Draws a raster-textured quad." },
                     { signature: "void drawGlyph(float x, float y, float w, float h, float u0, float v0, float u1, float v1, uint32_t texture, Color color, const Mat3x3& transform)", description: "Draws a single font atlas glyph quad." },
                     { signature: "void beginEffectPass(float x, float y, float w, float h) / void endEffectPass()", description: "Captures subsequent drawing into an off-screen FBO region for post-processing." },
@@ -640,6 +651,7 @@ const apiReference = [
                     { signature: "void clear()", description: "Clears all stored path commands and resets the internal cursor." },
                     { signature: "const std::vector<PathPoint>& points() const", description: "Returns the raw point command list." },
                     { signature: "bool empty() const", description: "Reports whether the path contains any commands." },
+                    { signature: "bool strokeContains(float x, float y, float width, const StrokeStyle& style = {}) const", description: "Tests the sampled stroke mesh in local coordinates, including joins and caps, without OpenGL." },
                     { signature: "bool contains(float x, float y, FillRule rule = FillRule::NonZero) const", description: "Tests local filled regions, including boundaries. Handles holes and intersections without OpenGL." },
                     { signature: "std::vector<std::vector<Vec2>> getSubPaths() const", description: "Expands the command list into concrete sub-path point arrays for tessellation and rendering." }
                 ]
@@ -675,6 +687,7 @@ const apiReference = [
                 methods: [
                     { signature: "void setFill(Color c)", description: "Sets fill color." },
                     { signature: "void setFillRule(FillRule rule)", description: "Sets the compound path fill rule for rendering and picking." },
+                    { signature: "void setStrokeStyle(const StrokeStyle& style)", description: "Sets path/line joins, caps and miter limit; picking uses the same stroke mesh." },
                     { signature: "void setStroke(Color c, float width)", description: "Sets stroke color and stroke width." },
                     { signature: "void setOpacity(float o)", description: "Sets node opacity." },
                     { signature: "void setCornerRadii(float tl, float tr, float br, float bl)", description: "Sets per-corner radii for rounded rectangles." },
@@ -958,7 +971,7 @@ const apiReference = [
                     { signature: "struct Mat3x3", description: "3x3 affine transform matrix with identity(), translation(), rotation(), scaling(), operator*(), and transformPoint()." },
                     { signature: "enum class DirtyFlag", description: "Bitflags that classify transform, style, and geometry dirtiness." },
                     { signature: "enum class ShapeType", description: "Values: None, Rect, RoundedRect, Circle, Ellipse, Line, Path, Text, Image, Group." },
-                    { signature: "struct NodeStyle", description: "Holds fillColor, strokeColor, strokeWidth, opacity, per-corner radii, and fillRule." }
+                    { signature: "struct NodeStyle", description: "Holds fillColor, strokeColor, strokeWidth, opacity, per-corner radii, fillRule, and path/line strokeStyle." }
                 ]
             }
         ]
