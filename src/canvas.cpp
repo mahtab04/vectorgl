@@ -4,12 +4,20 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <numbers>
 #include <stdexcept>
 
 #include "vectorgl/detail/path_tessellation.hpp"
 
 namespace vectorgl
 {
+namespace
+{
+bool hasDashes(const StrokeStyle& style)
+{
+    return std::any_of(style.dashArray.begin(), style.dashArray.end(), [](float value) { return value > 0; });
+}
+} // namespace
 Canvas::Canvas() = default;
 Canvas::~Canvas()
 {
@@ -179,6 +187,22 @@ void Canvas::setMiterLimit(float limit)
     currentState_.strokeStyle = style;
 }
 
+void Canvas::setLineDash(std::vector<float> segments)
+{
+    StrokeStyle style = currentState_.strokeStyle;
+    style.dashArray = std::move(segments);
+    detail::validateStrokeStyle(style);
+    currentState_.strokeStyle = std::move(style);
+}
+
+void Canvas::setLineDashOffset(float offset)
+{
+    StrokeStyle style = currentState_.strokeStyle;
+    style.dashOffset = offset;
+    detail::validateStrokeStyle(style);
+    currentState_.strokeStyle = std::move(style);
+}
+
 bool Canvas::setFont(const std::string& fontPath, float size)
 {
     for (auto it = fonts_.begin(); it != fonts_.end(); ++it)
@@ -257,6 +281,15 @@ void Canvas::fillCircle(float cx, float cy, float r)
 
 void Canvas::strokeCircle(float cx, float cy, float r)
 {
+    if (hasDashes(currentState_.strokeStyle))
+    {
+        Path2D circle;
+        circle.arc(cx, cy, r, 0, 2 * std::numbers::pi_v<float>);
+        circle.closePath();
+        renderer_.strokePath(circle, currentState_.strokeColor, currentState_.lineWidth, currentState_.transform,
+                             currentState_.strokeStyle);
+        return;
+    }
     NodeStyle style;
     style.fillColor = Color{0, 0, 0, 0};
     style.strokeColor = currentState_.strokeColor;
@@ -276,6 +309,15 @@ void Canvas::fillEllipse(float cx, float cy, float rx, float ry)
 
 void Canvas::strokeEllipse(float cx, float cy, float rx, float ry)
 {
+    if (hasDashes(currentState_.strokeStyle))
+    {
+        Path2D ellipse;
+        ellipse.ellipse(cx, cy, rx, ry, 0, 0, 2 * std::numbers::pi_v<float>);
+        ellipse.closePath();
+        renderer_.strokePath(ellipse, currentState_.strokeColor, currentState_.lineWidth, currentState_.transform,
+                             currentState_.strokeStyle);
+        return;
+    }
     NodeStyle style;
     style.fillColor = Color{0, 0, 0, 0};
     style.strokeColor = currentState_.strokeColor;
@@ -298,6 +340,30 @@ void Canvas::fillRoundedRect(float x, float y, float w, float h, float radius)
 
 void Canvas::strokeRoundedRect(float x, float y, float w, float h, float radius)
 {
+    if (hasDashes(currentState_.strokeStyle))
+    {
+        const float r = std::clamp(radius, 0.0f, std::max(0.0f, std::min(w, h) * 0.5f));
+        Path2D rectangle;
+        constexpr float pi = std::numbers::pi_v<float>;
+        if (r == 0)
+            rectangle.rect(x, y, w, h);
+        else
+        {
+            rectangle.moveTo(x + r, y);
+            rectangle.lineTo(x + w - r, y);
+            rectangle.arc(x + w - r, y + r, r, -pi * 0.5f, 0);
+            rectangle.lineTo(x + w, y + h - r);
+            rectangle.arc(x + w - r, y + h - r, r, 0, pi * 0.5f);
+            rectangle.lineTo(x + r, y + h);
+            rectangle.arc(x + r, y + h - r, r, pi * 0.5f, pi);
+            rectangle.lineTo(x, y + r);
+            rectangle.arc(x + r, y + r, r, pi, pi * 1.5f);
+            rectangle.closePath();
+        }
+        renderer_.strokePath(rectangle, currentState_.strokeColor, currentState_.lineWidth, currentState_.transform,
+                             currentState_.strokeStyle);
+        return;
+    }
     radius = std::min(radius, std::min(w, h) * 0.5f);
     NodeStyle style;
     style.fillColor = Color{0, 0, 0, 0};

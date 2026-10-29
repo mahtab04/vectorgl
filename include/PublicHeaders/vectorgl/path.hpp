@@ -65,6 +65,9 @@ struct StrokeStyle
     LineJoin join = LineJoin::Miter;
     LineCap cap = LineCap::Butt;
     float miterLimit = 10.0f; //!< Maximum join center-to-tip distance / half-width; bevel fallback.
+    std::vector<float>
+        dashArray{};         //!< Alternating local dash/gap lengths; odd arrays repeat twice. Empty/all-zero is solid.
+    float dashOffset = 0.0f; //!< Distance into the repeating pattern; signed, finite, local units.
     bool operator==(const StrokeStyle&) const = default;
 };
 
@@ -185,6 +188,7 @@ public:
     /*! @brief Tests the stroked mesh in local coordinates, including its boundary.
      *  Ignores the antialias fringe. Nonpositive widths return false.
      *  Invalid coordinates/styles return false. Uses the same mesh as rendering.
+     *  Overly dense dash patterns (more than 65536 interval steps) return false.
      */
     bool strokeContains(float x, float y, float width, const StrokeStyle& style = {}) const;
 

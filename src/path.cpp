@@ -317,6 +317,10 @@ bool Path2D::strokeContains(float x, float y, float width, const StrokeStyle& st
     {
         return false;
     }
+    catch (const std::length_error&)
+    {
+        return false;
+    }
 }
 
 } // namespace vectorgl

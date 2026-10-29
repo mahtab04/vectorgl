@@ -14,6 +14,7 @@ struct Contour
 {
     std::vector<Vec2> points;
     bool closed = false;
+    Vec2 tangent{1, 0}; // Orientation of a generated zero-length square dash.
 };
 
 bool same(Vec2 a, Vec2 b)
@@ -119,10 +120,10 @@ public:
                 if (style_.cap == LineCap::Round)
                     arc(p, 0, 2 * pi, false);
                 else if (style_.cap == LineCap::Square)
-                    add({{p.x - radius_, p.y - radius_},
-                         {p.x + radius_, p.y - radius_},
-                         {p.x + radius_, p.y + radius_},
-                         {p.x - radius_, p.y + radius_}});
+                {
+                    const Vec2 along = input.tangent * radius_, across = along.perp();
+                    add({p - along - across, p + along - across, p + along + across, p - along + across});
+                }
             }
             return;
         }
@@ -174,6 +175,132 @@ private:
     std::vector<std::vector<Vec2>> polygons_;
 };
 
+// Limit generated work, including zero entries, rather than imposing a minimum
+// dash size. A caller can otherwise request billions of subpixel intervals.
+constexpr size_t maxDashSteps = 65536;
+
+std::vector<Contour> dashed(const Contour& input, const StrokeStyle& style, double period, size_t& steps)
+{
+    std::vector<Vec2> points;
+    for (const auto p : input.points)
+    {
+        if (!std::isfinite(p.x) || !std::isfinite(p.y) || std::abs(p.x) > 8388608 || std::abs(p.y) > 8388608)
+            throw std::invalid_argument("Stroke coordinates must be finite and within +/-8388608");
+        if (points.empty() || !same(points.back(), p))
+            points.push_back(p);
+    }
+    if (points.empty() || (!input.closed && input.points.size() < 2))
+        return {};
+    if (input.closed && !same(points.front(), points.back()))
+        points.push_back(points.front());
+    std::vector<double> distances(points.size(), 0);
+    for (size_t i = 1; i < points.size(); ++i)
+        distances[i] = distances[i - 1] + std::hypot(static_cast<double>(points[i].x) - points[i - 1].x,
+                                                     static_cast<double>(points[i].y) - points[i - 1].y);
+    const double total = distances.back();
+    if (total / period > maxDashSteps)
+        throw std::length_error("Dash pattern exceeds 65536 interval steps per stroke");
+    auto tick = [&]
+    {
+        if (++steps > maxDashSteps)
+            throw std::length_error("Dash pattern exceeds 65536 interval steps per stroke");
+    };
+    const size_t count = style.dashArray.size() * (style.dashArray.size() % 2 ? 2 : 1);
+    auto length = [&](size_t index) { return static_cast<double>(style.dashArray[index % style.dashArray.size()]); };
+    double phase = std::fmod(static_cast<double>(style.dashOffset), period);
+    if (phase < 0)
+        phase += period;
+    if (phase >= period)
+        phase = 0;
+    size_t index = 0;
+    double remaining = length(index);
+    while (phase > remaining)
+    {
+        tick();
+        phase -= remaining;
+        index = (index + 1) % count;
+        remaining = length(index);
+    }
+    remaining -= phase;
+
+    auto segmentAt = [&](double position)
+    {
+        if (points.size() < 2)
+            return size_t{0};
+        const auto upper = std::upper_bound(distances.begin(), distances.end(), position);
+        const size_t next = static_cast<size_t>(upper - distances.begin());
+        return std::min(next ? next - 1 : 0, points.size() - 2);
+    };
+    auto pointAt = [&](double position)
+    {
+        if (position >= total)
+            return points.back();
+        const size_t segment = segmentAt(position);
+        const double t = (position - distances[segment]) / (distances[segment + 1] - distances[segment]);
+        const Vec2 a = points[segment], b = points[segment + 1];
+        return Vec2{static_cast<float>(a.x + (static_cast<double>(b.x) - a.x) * t),
+                    static_cast<float>(a.y + (static_cast<double>(b.y) - a.y) * t)};
+    };
+    struct Run
+    {
+        double begin, end;
+        Contour contour;
+    };
+    std::vector<Run> runs;
+    double position = 0;
+    do
+    {
+        tick();
+        const double end = std::min(total, position + remaining);
+        if (index % 2 == 0)
+        {
+            Contour run;
+            run.points.push_back(pointAt(position));
+            auto vertex = std::upper_bound(distances.begin(), distances.end(), position);
+            while (vertex != distances.end() && *vertex < end)
+            {
+                run.points.push_back(points[static_cast<size_t>(vertex - distances.begin())]);
+                ++vertex;
+            }
+            run.points.push_back(pointAt(end)); // Two equal points deliberately produce a cap dot.
+            if (position == end && points.size() > 1)
+            {
+                const size_t segment = segmentAt(position);
+                const Vec2 a = points[segment], b = points[segment + 1];
+                const double distance = distances[segment + 1] - distances[segment];
+                run.tangent = {static_cast<float>((static_cast<double>(b.x) - a.x) / distance),
+                               static_cast<float>((static_cast<double>(b.y) - a.y) / distance)};
+            }
+            runs.push_back({position, end, std::move(run)});
+        }
+        if (end >= total)
+            break;
+        position = end;
+        index = (index + 1) % count;
+        remaining = length(index);
+    } while (position < total);
+
+    // A visible run crossing the closure gets a join at the seam, with caps
+    // only at its true dash endpoints. An entirely covered loop stays closed.
+    if (input.closed && !runs.empty() && runs.front().begin == 0 && runs.back().end == total)
+    {
+        if (runs.size() == 1)
+            runs.front().contour.closed = true;
+        else if (runs.front().end > 0 && runs.back().begin < total)
+        {
+            auto& last = runs.back().contour.points;
+            const auto& first = runs.front().contour.points;
+            last.insert(last.end(), first.begin() + 1, first.end());
+            runs.erase(runs.begin());
+        }
+    }
+    std::vector<Contour> result;
+    result.reserve(runs.size());
+    for (auto& run : runs)
+        result.push_back(std::move(run.contour));
+    return result;
+}
+
 PathMesh build(const std::vector<Contour>& contours, float width, const StrokeStyle& style)
 {
     validateStrokeStyle(style);
@@ -182,8 +309,20 @@ PathMesh build(const std::vector<Contour>& contours, float width, const StrokeSt
     if (!(width * 0.5f > 0))
         return {};
     StrokeBuilder builder(width * 0.5f, style);
+    double period = 0;
+    for (const auto length : style.dashArray)
+        period += length;
+    if (style.dashArray.size() % 2)
+        period *= 2;
+    size_t steps = 0;
     for (const auto& contour : contours)
-        builder.contour(contour);
+    {
+        if (period == 0)
+            builder.contour(contour);
+        else
+            for (const auto& run : dashed(contour, style, period, steps))
+                builder.contour(run);
+    }
     return builder.finish();
 }
 } // namespace
@@ -194,6 +333,11 @@ void validateStrokeStyle(const StrokeStyle& style)
         (style.join != LineJoin::Miter && style.join != LineJoin::Round && style.join != LineJoin::Bevel) ||
         (style.cap != LineCap::Butt && style.cap != LineCap::Round && style.cap != LineCap::Square))
         throw std::invalid_argument("Invalid stroke style (miter limit must be finite and at least 1)");
+    if (!std::isfinite(style.dashOffset))
+        throw std::invalid_argument("Dash offset must be finite");
+    for (const auto length : style.dashArray)
+        if (!std::isfinite(length) || length < 0)
+            throw std::invalid_argument("Dash lengths must be finite and nonnegative");
 }
 
 PathMesh tessellateStroke(const std::vector<std::vector<Vec2>>& paths, float width, const StrokeStyle& style)

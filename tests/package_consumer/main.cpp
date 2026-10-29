@@ -23,5 +23,9 @@ int main()
     stroke.lineTo(20, 0);
     if (!stroke.strokeContains(-2, 0, 6, {vectorgl::LineJoin::Round, vectorgl::LineCap::Round, 4}))
         return 1;
+    vectorgl::StrokeStyle dashed;
+    dashed.dashArray = {5, 5};
+    if (!stroke.strokeContains(2, 0, 2, dashed) || stroke.strokeContains(7, 0, 2, dashed))
+        return 1;
     return path.empty() || color.a != 1.0f ? 1 : 0;
 }

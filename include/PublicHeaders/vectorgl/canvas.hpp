@@ -144,6 +144,13 @@ public:
      *  @throws std::invalid_argument For an invalid limit.
      */
     void setMiterLimit(float limit);
+    /*! @brief Sets alternating local dash/gap lengths (finite and nonnegative).
+     *  Odd arrays repeat twice. Empty/all-zero arrays draw solid strokes.
+     *  Saved/restored with state. Invalid input leaves the existing pattern intact.
+     */
+    void setLineDash(std::vector<float> segments);
+    /*! @brief Sets a finite signed offset into the dash pattern, in local units. */
+    void setLineDashOffset(float offset);
 
     /*! @brief Loads a TrueType font and sets it as the active font for text rendering.
      *

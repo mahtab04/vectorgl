@@ -134,13 +134,17 @@ same rule; boundary hits resolve against the filled mesh. Stroke segments, joins
 and caps form positively wound polygons, which are unioned with the same
 tessellator before drawing. This prevents repeated alpha blending at overlaps.
 Strokes preserve explicit closure instead of implicitly closing open contours.
+Dash patterns split each subpath by local arc length along its sampled segments.
+Odd patterns repeat twice; zero-length dashes retain tangent information for
+square caps. Wrapped runs are joined at closed seams, and interval work is
+bounded. All visible runs then enter the existing stroke union/tessellation step.
 Round joins and caps use bounded local-space sampling. Path/line picking tests
 the same stroke mesh used for rendering. Canvas stroke settings are saved in
 its drawing state; SVG style resolution maps its stroke attributes to them.
 Unchanged scene paths reuse local fill meshes for each fill rule. Path edits
 discard their derived contours and meshes; transforms and colors leave local
 geometry reusable. One additional stroke mesh is cached by width, join, cap,
-and miter limit; line nodes lazily retain their length-dependent path too.
+and miter limit, plus its dash array/offset; line nodes lazily retain their length-dependent path too.
 Copies can share the derived cache until edited. Rendering
 still transforms and uploads vertices each frame, so this cache reduces CPU
 tessellation work rather than GPU draw calls. Synchronize concurrent access to

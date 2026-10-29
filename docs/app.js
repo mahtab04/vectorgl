@@ -334,6 +334,14 @@ canvas.fillRoundedRect(-60, -40, 120, 80, 12);
 canvas.endFrame();`
     },
     {
+        title: "dashes_demo.cpp",
+        text: "Dashed connectors, dotted curves, odd-length patterns and an animated marching-ants selection.",
+        bullets: ["Space pauses; Left/Right adjusts offset; Up/Down changes speed.", "Hover painted runs and gaps to test mesh-based picking."],
+        code: `canvas.setLineDash({12, 6});
+canvas.setLineDashOffset(offset);
+canvas.stroke();`
+    },
+    {
         title: "strokes_demo.cpp",
         text: "Compare miter, round and bevel joins, plus butt, round and square caps. Hover tests the actual stroke mesh.",
         bullets: ["Up/Down changes width; Left/Right changes miter limit.", "Stroke geometry is merged before drawing to preserve translucent overlap opacity."],
@@ -466,6 +474,8 @@ const apiReference = [
                     { signature: "void setFillColor(Color c)", description: "Sets the active fill color for fillRect(), fillCircle(), fill(), fillText(), and other fill operations." },
                     { signature: "void setStrokeColor(Color c)", description: "Sets the active stroke color for strokeRect(), strokeCircle(), stroke(), and other stroke operations." },
                     { signature: "void setLineJoin(LineJoin join) / void setLineCap(LineCap cap)", description: "Sets path joins and open endpoint caps; save()/restore() preserves both." },
+                    { signature: "void setLineDash(std::vector<float> segments)", description: "Sets alternating local dash/gap lengths; odd arrays repeat, empty/all-zero arrays are solid." },
+                    { signature: "void setLineDashOffset(float offset)", description: "Sets a finite signed dash phase. Dash state is saved/restored with Canvas state." },
                     { signature: "void setMiterLimit(float limit)", description: "Sets a finite path miter limit of at least 1; long miters fall back to bevel." },
                     { signature: "void setLineWidth(float w)", description: "Sets the current stroke width in pixels." },
                     { signature: "bool setFont(const std::string& fontPath, float size)", description: "Loads a TrueType font and makes it the active font for subsequent fillText() calls.", notes: ["Returns false if the file cannot be loaded or atlas generation fails.", "This is the normal public entry point for text rendering."] }
@@ -687,7 +697,7 @@ const apiReference = [
                 methods: [
                     { signature: "void setFill(Color c)", description: "Sets fill color." },
                     { signature: "void setFillRule(FillRule rule)", description: "Sets the compound path fill rule for rendering and picking." },
-                    { signature: "void setStrokeStyle(const StrokeStyle& style)", description: "Sets path/line joins, caps and miter limit; picking uses the same stroke mesh." },
+                    { signature: "void setStrokeStyle(const StrokeStyle& style)", description: "Sets path/line joins, caps, miter limit and dashes; picking uses the same stroke mesh." },
                     { signature: "void setStroke(Color c, float width)", description: "Sets stroke color and stroke width." },
                     { signature: "void setOpacity(float o)", description: "Sets node opacity." },
                     { signature: "void setCornerRadii(float tl, float tr, float br, float bl)", description: "Sets per-corner radii for rounded rectangles." },

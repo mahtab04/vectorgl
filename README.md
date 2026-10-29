@@ -122,7 +122,7 @@ Each path caches its most recent stroke width/style alongside its fill meshes.
 
 SVG presentation attributes, CSS, inline styles and inheritance support
 `stroke-linejoin`, `stroke-linecap` and `stroke-miterlimit` (SVG defaults to a
-miter limit of 4). Dash patterns are not implemented in this pass.
+miter limit of 4).
 
 Run [`vectorgl_strokes`](example/strokes_demo.cpp) for a side-by-side comparison.
 Use **Up/Down** for width, **Left/Right** for miter limit, and hover to test picking.
@@ -132,6 +132,51 @@ Compatibility: path segments now connect with miter joins by default, replacing
 the previous independent segment rectangles. Stroke corners can extend farther.
 `Canvas::strokeRect()` now uses path geometry to honor joins; use the existing
 SDF shape APIs when batching analytic primitive outlines is the priority.
+
+## Dashed strokes
+
+```cpp
+canvas.setLineDash({12, 6});       // Alternating dash/gap lengths, local units
+canvas.setLineDashOffset(-4);     // Signed distance into the repeating pattern
+canvas.stroke();
+
+vectorgl::StrokeStyle style;
+style.cap = vectorgl::LineCap::Round;
+style.dashArray = {0, 18};        // Dots with round caps
+style.dashOffset = offset;
+node->setStrokeStyle(style);     // Scene path/line rendering and picking
+```
+
+Odd-length lists repeat twice to form an even pattern; empty and all-zero lists
+draw solid strokes. Dash lengths must be finite and nonnegative, and offsets
+must be finite. Canvas setters preserve the existing style on invalid input.
+Dash settings participate in `save()` / `restore()` and reset with `beginFrame()`.
+
+Patterns restart at each subpath and continue across its flattened curve/line
+segments. A dash spanning a corner retains the selected join. Visible runs
+crossing a closed path's seam join there, with caps at the true dash endpoints.
+Round and square caps can extend into the nominal gap. Picking tests the same
+mesh, so these painted extensions are selectable too. The cached stroke key
+includes the pattern and offset; animating offsets rebuilds that mesh while
+retaining the contours. GPU draw calls are not added per dash.
+
+Canvas `strokeRect`, `strokeCircle`, `strokeEllipse`, and `strokeRoundedRect`
+honor dashes; curved primitives use their sampled path route only while dashing
+is active. Scene dash styling applies to path/line nodes. SVG presentation
+attributes, CSS and inheritance support `stroke-dasharray` / `stroke-dashoffset`
+using numbers in user units or `px`; `none` removes the pattern. Percentages,
+other length units and `pathLength` calibration are not supported.
+
+Dash processing is limited to 65,536 interval steps per stroke (including gaps,
+zero entries and phase initialization). Excessive density throws `std::length_error`
+when rendering; `strokeContains()` returns false. The limit bounds generated
+work without imposing a minimum dash length.
+
+Run [`vectorgl_dashes`](example/dashes_demo.cpp) for dashed connectors, dotted
+curves and an animated marching-ants selection. **Space** pauses, **Left/Right**
+adjusts offsets, and **Up/Down** changes animation speed. Hover dashes and gaps
+to check picking. `--screenshot preview.bmp` captures the first rendered frame;
+`--smoke-test` runs three hidden frames.
 
 ## Flow Studio desktop app
 

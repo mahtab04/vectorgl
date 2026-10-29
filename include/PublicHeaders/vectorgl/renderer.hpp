@@ -181,6 +181,7 @@ public:
     /*! @brief Strokes a path, preserving explicit closure and reusing its cached stroke mesh.
      *  Widths are in local coordinates. Joins/caps apply before the full affine transform.
      *  Nonpositive widths draw nothing. Nonfinite widths/styles/coordinates are rejected.
+     *  @throws std::length_error If dashing exceeds 65536 interval-processing steps.
      */
     void strokePath(const Path2D& path, Color color, float width, const Mat3x3& transform,
                     const StrokeStyle& style = {});

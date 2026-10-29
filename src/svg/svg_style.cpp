@@ -19,6 +19,52 @@ namespace svg
 namespace
 {
 
+// User-unit numbers and px lengths. Reject unsupported units as a whole;
+// silently accepting a numeric prefix would change the dash pattern.
+bool parseDashLength(const char*& p, float& value)
+{
+    char* end = nullptr;
+    value = std::strtof(p, &end);
+    if (end == p || !std::isfinite(value))
+        return false;
+    p = end;
+    if (p[0] == 'p' && p[1] == 'x')
+        p += 2;
+    return true;
+}
+
+bool parseDashArray(const std::string& text, std::vector<float>& result)
+{
+    const std::string value = trimWhitespace(text);
+    if (value == "none")
+        return true;
+    const char* p = value.c_str();
+    if (!*p)
+        return false;
+    while (*p)
+    {
+        float length = 0;
+        if (!parseDashLength(p, length) || length < 0)
+            return false;
+        result.push_back(length);
+        if (!*p)
+            return true;
+        if (!isWhitespace(*p) && *p != ',')
+            return false;
+        while (isWhitespace(*p))
+            ++p;
+        if (*p == ',')
+        {
+            ++p;
+            while (isWhitespace(*p))
+                ++p;
+            if (!*p)
+                return false;
+        }
+    }
+    return true;
+}
+
 /// Extract the ID from a url(#id) reference. Returns empty string if not a url() ref.
 std::string extractUrlRef(const std::string& value)
 {
@@ -119,6 +165,20 @@ void applyStyleProperty(Style& style, const std::string& property, const std::st
         if (end != number.c_str() && *end == '\0' && std::isfinite(limit) && limit >= 1)
             style.strokeStyle.miterLimit = limit;
     }
+    else if (property == "stroke-dasharray")
+    {
+        std::vector<float> pattern;
+        if (parseDashArray(value, pattern))
+            style.strokeStyle.dashArray = std::move(pattern);
+    }
+    else if (property == "stroke-dashoffset")
+    {
+        const auto number = trimWhitespace(value);
+        const char* p = number.c_str();
+        float offset = 0;
+        if (parseDashLength(p, offset) && !*p)
+            style.strokeStyle.dashOffset = offset;
+    }
     else if (property == "opacity")
     {
         style.opacity = std::strtof(value.c_str(), nullptr);
@@ -181,7 +241,8 @@ Style resolveStyle(const XmlElement& element, const Style& parentStyle, const st
     if (!sw.empty())
         applyStyleProperty(style, "stroke-width", sw);
 
-    for (const char* property : {"stroke-linejoin", "stroke-linecap", "stroke-miterlimit"})
+    for (const char* property :
+         {"stroke-linejoin", "stroke-linecap", "stroke-miterlimit", "stroke-dasharray", "stroke-dashoffset"})
     {
         const auto& value = getAttribute(element, property);
         if (!value.empty())
