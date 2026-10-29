@@ -56,6 +56,8 @@ void applyStroke(Canvas& canvas, const Style& style)
     canvas.setLineJoin(style.strokeStyle.join);
     canvas.setLineCap(style.strokeStyle.cap);
     canvas.setMiterLimit(style.strokeStyle.miterLimit);
+    canvas.setLineDash(style.strokeStyle.dashArray);
+    canvas.setLineDashOffset(style.strokeStyle.dashOffset);
 }
 
 float parseFontSize(const std::string& str)

@@ -7,6 +7,7 @@
 #include <array>
 #include <exception>
 #include <iostream>
+#include <limits>
 #include <stdexcept>
 #include <vector>
 #include <vectorgl/canvas.hpp>
@@ -1047,6 +1048,118 @@ int main()
                 result = fail("SVG inherited stroke caps rendered incorrectly");
             if (glGetError() != GL_NO_ERROR)
                 result = fail("stroke rendering produced an OpenGL error");
+        }
+
+        if (result == 0)
+        {
+            using namespace vectorgl;
+            const auto clearDash = []
+            {
+                glClearColor(0, 0, 0, 1);
+                glClear(GL_COLOR_BUFFER_BIT);
+            };
+            const auto dashLine = [&](float y)
+            {
+                canvas.beginPath();
+                canvas.moveTo(8, y);
+                canvas.lineTo(120, y);
+                canvas.stroke();
+            };
+            clearDash();
+            canvas.beginFrame(128, 128);
+            canvas.setStrokeColor(Color::White);
+            canvas.setLineWidth(6);
+            canvas.setLineDash({12, 12});
+            dashLine(20);
+            canvas.save();
+            canvas.setLineDashOffset(12);
+            dashLine(50);
+            canvas.restore();
+            if (!throws<std::invalid_argument>([&] { canvas.setLineDash({-1, 2}); }) ||
+                !throws<std::invalid_argument>([&]
+                                               { canvas.setLineDashOffset(std::numeric_limits<float>::infinity()); }))
+                result = fail("Canvas accepted invalid dash input");
+            dashLine(80);
+            canvas.endFrame();
+            if (!pixelIs(readPixel(12, 20), 255, 255, 255) || !pixelIs(readPixel(25, 20), 0, 0, 0) ||
+                !pixelIs(readPixel(12, 50), 0, 0, 0) || !pixelIs(readPixel(25, 50), 255, 255, 255) ||
+                !pixelIs(readPixel(12, 80), 255, 255, 255) || !pixelIs(readPixel(25, 80), 0, 0, 0))
+                result = fail("Canvas dash phase/save/restore or invalid-setter state is incorrect");
+            clearDash();
+            canvas.beginFrame(128, 128);
+            canvas.setStrokeColor({1, 0, 0, 0.5f});
+            canvas.setLineWidth(8);
+            canvas.setLineDash({0, 16});
+            canvas.setLineCap(LineCap::Round);
+            dashLine(64);
+            canvas.endFrame();
+            if (std::abs(static_cast<int>(readPixel(24, 64)[0]) - 128) > 3 || readPixel(16, 64)[0] > 3)
+                result = fail("dotted stroke coverage or opacity is incorrect");
+
+            Path2D rectangle;
+            rectangle.rect(20, 20, 80, 80);
+            StrokeStyle style;
+            style.dashArray = {35, 15};
+            style.dashOffset = 10;
+            Scene dashedScene;
+            auto node = dashedScene.path(rectangle);
+            node->setStroke(Color::Blue, 10);
+            node->setStrokeStyle(style);
+            node->setScale(-1, 1);
+            node->setPosition(128, 0);
+            clearDash();
+            dashedScene.render(canvas.renderer(), 128, 128);
+            if (dashedScene.pick(100, 20) != node || dashedScene.pick(75, 20) ||
+                !pixelIs(readPixel(100, 20), 0, 0, 255) || !pixelIs(readPixel(75, 20), 0, 0, 0))
+                result = fail("transformed scene dash picking disagrees with rendering");
+            clearDash();
+            dashedScene.render(canvas.renderer(), 128, 128);
+            if (canvas.renderer().frameStats().pathTessellations != 0 ||
+                canvas.renderer().frameStats().pathMeshCacheHits != 1)
+                result = fail("unchanged dashed path did not reuse its mesh");
+            style.dashOffset = 35;
+            node->setStrokeStyle(style);
+            clearDash();
+            dashedScene.render(canvas.renderer(), 128, 128);
+            if (!pixelIs(readPixel(100, 20), 0, 0, 0) || !pixelIs(readPixel(75, 20), 0, 0, 255))
+                result = fail("changing dash offset did not update the rendered mesh");
+
+            SvgImage dashSvg;
+            if (!dashSvg.loadFromString(R"SVG(<svg width="128" height="128">
+<style>.dash { stroke-dasharray: 12px, 12; stroke-dashoffset: 12; }</style>
+<g class="dash" stroke="white" fill="none" stroke-width="6"><path d="M8 64H120"/></g></svg>)SVG"))
+                result = fail("dashed SVG failed to load");
+            clearDash();
+            canvas.beginFrame(128, 128);
+            dashSvg.render(canvas);
+            canvas.endFrame();
+            if (!pixelIs(readPixel(12, 64), 0, 0, 0) || !pixelIs(readPixel(25, 64), 255, 255, 255))
+                result = fail("SVG dash inheritance rendered incorrectly");
+
+            // Primitive wrappers must take the path route when dashing is active.
+            for (int primitive = 0; primitive < 3; ++primitive)
+            {
+                clearDash();
+                canvas.beginFrame(128, 128);
+                canvas.setStrokeColor(Color::White);
+                canvas.setLineWidth(6);
+                canvas.setLineDash({10, 1000});
+                if (primitive == 0)
+                    canvas.strokeCircle(64, 64, 40);
+                else if (primitive == 1)
+                    canvas.strokeEllipse(64, 64, 40, 30);
+                else
+                    canvas.strokeRoundedRect(20, 20, 80, 80, 10);
+                canvas.endFrame();
+                if (primitive < 2 &&
+                    (!pixelIs(readPixel(104, 67), 255, 255, 255) || !pixelIs(readPixel(24, 64), 0, 0, 0)))
+                    result = fail("circle/ellipse wrapper ignored dashing");
+                if (primitive == 2 &&
+                    (!pixelIs(readPixel(34, 20), 255, 255, 255) || !pixelIs(readPixel(64, 100), 0, 0, 0)))
+                    result = fail("rounded rectangle wrapper ignored dashing");
+            }
+            if (glGetError() != GL_NO_ERROR)
+                result = fail("dashed rendering produced an OpenGL error");
         }
 
         canvas.destroy();
