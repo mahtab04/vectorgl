@@ -79,6 +79,159 @@ template <typename Exception, typename Function> bool throws(Function&& function
     return false;
 }
 
+PFNGLCHECKFRAMEBUFFERSTATUSPROC originalFramebufferStatus = nullptr;
+int framebufferChecksUntilFailure = 0;
+GLenum GLAD_API_PTR failFramebufferStatus(GLenum target)
+{
+    if (--framebufferChecksUntilFailure == 0)
+        return GL_FRAMEBUFFER_UNSUPPORTED;
+    return originalFramebufferStatus(target);
+}
+
+struct FramebufferFailure
+{
+    explicit FramebufferFailure(int check)
+    {
+        originalFramebufferStatus = glad_glCheckFramebufferStatus;
+        framebufferChecksUntilFailure = check;
+        glad_glCheckFramebufferStatus = failFramebufferStatus;
+    }
+    ~FramebufferFailure()
+    {
+        glad_glCheckFramebufferStatus = originalFramebufferStatus;
+    }
+};
+
+void checkEffectTargets()
+{
+    struct Targets
+    {
+        GLuint fbos[2]{}, textures[2]{};
+        Targets()
+        {
+            glGenFramebuffers(2, fbos);
+            glGenTextures(2, textures);
+            for (int i = 0; i < 2; ++i)
+            {
+                glBindTexture(GL_TEXTURE_2D, textures[i]);
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 128, 128, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+                glBindFramebuffer(GL_FRAMEBUFFER, fbos[i]);
+                glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textures[i], 0);
+                if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+                    throw std::runtime_error("test framebuffer incomplete");
+            }
+        }
+        ~Targets()
+        {
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            glDeleteFramebuffers(2, fbos);
+            glDeleteTextures(2, textures);
+        }
+    } targets;
+    vectorgl::Canvas canvas;
+    canvas.init();
+    canvas.beginFrame(128, 128);
+    const std::array<GLint, 4> viewport{7, 11, 96, 88};
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, targets.fbos[0]);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, targets.fbos[1]);
+    glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+    auto checkState = [&]
+    {
+        GLint draw = 0, read = 0;
+        std::array<GLint, 4> actual{};
+        glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &draw);
+        glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &read);
+        glGetIntegerv(GL_VIEWPORT, actual.data());
+        if (draw != static_cast<GLint>(targets.fbos[0]) || read != static_cast<GLint>(targets.fbos[1]) ||
+            actual != viewport)
+            throw std::runtime_error("effect changed caller framebuffer bindings or viewport");
+    };
+    auto capture = [&]
+    {
+        canvas.renderer().beginEffectPass(0, 0, 128, 128);
+        canvas.setFillColor(vectorgl::Color::White);
+        canvas.fillRect(0, 0, 128, 128);
+        canvas.renderer().endEffectPass();
+        checkState();
+    };
+    capture();
+    for (int check : {1, 2})
+    {
+        {
+            FramebufferFailure failure(check);
+            if (!throws<std::runtime_error>([&] { canvas.renderer().beginEffectPass(0, 0, 64, 64); }))
+                throw std::runtime_error("injected effect allocation failure did not throw");
+        }
+        checkState();
+        // The previous capture must survive failure of either replacement FBO.
+        glClearColor(0, 0, 0, 1);
+        glClear(GL_COLOR_BUFFER_BIT);
+        canvas.renderer().applyBlur(0);
+        checkState();
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, targets.fbos[0]);
+        std::array<unsigned char, 4> pixel{};
+        glReadPixels(50, 50, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixel.data());
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, targets.fbos[1]);
+        if (!pixelIs(pixel, 255, 255, 255))
+            throw std::runtime_error("failed resize damaged the previous effect capture");
+        capture();
+    }
+    for (int effect = 0; effect < 3; ++effect)
+    {
+        glClearColor(0, 0, 0, 1);
+        glClear(GL_COLOR_BUFFER_BIT);
+        if (effect == 0)
+            canvas.renderer().applyBlur(2);
+        else if (effect == 1)
+            canvas.renderer().applyGlow(2, vectorgl::Color::White);
+        else
+            canvas.renderer().applyShadow(2, {0, 0}, vectorgl::Color::White);
+        checkState();
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, targets.fbos[0]);
+        std::array<unsigned char, 4> pixel{};
+        glReadPixels(50, 50, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixel.data());
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, targets.fbos[1]);
+        if (!pixelIs(pixel, 255, 255, 255))
+            throw std::runtime_error("effect composited into the wrong target");
+    }
+    // A successful resize must restore the same target too.
+    canvas.renderer().beginEffectPass(0, 0, 64, 64);
+    canvas.renderer().endEffectPass();
+    checkState();
+    for (float dimension : {0.5f, std::numeric_limits<float>::infinity(), std::numeric_limits<float>::quiet_NaN(),
+                            std::numeric_limits<float>::max()})
+    {
+        if (!throws<std::invalid_argument>([&] { canvas.renderer().beginEffectPass(0, 0, dimension, 64); }))
+            throw std::runtime_error("invalid effect dimensions were accepted");
+        checkState();
+    }
+    // Geometry failure inside automatic scene capture must also restore the host.
+    vectorgl::Scene scene;
+    vectorgl::Path2D path;
+    path.moveTo(0, 64);
+    path.lineTo(128, 64);
+    auto node = scene.path(path);
+    node->setStroke(vectorgl::Color::White, 2);
+    vectorgl::StrokeStyle dense;
+    dense.dashArray = {0.00001f, 0.00001f};
+    node->setStrokeStyle(dense);
+    node->setBlur(2);
+    if (!throws<std::length_error>([&] { canvas.renderer().renderNode(node.get()); }))
+        throw std::runtime_error("dense stroke did not fail during scene effect capture");
+    checkState();
+    canvas.setFillColor({1, 0, 0, 1});
+    canvas.fillRect(0, 0, 128, 128);
+    canvas.endFrame();
+    checkState();
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, targets.fbos[0]);
+    std::array<unsigned char, 4> pixel{};
+    glReadPixels(50, 50, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixel.data());
+    if (!pixelIs(pixel, 255, 0, 0))
+        throw std::runtime_error("drawing after effects missed the caller target");
+    if (glGetError() != GL_NO_ERROR)
+        throw std::runtime_error("effect target regression produced an OpenGL error");
+}
+
 } // namespace
 
 int main()
@@ -117,6 +270,7 @@ int main()
     int result = 0;
     try
     {
+        checkEffectTargets();
         vectorgl::Canvas canvas;
 
         if (canvas.renderer().isInitialized() || canvas.renderer().isFrameActive())

@@ -99,6 +99,41 @@ std::vector<float> pathBuffer(const detail::PathMesh& mesh, Color color, const M
     return buffer;
 }
 
+// Effects may run inside another renderer's off-screen target (for example Qt Quick).
+// GL_FRAMEBUFFER changes both bindings, so capture and restore them separately.
+struct FramebufferState
+{
+    GLint draw = 0, read = 0;
+    std::array<GLint, 4> viewport{};
+
+    static FramebufferState capture()
+    {
+        FramebufferState state;
+        glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &state.draw);
+        glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &state.read);
+        glGetIntegerv(GL_VIEWPORT, state.viewport.data());
+        return state;
+    }
+
+    void restore() const noexcept
+    {
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, static_cast<GLuint>(draw));
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, static_cast<GLuint>(read));
+        glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+    }
+};
+
+struct ScopedFramebufferRestore
+{
+    FramebufferState state = FramebufferState::capture();
+    bool active = true;
+    ~ScopedFramebufferRestore()
+    {
+        if (active)
+            state.restore();
+    }
+};
+
 void configureEffectTexture(uint32_t texture, int width, int height)
 {
     glBindTexture(GL_TEXTURE_2D, texture);
@@ -195,6 +230,7 @@ public:
     FrameStats stats_;
     bool viewportCulling_ = true;
     bool effectPassActive_ = false;
+    FramebufferState effectTarget_;
 
     int fbWidth_ = 0;
     int fbHeight_ = 0;
@@ -357,23 +393,31 @@ public:
         if (effectW_ == width && effectH_ == height && effectFBO_)
             return;
 
-        effectW_ = width;
-        effectH_ = height;
-
-        effectFBO_.create();
-        effectTexture_.create();
-        configureEffectTexture(effectTexture_, width, height);
-        glBindFramebuffer(GL_FRAMEBUFFER, effectFBO_);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, effectTexture_, 0);
+        ScopedFramebufferRestore restore;
+        detail::GLFramebuffer primary, secondary;
+        detail::GLTexture primaryTexture, secondaryTexture;
+        primary.create();
+        primaryTexture.create();
+        configureEffectTexture(primaryTexture, width, height);
+        glBindFramebuffer(GL_FRAMEBUFFER, primary);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, primaryTexture, 0);
         validateFramebuffer("primary effect");
 
-        effectFBO2_.create();
-        effectTexture2_.create();
-        configureEffectTexture(effectTexture2_, width, height);
-        glBindFramebuffer(GL_FRAMEBUFFER, effectFBO2_);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, effectTexture2_, 0);
+        secondary.create();
+        secondaryTexture.create();
+        configureEffectTexture(secondaryTexture, width, height);
+        glBindFramebuffer(GL_FRAMEBUFFER, secondary);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, secondaryTexture, 0);
         validateFramebuffer("secondary effect");
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+        // Commit only after both replacements are complete. Failed allocations
+        // leave the previous dimensions, textures and captured content usable.
+        effectFBO_ = std::move(primary);
+        effectTexture_ = std::move(primaryTexture);
+        effectFBO2_ = std::move(secondary);
+        effectTexture2_ = std::move(secondaryTexture);
+        effectW_ = width;
+        effectH_ = height;
     }
 
     void init()
@@ -960,19 +1004,24 @@ public:
         requireFrame("beginEffectPass()");
         if (effectPassActive_)
             throw std::logic_error("Renderer::beginEffectPass() cannot be nested");
-        if (w <= 0.0f || h <= 0.0f)
-            throw std::invalid_argument("Renderer::beginEffectPass() requires positive dimensions");
+        if (!std::isfinite(w) || !std::isfinite(h) || w < 1.0f || h < 1.0f ||
+            static_cast<double>(w) > std::numeric_limits<int>::max() ||
+            static_cast<double>(h) > std::numeric_limits<int>::max())
+            throw std::invalid_argument("Renderer::beginEffectPass() requires representable positive dimensions");
 
+        ScopedFramebufferRestore restore;
         flushSDF();
-        glDisable(GL_SCISSOR_TEST);
-        glDisable(GL_STENCIL_TEST);
         (void)x;
         (void)y;
         ensureEffectFBOs(static_cast<int>(w), static_cast<int>(h));
+        glDisable(GL_SCISSOR_TEST);
+        glDisable(GL_STENCIL_TEST);
         glBindFramebuffer(GL_FRAMEBUFFER, effectFBO_);
         glViewport(0, 0, static_cast<int>(w), static_cast<int>(h));
         glClearColor(0, 0, 0, 0);
         glClear(GL_COLOR_BUFFER_BIT);
+        effectTarget_ = restore.state;
+        restore.active = false;
         effectCaptured_ = true;
         effectPassActive_ = true;
         ++stats_.effectPasses;
@@ -984,10 +1033,10 @@ public:
         if (!effectPassActive_)
             throw std::logic_error("Renderer::endEffectPass() requires an active effect pass");
 
-        flushSDF();
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glViewport(0, 0, fbWidth_, fbHeight_);
+        ScopedFramebufferRestore restore{effectTarget_};
         effectPassActive_ = false;
+        flushSDF();
+        restore.state.restore();
         applyClip();
     }
 
@@ -995,6 +1044,7 @@ public:
     {
         if (radius <= 0 || !effectCaptured_)
             return;
+        ScopedFramebufferRestore restore;
         glDisable(GL_SCISSOR_TEST);
         glDisable(GL_STENCIL_TEST);
         const float quad[] = {-1, -1, 0, 0, 1, -1, 1, 0, 1, 1, 1, 1, -1, -1, 0, 0, 1, 1, 1, 1, -1, 1, 0, 1};
@@ -1023,9 +1073,8 @@ public:
         ++stats_.drawCalls;
         glDrawArrays(GL_TRIANGLES, 0, 6);
         glBindVertexArray(0);
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        restore.state.restore();
         glEnable(GL_BLEND);
-        glViewport(0, 0, fbWidth_, fbHeight_);
         applyClip();
     }
 
@@ -1207,9 +1256,24 @@ public:
         // Capture in framebuffer coordinates so the same world transform can be
         // used for both the off-screen and final passes.
         beginEffectPass(0, 0, static_cast<float>(fbWidth_), static_cast<float>(fbHeight_));
-        renderNodeContents(node);
-        flushSDF();
-        endEffectPass();
+        try
+        {
+            renderNodeContents(node);
+            endEffectPass();
+        }
+        catch (...)
+        {
+            // A failed draw must not strand the caller inside our capture FBO.
+            sdfBatch_.clear();
+            glyphBatch_.clear();
+            glyphTexture_ = 0;
+            glyphFontOwner_.reset();
+            effectPassActive_ = false;
+            effectCaptured_ = false;
+            effectTarget_.restore();
+            applyClip();
+            throw;
+        }
 
         const auto& effects = node->effects();
         if (effects.hasShadow)

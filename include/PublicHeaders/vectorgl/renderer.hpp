@@ -211,15 +211,18 @@ public:
     // --- FBO-based post-processing effects ---
 
     /*! @brief Begins capturing draw calls into an off-screen FBO for effects.
+     *  The caller's draw/read framebuffer bindings and viewport are restored by
+     *  endEffectPass(). Allocation failure preserves them and the previous capture.
      *  @param[in] x,y  Top-left corner of the effect region.
      *  @param[in] w,h  Dimensions of the effect region.
      */
     void beginEffectPass(float x, float y, float w, float h);
 
-    /*! @brief Ends the effect capture pass. */
+    /*! @brief Ends capture and restores the caller's framebuffer bindings and viewport. */
     void endEffectPass();
 
-    /*! @brief Applies a Gaussian blur post-process to the effect FBO.
+    /*! @brief Applies a Gaussian blur and composites into the current draw framebuffer.
+     *  Effect processing preserves draw/read framebuffer bindings and the viewport.
      *  @param[in] radius  Blur radius in pixels.
      */
     void applyBlur(float radius);
