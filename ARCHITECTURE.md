@@ -47,6 +47,21 @@ VectorGL provides two front ends over one renderer:
 
 Both routes eventually submit work to `Renderer`.
 
+## Optional application input layer
+
+The opt-in `vectorgl::ui` static target adds a host-independent Context over
+registered widget descriptors. It manages identity, focus scopes, event bubbling,
+capture, cancellation, deferred removal, and invalidation/deadlines. It neither
+creates a window nor initializes OpenGL; it does not use Scene picking for UI hits.
+This first slice uses fixed root-logical rectangles and ancestor rectangular clips.
+Application callbacks still own editing/activation behavior and painting.
+
+Registrations have context-scoped generation IDs. Callback storage stays alive
+until dispatch settles, including cancel/lost-focus delivery for removed widgets.
+The model is bound to one UI thread. Platform services and clocks are injectable,
+and optional package discovery exports `vectorgl::ui` only on request.
+See [UI Context](docs/ui-context.md) for routing and failure contracts.
+
 ## Main classes
 
 | Class | Responsibility | Owns GPU resources |
