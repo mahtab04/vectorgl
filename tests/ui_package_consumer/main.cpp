@@ -18,6 +18,14 @@ int main()
     widget.painter = std::make_shared<vectorgl::ui::SurfacePainter>();
     widget.focusable = true;
     auto id = ui.add(widget);
+    ui.setLayout(id, std::make_shared<vectorgl::ui::RowLayout>());
+    vectorgl::ui::Widget child;
+    child.parent = id;
+    child.layoutHints.flex = 1;
+    const auto childId = ui.add(child);
+    ui.layout(id, {0, 0, 120, 40});
+    if (!ui.bounds(childId) || ui.bounds(childId)->width != 120)
+        return 1;
     if (!ui.focus(id) || ui.focused() != id)
         return 1;
     ui.remove(id);

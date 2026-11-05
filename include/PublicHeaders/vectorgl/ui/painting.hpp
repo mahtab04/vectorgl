@@ -110,10 +110,21 @@ public:
     virtual ~WidgetPainter() = default;
     virtual void paint(PaintContext& context) = 0;
 };
-/*! Minimal themed surface/focus outline; richer controls are separate features. */
+enum class SurfaceRole
+{
+    Panel,
+    Control
+};
+/*! Minimal themed surface/focus outline. Passive panels retain their fill while
+ * pointer routing moves between the panel and its children. Controls use hover fill.
+ */
 class SurfacePainter : public WidgetPainter
 {
 public:
+    explicit SurfacePainter(SurfaceRole role = SurfaceRole::Control) : role_(role) {}
     void paint(PaintContext& context) override;
+
+private:
+    SurfaceRole role_;
 };
 } // namespace vectorgl::ui

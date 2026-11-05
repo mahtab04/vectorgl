@@ -67,6 +67,21 @@ private:
     Canvas& canvas_;
     bool active_ = true;
 };
+class MeasurementScope
+{
+public:
+    explicit MeasurementScope(bool& flag) : flag_(flag)
+    {
+        flag_ = true;
+    }
+    ~MeasurementScope()
+    {
+        flag_ = false;
+    }
+
+private:
+    bool& flag_;
+};
 } // namespace
 
 struct Context::Impl
@@ -74,6 +89,17 @@ struct Context::Impl
     struct Registration
     {
         Widget widget;
+        Vec2 layoutOffset;
+        Size naturalSize;
+        struct MeasureCache
+        {
+            Constraints constraints;
+            Size size;
+            std::uint64_t revision;
+        };
+        std::vector<MeasureCache> measures;
+        std::optional<Bounds> lastArea;
+        std::uint64_t lastRevision = 0, lastGeometry = 0;
         bool pending = false, removed = false;
         std::optional<double> wakeup;
     };
@@ -103,7 +129,19 @@ struct Context::Impl
     WidgetId hover;
     std::optional<Vec2> pointerPosition;
     Theme theme;
-    bool focusPending = false, focusFirst = false, processing = false;
+    bool focusPending = false, focusFirst = false, processing = false, measuring = false;
+    std::uint64_t layoutRevision = 1, geometryRevision = 1;
+    LayoutStats layoutStats;
+
+    void requireMutable() const
+    {
+        if (measuring)
+            throw std::logic_error("UI mutation is forbidden during measurement/layout");
+    }
+    static Mat3x3 localTransform(const Registration& item)
+    {
+        return Mat3x3::translation(item.layoutOffset.x, item.layoutOffset.y) * item.widget.transform;
+    }
     std::optional<Capture> capture;
     std::optional<CancelReason> cancellation;
     std::exception_ptr callbackError;
@@ -159,7 +197,7 @@ struct Context::Impl
             chain.push_back(item);
         Mat3x3 result;
         for (auto it = chain.rbegin(); it != chain.rend(); ++it)
-            result = result * (*it)->widget.transform;
+            result = result * localTransform(**it);
         return result;
     }
 
@@ -322,6 +360,7 @@ struct Context::Impl
 
     template <class Function> void transaction(Function&& function)
     {
+        requireMutable();
         if (processing)
         {
             function();
@@ -353,7 +392,7 @@ struct Context::Impl
             auto* item = get(*it);
             if (!item || item->widget.parent != parent || !available(*it))
                 continue;
-            const auto transform = inherited * item->widget.transform;
+            const auto transform = inherited * localTransform(*item);
             const auto point = detail::unmap(transform, {event.x, event.y});
             if (!point)
                 continue;
@@ -382,6 +421,73 @@ struct Context::Impl
             target = parent;
         }
         return false;
+    }
+
+    std::vector<WidgetId> layoutChildren(WidgetId parent) const
+    {
+        std::vector<WidgetId> result;
+        for (auto id : order)
+            if (auto* item = get(id); item && !item->pending && item->widget.parent == parent && item->widget.visible)
+                result.push_back(id);
+        return result;
+    }
+    std::vector<LayoutItem> layoutItems(const std::vector<WidgetId>& children)
+    {
+        std::vector<LayoutItem> result;
+        for (auto id : children)
+            result.push_back({get(id)->widget.layoutHints, [this, id](Constraints c) { return measureNode(id, c); }});
+        return result;
+    }
+    Size measureNode(WidgetId id, Constraints constraints)
+    {
+        auto* item = get(id);
+        if (!item || !item->widget.visible)
+            return {};
+        for (const auto& cached : item->measures)
+            if (cached.revision == layoutRevision && cached.constraints == constraints)
+            {
+                ++layoutStats.cacheHits;
+                return cached.size;
+            }
+        ++layoutStats.measurements;
+        Size desired = item->naturalSize;
+        if (item->widget.layout)
+            desired = item->widget.layout->measure(layoutItems(layoutChildren(id)), constraints);
+        if (item->widget.onMeasure)
+        {
+            const auto intrinsic = constraints.constrain(item->widget.onMeasure({constraints, theme}));
+            desired = item->widget.layout
+                          ? Size{std::max(desired.width, intrinsic.width), std::max(desired.height, intrinsic.height)}
+                          : intrinsic;
+        }
+        desired = constraints.constrain(desired);
+        if (item->measures.size() == 4)
+            item->measures.erase(item->measures.begin());
+        item->measures.push_back({constraints, desired, layoutRevision});
+        return desired;
+    }
+    void arrangeChildren(WidgetId parent, Size area, std::vector<std::pair<WidgetId, Bounds>>& staged)
+    {
+        auto* item = get(parent);
+        const auto children = layoutChildren(parent);
+        if (item->widget.layout)
+        {
+            const auto boxes = item->widget.layout->arrange(layoutItems(children), area);
+            if (boxes.size() != children.size())
+                throw std::invalid_argument("UI layout returned an incorrect box count");
+            for (std::size_t i = 0; i < children.size(); ++i)
+            {
+                validateBounds(boxes[i]);
+                staged.emplace_back(children[i], boxes[i]);
+                arrangeChildren(children[i], {boxes[i].width, boxes[i].height}, staged);
+            }
+        }
+        else
+            for (auto child : children)
+            {
+                const auto bounds = get(child)->widget.bounds;
+                arrangeChildren(child, {bounds.width, bounds.height}, staged);
+            }
     }
 
     void applyChildClip(Canvas& canvas, Bounds bounds, const Mat3x3& transform)
@@ -420,7 +526,7 @@ struct Context::Impl
             auto* item = get(id);
             if (!item || item->pending || item->widget.parent != parent || !item->widget.visible)
                 continue;
-            const auto worldTransform = inherited * item->widget.transform;
+            const auto worldTransform = inherited * localTransform(*item);
             if (!detail::unmap(worldTransform, {}))
                 continue;
             const auto transform = pixels * worldTransform;
@@ -456,7 +562,9 @@ Context::~Context() = default;
 
 WidgetId Context::add(Widget widget)
 {
+    impl_->requireMutable();
     validateBounds(widget.bounds);
+    widget.layoutHints.validate();
     if (!detail::finiteAffine(widget.transform))
         throw std::invalid_argument("UI transform must be finite and affine");
     if (widget.parent && !contains(widget.parent))
@@ -477,6 +585,7 @@ WidgetId Context::add(Widget widget)
             if (index >= std::numeric_limits<std::uint32_t>::max())
                 throw std::length_error("UI registration limit exceeded");
             auto registration = std::make_unique<Impl::Registration>();
+            registration->naturalSize = {widget.bounds.width, widget.bounds.height};
             registration->widget = std::move(widget);
             registration->pending = true;
             if (index == impl_->slots.size())
@@ -518,7 +627,9 @@ void Context::setBounds(WidgetId id, Bounds bounds)
             if (auto* item = impl_->get(id))
             {
                 item->widget.bounds = bounds;
-                invalidate(Invalidation::Arrange | Invalidation::Semantics);
+                item->naturalSize = {bounds.width, bounds.height};
+                item->layoutOffset = {};
+                invalidate(Invalidation::Measure | Invalidation::Semantics);
             }
         });
 }
@@ -545,6 +656,128 @@ void Context::setEnabled(WidgetId id, bool enabled)
                 invalidate(Invalidation::Paint | Invalidation::Semantics);
             }
         });
+}
+
+std::optional<Bounds> Context::bounds(WidgetId id) const
+{
+    if (auto* item = impl_->get(id))
+        return item->widget.bounds;
+    return {};
+}
+std::optional<Bounds> Context::layoutBounds(WidgetId id) const
+{
+    if (auto* item = impl_->get(id))
+    {
+        auto bounds = item->widget.bounds;
+        bounds.x += item->layoutOffset.x;
+        bounds.y += item->layoutOffset.y;
+        return bounds;
+    }
+    return {};
+}
+void Context::setLayout(WidgetId id, std::shared_ptr<const Layout> layout)
+{
+    impl_->transaction(
+        [&]
+        {
+            if (auto* item = impl_->get(id))
+            {
+                item->widget.layout = std::move(layout);
+                invalidate(Invalidation::Measure);
+            }
+        });
+}
+void Context::setLayoutHints(WidgetId id, LayoutHints hints)
+{
+    hints.validate();
+    impl_->transaction(
+        [&]
+        {
+            if (auto* item = impl_->get(id))
+            {
+                item->widget.layoutHints = std::move(hints);
+                invalidate(Invalidation::Measure);
+            }
+        });
+}
+void Context::setMeasureCallback(WidgetId id, std::function<Size(const MeasureContext&)> callback)
+{
+    impl_->transaction(
+        [&]
+        {
+            if (auto* item = impl_->get(id))
+            {
+                item->widget.onMeasure = std::move(callback);
+                invalidate(Invalidation::Measure);
+            }
+        });
+}
+Size Context::measure(WidgetId id, Constraints constraints)
+{
+    if (impl_->processing)
+        throw std::logic_error("UI measurement cannot be reentered from a callback");
+    if (!contains(id))
+        throw std::invalid_argument("UI measurement requires a live widget ID");
+    constraints.validate();
+    Size result;
+    impl_->transaction(
+        [&]
+        {
+            impl_->layoutStats = {};
+            MeasurementScope scope(impl_->measuring);
+            result = LayoutItem{
+                impl_->get(id)->widget.layoutHints, [this, id](Constraints c) {
+                    return impl_->measureNode(id, c);
+                }}.measure(constraints);
+        });
+    return result;
+}
+void Context::layout(WidgetId root, Bounds area)
+{
+    if (impl_->processing)
+        throw std::logic_error("UI layout cannot be reentered from a callback");
+    validateBounds(area);
+    if (!contains(root))
+        throw std::invalid_argument("UI layout requires a live root ID");
+    impl_->layoutStats = {};
+    auto* item = impl_->get(root);
+    if (item->lastArea == area && item->lastRevision == impl_->layoutRevision &&
+        item->lastGeometry == impl_->geometryRevision)
+    {
+        ++impl_->layoutStats.cacheHits;
+        return;
+    }
+    impl_->transaction(
+        [&]
+        {
+            std::vector<std::pair<WidgetId, Bounds>> staged;
+            {
+                MeasurementScope scope(impl_->measuring);
+                const Size offered{area.width, area.height};
+                const auto size = LayoutItem{
+                    item->widget.layoutHints, [this, root](Constraints c) {
+                        return impl_->measureNode(root, c);
+                    }}.measure({offered, offered});
+                staged.emplace_back(root, Bounds{area.x, area.y, size.width, size.height});
+                impl_->arrangeChildren(root, size, staged);
+            }
+            for (auto [id, box] : staged)
+            {
+                auto* target = impl_->get(id);
+                target->layoutOffset = {box.x, box.y};
+                target->widget.bounds = {0, 0, box.width, box.height};
+            }
+            impl_->layoutStats.arrangedWidgets = staged.size();
+            ++impl_->geometryRevision;
+            item->lastArea = area;
+            item->lastRevision = impl_->layoutRevision;
+            item->lastGeometry = impl_->geometryRevision;
+            invalidate(Invalidation::Paint | Invalidation::Semantics);
+        });
+}
+LayoutStats Context::layoutStats() const
+{
+    return impl_->layoutStats;
 }
 
 void Context::setTransform(WidgetId id, const Mat3x3& transform)
@@ -580,6 +813,7 @@ WidgetId Context::hovered() const
 }
 void Context::setTheme(Theme theme)
 {
+    impl_->requireMutable();
     for (auto color : {theme.background, theme.surface, theme.hover, theme.text, theme.muted, theme.accent,
                        theme.border, theme.disabled})
         if (!std::isfinite(color.r) || !std::isfinite(color.g) || !std::isfinite(color.b) || !std::isfinite(color.a))
@@ -781,6 +1015,10 @@ WidgetId Context::modalRoot() const
 }
 void Context::invalidate(Invalidation flags)
 {
+    impl_->requireMutable();
+    if (static_cast<unsigned>(flags) &
+        (static_cast<unsigned>(Invalidation::Measure) | static_cast<unsigned>(Invalidation::Arrange)))
+        ++impl_->layoutRevision;
     const auto bits = static_cast<unsigned>(flags);
     if (bits & static_cast<unsigned>(Invalidation::Measure))
         flags = flags | Invalidation::Arrange;
@@ -790,6 +1028,7 @@ void Context::invalidate(Invalidation flags)
 }
 Invalidation Context::takeInvalidation()
 {
+    impl_->requireMutable();
     return std::exchange(impl_->dirty, Invalidation::None);
 }
 Invalidation Context::pendingInvalidation() const
@@ -805,6 +1044,7 @@ double Context::now() const
 }
 void Context::requestWakeup(WidgetId id, double deadline)
 {
+    impl_->requireMutable();
     if (!std::isfinite(deadline))
         throw std::invalid_argument("UI deadline must be finite");
     if (auto* item = impl_->get(id))
@@ -812,6 +1052,7 @@ void Context::requestWakeup(WidgetId id, double deadline)
 }
 void Context::cancelWakeup(WidgetId id)
 {
+    impl_->requireMutable();
     if (auto* item = impl_->get(id))
         item->wakeup.reset();
 }

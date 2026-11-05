@@ -3,7 +3,8 @@
 The optional UI layer supports fixed local rectangles, affine transforms,
 polymorphic painting, shared themes, and host-independent input. The optional
 `vectorgl::glfw` target translates events and exposes clipboard/cursor services.
-Automatic layout and the richer control catalog remain future work.
+See [automatic layout](ui-layout.md) for row/column/grid strategies. The richer
+control catalog remains future work.
 
 ## Responsibilities and ownership
 
@@ -23,6 +24,9 @@ shared painter strategy; a derived painter can also implement its input method,
 which the registration's `onEvent` callback forwards to. Context remains the sole
 focus/capture authority. `SurfacePainter` provides a basic themed fill and focus
 outline; it does not implement button activation behavior.
+Use `SurfacePainter(SurfaceRole::Panel)` for passive containers so their fill stays
+steady when the pointer crosses child widgets. The default Control role retains
+localized hover feedback. Both roles keep keyboard focus outlines.
 
 Painters receive ephemeral `PaintContext` data: local bounds, enabled/focus/hover
 state, Theme, and Canvas. The Canvas already contains the widget-to-framebuffer
@@ -42,7 +46,7 @@ Widget panel;
 panel.bounds = {0, 0, 360, 240};
 panel.transform = Mat3x3::translation(30, 120);
 panel.clipChildren = true;
-panel.painter = std::make_shared<SurfacePainter>();
+panel.painter = std::make_shared<SurfacePainter>(SurfaceRole::Panel);
 auto panelId = ui.add(panel);
 
 Widget item;

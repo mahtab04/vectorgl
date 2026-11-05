@@ -53,9 +53,14 @@ context and leaves the existing `vectorgl/ui.hpp` helpers unchanged.
 
 Widgets support affine transforms, clipping-aware hit tests, shared themes, and
 polymorphic `WidgetPainter` strategies. Context paints into an active Canvas frame
-with independent logical-to-framebuffer scale on each axis. Automatic layout and
-the richer control set remain separate features.
+with independent logical-to-framebuffer scale on each axis. Row, column, and grid
+strategies add intrinsic measurement, size constraints, padding/gaps, flexible space,
+and spans. The richer control set remains a separate feature.
 See the [UI Context guide](docs/ui-context.md) for usage and routing contracts.
+The [layout guide](docs/ui-layout.md) covers measure/arrange and cache invalidation.
+Build `vectorgl_ui_layout` for a responsive property-form example, including type-size
+and wrapped-content changes. It accepts `--width`, `--height`, `--font`,
+`--smoke-test`, and `--screenshot FILE.bmp`.
 
 Enable `VECTORGL_BUILD_GLFW_ADAPTER=ON` alongside UI to build `vectorgl::glfw`.
 The [graphical UI host example](example/ui_host_demo.cpp) shows editable text fields,

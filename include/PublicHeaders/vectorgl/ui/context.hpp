@@ -32,6 +32,19 @@ public:
     void setBounds(WidgetId id, Bounds bounds);
     void setVisible(WidgetId id, bool visible);
     void setEnabled(WidgetId id, bool enabled);
+    std::optional<Bounds> bounds(WidgetId id) const;
+    std::optional<Bounds> layoutBounds(WidgetId id) const; // Placement before the application transform.
+    void setLayout(WidgetId id, std::shared_ptr<const Layout> layout);
+    void setLayoutHints(WidgetId id, LayoutHints hints);
+    void setMeasureCallback(WidgetId id, std::function<Size(const MeasureContext&)> callback);
+    Size measure(WidgetId id, Constraints constraints = {});
+    /*! Explicit measure/arrange boundary; call before hit tests/painting after
+     * layout-affecting input. Publishes geometry atomically on success. Area is in
+     * the root's parent coordinates; its application transform remains intact.
+     * Measurement callbacks are pure: Context mutation/reentry is rejected.
+     */
+    void layout(WidgetId root, Bounds area);
+    LayoutStats layoutStats() const;
     void setTransform(WidgetId id, const Mat3x3& transform);
     std::optional<Vec2> mapFromRoot(WidgetId id, Vec2 point) const;
     WidgetId hitTest(Vec2 point) const;

@@ -1,3 +1,19 @@
+# UI examples can be built independently of the full GLFW example collection.
+if(VECTORGL_BUILD_UI AND VECTORGL_BUILD_UI_EXAMPLES)
+    add_executable(vectorgl_ui_routing ui_routing_demo.cpp)
+    target_link_libraries(vectorgl_ui_routing PRIVATE vectorgl::ui)
+    if(TARGET vectorgl_glfw)
+        add_executable(vectorgl_ui_host ui_host_demo.cpp)
+        target_link_libraries(vectorgl_ui_host PRIVATE vectorgl::glfw)
+        add_executable(vectorgl_ui_layout ui_layout_demo.cpp)
+        target_link_libraries(vectorgl_ui_layout PRIVATE vectorgl::glfw)
+    endif()
+endif()
+
+if(NOT VECTORGL_BUILD_EXAMPLES)
+    return()
+endif()
+
 add_executable(vectorgl_example main.cpp)
 
 add_executable(vectorgl_fill_rules fill_rules_demo.cpp)

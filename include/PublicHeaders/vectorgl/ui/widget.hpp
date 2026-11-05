@@ -7,6 +7,7 @@
 
 #include "vectorgl/node.hpp"
 #include "vectorgl/ui/events.hpp"
+#include "vectorgl/ui/layout.hpp"
 
 namespace vectorgl::ui
 {
@@ -22,14 +23,6 @@ struct WidgetId
         return context != 0 && generation != 0;
     }
     bool operator==(const WidgetId&) const = default;
-};
-struct Bounds
-{
-    float x = 0, y = 0, width = 0, height = 0;
-    bool contains(float px, float py) const
-    {
-        return px >= x && py >= y && px < x + width && py < y + height;
-    }
 };
 /*! Registration descriptor with optional polymorphic painting. Bounds are local
  * geometry, mapped through the composed ancestor transforms. Later siblings paint/hit above earlier
@@ -47,6 +40,9 @@ struct Widget
     // translation: identity transforms preserve PR 1's absolute rectangle behavior.
     Mat3x3 transform = Mat3x3::identity();
     std::shared_ptr<WidgetPainter> painter;
+    std::shared_ptr<const Layout> layout; // Arranges visible direct children.
+    LayoutHints layoutHints;
+    std::function<Size(const MeasureContext&)> onMeasure;
 };
 enum class Invalidation : unsigned
 {

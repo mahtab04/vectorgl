@@ -33,7 +33,9 @@ void SurfacePainter::paint(PaintContext& context)
 {
     const auto& theme = context.theme();
     const auto bounds = context.bounds();
-    context.fillRect(bounds, !context.enabled() ? theme.disabled : context.hovered() ? theme.hover : theme.surface);
+    context.fillRect(bounds, !context.enabled()                                   ? theme.disabled
+                             : role_ == SurfaceRole::Control && context.hovered() ? theme.hover
+                                                                                  : theme.surface);
     auto& canvas = context.canvas();
     canvas.setLineWidth(context.focused() ? theme.borderWidth + 1 : theme.borderWidth);
     canvas.setStrokeColor(context.focused() ? theme.accent : theme.border);
