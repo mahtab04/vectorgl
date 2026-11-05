@@ -293,7 +293,7 @@ public:
         panel.bounds = {0, 0, 370, 320};
         panel.transform = Mat3x3::translation(30, 124);
         panel.clipChildren = true;
-        panel.painter = std::make_shared<SurfacePainter>();
+        panel.painter = std::make_shared<SurfacePainter>(SurfaceRole::Panel);
         auto panelId = ui.add(panel);
         for (int i = 0; i < 2; ++i)
         {
@@ -333,7 +333,7 @@ public:
         clip.bounds = {0, 0, 230, 200};
         clip.transform = Mat3x3::translation(465, 158) * Mat3x3::rotation(0.13f);
         clip.clipChildren = true;
-        clip.painter = std::make_shared<SurfacePainter>();
+        clip.painter = std::make_shared<SurfacePainter>(SurfaceRole::Panel);
         auto clipId = ui.add(clip);
         for (int i = 0; i < 4; ++i)
         {

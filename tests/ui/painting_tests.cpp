@@ -40,6 +40,59 @@ void pixel(int x, int y, int r, int g, int b)
 }
 void paintTests(Canvas& canvas)
 {
+    Context surfaces;
+    Widget panel;
+    panel.bounds = {0, 0, 180, 180};
+    panel.painter = std::make_shared<SurfacePainter>(SurfaceRole::Panel);
+    const auto panelId = surfaces.add(panel);
+    Widget control;
+    control.parent = panelId;
+    control.bounds = {60, 60, 60, 40};
+    control.focusable = true;
+    control.painter = std::make_shared<SurfacePainter>();
+    surfaces.add(control);
+    const auto surface = surfaces.theme().surface, hover = surfaces.theme().hover;
+    for (Vec2 point : {Vec2{30, 30}, Vec2{80, 80}, Vec2{30, 30}})
+    {
+        Event motion;
+        motion.type = EventType::PointerMove;
+        motion.x = point.x;
+        motion.y = point.y;
+        surfaces.dispatch(motion);
+        canvas.beginFrame(256, 256);
+        surfaces.paint(canvas, Viewport(256, 256, 256, 256));
+        canvas.endFrame();
+        pixel(30, 30, int(surface.r * 255), int(surface.g * 255), int(surface.b * 255));
+        const auto expected = point.x == 80 ? hover : surface;
+        pixel(80, 80, int(expected.r * 255), int(expected.g * 255), int(expected.b * 255));
+    }
+    // Layout placement and framebuffer scaling share the same hit/paint geometry.
+    Context arranged;
+    Widget row;
+    row.layout = std::make_shared<RowLayout>(Padding{8, 8, 8, 8}, 4);
+    row.clipChildren = true;
+    const auto root = arranged.add(row);
+    Widget cell;
+    cell.parent = root;
+    cell.layoutHints.flex = 1;
+    cell.focusable = true;
+    cell.painter = std::make_shared<Solid>(Color{0, 1, 0, 1});
+    const auto green = arranged.add(cell);
+    cell.painter = std::make_shared<Solid>(Color{0, 0, 1, 1});
+    const auto blue = arranged.add(cell);
+    for (float scale : {1.0f, 1.25f, 1.5f, 2.0f})
+    {
+        arranged.layout(root, {12, 16, 100, 50});
+        glClearColor(0, 0, 0, 1);
+        glClear(GL_COLOR_BUFFER_BIT);
+        canvas.beginFrame(256, 256);
+        arranged.paint(canvas, Viewport(256 / scale, 256 / scale, 256, 256));
+        canvas.endFrame();
+        require(arranged.hitTest({40, 40}) == green && arranged.hitTest({80, 40}) == blue,
+                "arranged hit bounds diverged");
+        pixel(int(40 * scale), int(40 * scale), 0, 255, 0);
+        pixel(int(80 * scale), int(40 * scale), 0, 0, 255);
+    }
     Context ui;
     Widget clip;
     clip.bounds = {20, 20, 50, 50};

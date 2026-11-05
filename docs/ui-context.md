@@ -3,15 +3,16 @@
 VectorGL's optional `vectorgl::ui` target supplies widget registration, input routing,
 keyboard focus, pointer capture, modal scopes, and repaint/wakeup scheduling.
 It does not create a window or initialize OpenGL. This module supplies the input
-foundation for future application controls and layout.
+foundation and automatic layout for application controls.
 
 The existing `vectorgl/ui.hpp` Label/Button/TextBox helpers remain unchanged.
 Include `vectorgl/ui/context.hpp` to use the new module. `Widget` is a registration
 descriptor with an event callback and an optional WidgetPainter strategy. The app
 supplies local rectangles and affine transforms; Context paints the tree with shared
 themes and matching clip-aware hit tests. The optional GLFW adapter translates host
-events and sizing. See [painting and host integration](ui-glfw.md). Automatic layout
-and the richer control catalog remain later slices.
+events and sizing. See [painting and host integration](ui-glfw.md). Optional row,
+column, and grid strategies provide [automatic layout](ui-layout.md); richer controls
+remain later slices.
 
 ## Build and run the routing example
 
@@ -27,8 +28,8 @@ button, a captured drag, a modal barrier, and focused widget removal. It prints 
 resulting values and exits nonzero on incorrect routing. It needs neither GLFW,
 a font file, a display server, nor an OpenGL context.
 
-The executable is under `build-ui/src/ui/` for single-configuration generators;
-Visual Studio adds the configuration subdirectory, such as `src/ui/Debug/`.
+The executable is under `build-ui/example/` for single-configuration generators;
+Visual Studio adds the configuration subdirectory, such as `example/Debug/`.
 
 Both the module and its example are optional. `VECTORGL_BUILD_UI` defaults OFF.
 `VECTORGL_BUILD_UI_EXAMPLES` follows the existing examples setting by default, but

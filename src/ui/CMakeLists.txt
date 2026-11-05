@@ -1,4 +1,5 @@
-add_library(vectorgl_ui STATIC context.cpp painting.cpp geometry.hpp
+add_library(vectorgl_ui STATIC context.cpp painting.cpp layout.cpp geometry.hpp
+    ${PROJECT_SOURCE_DIR}/include/PublicHeaders/vectorgl/ui/layout.hpp
     ${PROJECT_SOURCE_DIR}/include/PublicHeaders/vectorgl/ui/painting.hpp
     ${PROJECT_SOURCE_DIR}/include/PublicHeaders/vectorgl/ui/context.hpp
     ${PROJECT_SOURCE_DIR}/include/PublicHeaders/vectorgl/ui/events.hpp
@@ -18,12 +19,6 @@ install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/PublicHeaders/vectorgl/ui/
 install(EXPORT vectorglUiTargets FILE vectorglUiTargets.cmake NAMESPACE vectorgl::
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/vectorgl)
 
-# This example demonstrates event contracts without a window/context or GLFW.
-if(VECTORGL_BUILD_UI_EXAMPLES)
-    add_executable(vectorgl_ui_routing ${PROJECT_SOURCE_DIR}/example/ui_routing_demo.cpp)
-    target_link_libraries(vectorgl_ui_routing PRIVATE vectorgl::ui)
-endif()
-
 if(VECTORGL_BUILD_GLFW_ADAPTER)
     add_library(vectorgl_glfw STATIC glfw_adapter.cpp
         ${PROJECT_SOURCE_DIR}/include/PublicHeaders/vectorgl/ui/glfw_adapter.hpp)
@@ -37,8 +32,5 @@ if(VECTORGL_BUILD_GLFW_ADAPTER)
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/vectorgl/ui)
     install(EXPORT vectorglGlfwTargets FILE vectorglGlfwTargets.cmake NAMESPACE vectorgl::
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/vectorgl)
-    if(VECTORGL_BUILD_UI_EXAMPLES)
-        add_executable(vectorgl_ui_host ${PROJECT_SOURCE_DIR}/example/ui_host_demo.cpp)
-        target_link_libraries(vectorgl_ui_host PRIVATE vectorgl::glfw)
-    endif()
+
 endif()

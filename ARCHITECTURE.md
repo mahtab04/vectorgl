@@ -60,6 +60,13 @@ uses the same transforms and order, with modal subtrees raised in stack order.
 application callbacks retain editing/activation behavior. Exact transformed sharp
 rectangular masks use stencil triangles, preserving shear and reflections.
 
+Optional immutable `Layout` strategies implement headless measure/arrange for rows,
+columns, and explicit grids. Intrinsic callbacks receive constrained sizes and Theme.
+Context stages placement before publishing local bounds/offsets; placement composes
+before application transforms in both painting and hits. It retains at most four
+measurements per widget, with revision-based invalidation and an unchanged-root fast
+path. Measurement callbacks cannot mutate Context. See [layout](docs/ui-layout.md).
+
 Registrations have context-scoped generation IDs. Callback storage stays alive
 until dispatch settles, including cancel/lost-focus delivery for removed widgets.
 The model is bound to one UI thread. Platform services and clocks are injectable,

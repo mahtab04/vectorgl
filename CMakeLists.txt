@@ -15,7 +15,7 @@ option(VECTORGL_BUILD_TESTS "Build vectorgl regression tests" ${PROJECT_IS_TOP_L
 option(VECTORGL_BUILD_GPU_TESTS "Build OpenGL integration tests (requires GLFW and a display)" OFF)
 option(VECTORGL_ENABLE_HINTED_TEXT "Use FreeType for hinted small-text bitmap rendering" ON)
 option(VECTORGL_BUILD_UI "Build the optional application UI input foundation" OFF)
-option(VECTORGL_BUILD_UI_EXAMPLES "Build the headless UI routing example" ${VECTORGL_BUILD_EXAMPLES})
+option(VECTORGL_BUILD_UI_EXAMPLES "Build UI examples (graphical examples require the GLFW adapter)" ${VECTORGL_BUILD_EXAMPLES})
 option(VECTORGL_BUILD_GLFW_ADAPTER "Build the optional UI GLFW host adapter" OFF)
 if(VECTORGL_BUILD_GLFW_ADAPTER AND NOT VECTORGL_BUILD_UI)
     message(FATAL_ERROR "VECTORGL_BUILD_GLFW_ADAPTER requires VECTORGL_BUILD_UI=ON")
@@ -164,7 +164,7 @@ install(FILES
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/vectorgl
 )
 
-if(VECTORGL_BUILD_EXAMPLES)
+if(VECTORGL_BUILD_EXAMPLES OR (VECTORGL_BUILD_UI AND VECTORGL_BUILD_UI_EXAMPLES))
     add_subdirectory(example)
 endif()
 
