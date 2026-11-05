@@ -14,6 +14,8 @@ option(VECTORGL_BUILD_APPS "Build the Flow Studio diagram editor" ${VECTORGL_BUI
 option(VECTORGL_BUILD_TESTS "Build vectorgl regression tests" ${PROJECT_IS_TOP_LEVEL})
 option(VECTORGL_BUILD_GPU_TESTS "Build OpenGL integration tests (requires GLFW and a display)" OFF)
 option(VECTORGL_ENABLE_HINTED_TEXT "Use FreeType for hinted small-text bitmap rendering" ON)
+option(VECTORGL_BUILD_UI "Build the optional application UI input foundation" OFF)
+option(VECTORGL_BUILD_UI_EXAMPLES "Build the headless UI routing example" ${VECTORGL_BUILD_EXAMPLES})
 
 add_subdirectory(include/PublicHeaders)
 add_subdirectory(include/InternalHeaders)
@@ -113,6 +115,10 @@ if(VECTORGL_ENABLE_HINTED_TEXT)
 endif()
 
 setup_clang_tooling(vectorgl)
+
+if(VECTORGL_BUILD_UI)
+    add_subdirectory(src/ui)
+endif()
 
 install(TARGETS vectorgl
     EXPORT vectorglTargets

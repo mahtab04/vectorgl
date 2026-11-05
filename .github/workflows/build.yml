@@ -127,6 +127,8 @@ jobs:
           -DENABLE_FORMAT_CHECK=OFF
           -DVECTORGL_BUILD_EXAMPLES=OFF
           -DVECTORGL_BUILD_TESTS=ON
+          -DVECTORGL_BUILD_UI=ON
+          -DVECTORGL_BUILD_UI_EXAMPLES=ON
           -DVECTORGL_BUILD_APPS=${{ matrix.gpu_tests }}
           -DVECTORGL_BUILD_GPU_TESTS=${{ matrix.gpu_tests }}
 
@@ -168,6 +170,39 @@ jobs:
           -C ${{ matrix.configuration }}
           --output-on-failure
 
+      - name: Configure installed UI consumer
+        run: >
+          cmake -S tests/ui_package_consumer -B ui-consumer-build
+          ${{ matrix.consumer_config }}
+          -DCMAKE_PREFIX_PATH=${{ github.workspace }}/staging
+
+      - name: Build installed UI consumer
+        run: cmake --build ui-consumer-build --config ${{ matrix.configuration }} --parallel
+
+      - name: Test installed UI consumer
+        run: ctest --test-dir ui-consumer-build -C ${{ matrix.configuration }} --output-on-failure
+
+  graphics-only:
+    name: Graphics-only package without UI or GLFW
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Configure
+        run: >
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+          -DVECTORGL_BUILD_UI=OFF -DVECTORGL_BUILD_EXAMPLES=OFF
+          -DVECTORGL_BUILD_APPS=OFF -DVECTORGL_BUILD_TESTS=OFF
+          -DVECTORGL_BUILD_GPU_TESTS=OFF -DENABLE_CLANG_TIDY=OFF -DENABLE_FORMAT_CHECK=OFF
+      - name: Build and install
+        run: |
+          cmake --build build --parallel
+          cmake --install build --prefix staging
+      - name: Verify graphics-only installed consumer
+        run: |
+          cmake -S tests/package_consumer -B consumer -DCMAKE_BUILD_TYPE=Debug -DVECTORGL_EXPECT_NO_UI=ON -DCMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/staging"
+          cmake --build consumer --parallel
+          ctest --test-dir consumer --output-on-failure
+
   quality:
     name: Clang-Tidy and Format
     runs-on: ubuntu-latest
@@ -191,6 +226,7 @@ jobs:
           -DENABLE_FORMAT_CHECK=ON
           -DVECTORGL_BUILD_EXAMPLES=OFF
           -DVECTORGL_BUILD_TESTS=OFF
+          -DVECTORGL_BUILD_UI=ON
           -DVECTORGL_BUILD_APPS=OFF
           -DVECTORGL_BUILD_GPU_TESTS=OFF
 

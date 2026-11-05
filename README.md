@@ -44,6 +44,30 @@ It also includes an SVG loader, TrueType font rendering, and a post-processing e
 | **Paint System** | Solid colors, linear/radial gradients, and texture patterns. |
 | **Nested Clipping** | Transformed rectangular and rounded clipping with intersection, reset, and automatic `save()` / `restore()` state. |
 
+## Optional application UI input
+
+Enable `VECTORGL_BUILD_UI=ON` to build `vectorgl::ui`: stable widget IDs,
+consumed/unconsumed event routing, Tab focus traversal, pointer capture, modal
+scopes, and invalidation/wakeup scheduling. It runs without a window or OpenGL
+context and leaves the existing `vectorgl/ui.hpp` helpers unchanged.
+
+This first slice uses application-supplied logical rectangles and event callbacks.
+Automatic layout, rendered controls, and a reusable host adapter follow separately.
+See the [UI Context guide](docs/ui-context.md) for usage and routing contracts.
+
+The [routing example](example/ui_routing_demo.cpp) exercises two text fields,
+keyboard activation, a captured drag, and modal isolation in a deterministic
+console program. Build it without GLFW or graphical examples:
+
+```sh
+cmake -S . -B build-ui -DVECTORGL_BUILD_UI=ON -DVECTORGL_BUILD_UI_EXAMPLES=ON -DVECTORGL_BUILD_EXAMPLES=OFF -DVECTORGL_BUILD_APPS=OFF
+cmake --build build-ui --config Debug --target vectorgl_ui_routing
+```
+
+Installed consumers request the optional component with
+`find_package(vectorgl CONFIG REQUIRED COMPONENTS ui)` and link `vectorgl::ui`.
+Graphics-only builds keep the UI module disabled by default.
+
 ## Compound paths and fill rules
 
 All contours in a path are filled together. `FillRule::NonZero` is the default:
