@@ -51,9 +51,18 @@ consumed/unconsumed event routing, Tab focus traversal, pointer capture, modal
 scopes, and invalidation/wakeup scheduling. It runs without a window or OpenGL
 context and leaves the existing `vectorgl/ui.hpp` helpers unchanged.
 
-This first slice uses application-supplied logical rectangles and event callbacks.
-Automatic layout, rendered controls, and a reusable host adapter follow separately.
+Widgets support affine transforms, clipping-aware hit tests, shared themes, and
+polymorphic `WidgetPainter` strategies. Context paints into an active Canvas frame
+with independent logical-to-framebuffer scale on each axis. Automatic layout and
+the richer control set remain separate features.
 See the [UI Context guide](docs/ui-context.md) for usage and routing contracts.
+
+Enable `VECTORGL_BUILD_GLFW_ADAPTER=ON` alongside UI to build `vectorgl::glfw`.
+The [graphical UI host example](example/ui_host_demo.cpp) shows editable text fields,
+keyboard focus, a palette toggle, transformed clips, and an event-driven host loop.
+Build target `vectorgl_ui_host` with `VECTORGL_BUILD_UI_EXAMPLES=ON`; it accepts
+`--font PATH`, `--smoke-test`, and `--screenshot FILE.bmp`.
+See the [painting and GLFW guide](docs/ui-glfw.md) for coordinate and lifetime rules.
 
 The [routing example](example/ui_routing_demo.cpp) exercises two text fields,
 keyboard activation, a captured drag, and modal isolation in a deterministic

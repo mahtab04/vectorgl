@@ -1,5 +1,7 @@
 #include "vectorgl/ui/context.hpp"
 
+#include <glad/gl.h>
+
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -9,6 +11,9 @@
 #include <stdexcept>
 #include <utility>
 #include <vector>
+
+#include "geometry.hpp"
+#include "vectorgl/canvas.hpp"
 
 namespace vectorgl::ui
 {
@@ -34,6 +39,34 @@ bool pointerEvent(EventType type)
     return type == EventType::PointerDown || type == EventType::PointerUp || type == EventType::PointerMove ||
            type == EventType::Wheel;
 }
+class CanvasScope
+{
+public:
+    explicit CanvasScope(Canvas& canvas) : canvas_(canvas)
+    {
+        canvas_.save();
+    }
+    ~CanvasScope()
+    {
+        if (active_)
+            try
+            {
+                canvas_.restore();
+            }
+            catch (...)
+            {
+            }
+    }
+    void restore()
+    {
+        active_ = false;
+        canvas_.restore();
+    }
+
+private:
+    Canvas& canvas_;
+    bool active_ = true;
+};
 } // namespace
 
 struct Context::Impl
@@ -67,6 +100,9 @@ struct Context::Impl
     std::vector<WidgetId> order;
     std::vector<Modal> modals;
     WidgetId focus, desiredFocus;
+    WidgetId hover;
+    std::optional<Vec2> pointerPosition;
+    Theme theme;
     bool focusPending = false, focusFirst = false, processing = false;
     std::optional<Capture> capture;
     std::optional<CancelReason> cancellation;
@@ -112,7 +148,19 @@ struct Context::Impl
 
     bool eligible(WidgetId id) const
     {
-        return available(id) && (modals.empty() || descendant(id, modals.back().root));
+        return available(id) && detail::unmap(world(id), {}).has_value() &&
+               (modals.empty() || descendant(id, modals.back().root));
+    }
+
+    Mat3x3 world(WidgetId id) const
+    {
+        std::vector<const Registration*> chain;
+        for (auto* item = get(id); item; item = get(item->widget.parent))
+            chain.push_back(item);
+        Mat3x3 result;
+        for (auto it = chain.rbegin(); it != chain.rend(); ++it)
+            result = result * (*it)->widget.transform;
+        return result;
     }
 
     bool focusable(WidgetId id) const
@@ -155,7 +203,14 @@ struct Context::Impl
         auto& handler = item->widget.onEvent;
         try
         {
-            auto reply = handler(owner, id, event);
+            Event mapped = event;
+            if (pointerEvent(event.type))
+                if (auto point = detail::unmap(world(id), {event.x, event.y}))
+                {
+                    mapped.localX = point->x;
+                    mapped.localY = point->y;
+                }
+            auto reply = handler(owner, id, mapped);
             if (!notification && (reply.handled || reply.requestFocus || reply.capturePointer))
                 dirty = dirty | Invalidation::Paint;
             if (!notification && eligible(id))
@@ -185,8 +240,8 @@ struct Context::Impl
             for (auto& slot : slots)
                 if (slot.item)
                     slot.item->pending = false;
-            auto invalid =
-                std::find_if(modals.begin(), modals.end(), [&](const Modal& modal) { return !available(modal.root); });
+            auto invalid = std::find_if(modals.begin(), modals.end(), [&](const Modal& modal)
+                                        { return !available(modal.root) || !detail::unmap(world(modal.root), {}); });
             if (invalid != modals.end())
             {
                 const auto previous = invalid->previousFocus;
@@ -209,6 +264,18 @@ struct Context::Impl
                 continue;
             }
             cancellation.reset();
+            Event pointerState;
+            if (pointerPosition)
+            {
+                pointerState.x = pointerPosition->x;
+                pointerState.y = pointerPosition->y;
+            }
+            const auto newHover = pointerPosition ? hit({}, pointerState) : WidgetId{};
+            if (hover != newHover)
+            {
+                hover = newHover;
+                dirty = dirty | Invalidation::Paint;
+            }
             if (focusPending || (focus && !focusable(focus)))
             {
                 WidgetId next = focusPending && !focusFirst ? desiredFocus : firstFocus();
@@ -277,7 +344,7 @@ struct Context::Impl
             std::rethrow_exception(error);
     }
 
-    WidgetId hit(WidgetId parent, const Event& event) const
+    WidgetId hit(WidgetId parent, const Event& event, const Mat3x3& inherited = {}) const
     {
         // Visit children in reverse paint order, then their parent. This initial
         // fixed-rectangle tree is intentionally independent of Scene::pick().
@@ -286,9 +353,13 @@ struct Context::Impl
             auto* item = get(*it);
             if (!item || item->widget.parent != parent || !available(*it))
                 continue;
-            const bool inside = item->widget.bounds.contains(event.x, event.y);
+            const auto transform = inherited * item->widget.transform;
+            const auto point = detail::unmap(transform, {event.x, event.y});
+            if (!point)
+                continue;
+            const bool inside = item->widget.bounds.contains(point->x, point->y);
             if (!item->widget.clipChildren || inside)
-                if (auto child = hit(*it, event))
+                if (auto child = hit(*it, event, transform))
                     return child;
             if (inside && eligible(*it))
                 return *it;
@@ -312,6 +383,72 @@ struct Context::Impl
         }
         return false;
     }
+
+    void applyChildClip(Canvas& canvas, Bounds bounds, const Mat3x3& transform)
+    {
+        canvas.setTransform(transform);
+        if (transform.m[1] == 0 && transform.m[3] == 0)
+            canvas.clipRect(bounds.x, bounds.y, bounds.width, bounds.height);
+        else
+        {
+            GLint stencilBits = 0;
+            GLint framebuffer = 0;
+            glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &framebuffer);
+            const GLenum attachment = framebuffer ? GL_STENCIL_ATTACHMENT : GL_STENCIL;
+            GLint type = GL_NONE;
+            glGetFramebufferAttachmentParameteriv(GL_DRAW_FRAMEBUFFER, attachment,
+                                                  GL_FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE, &type);
+            if (type != GL_NONE)
+                glGetFramebufferAttachmentParameteriv(GL_DRAW_FRAMEBUFFER, attachment,
+                                                      GL_FRAMEBUFFER_ATTACHMENT_STENCIL_SIZE, &stencilBits);
+            if (stencilBits < 8)
+                throw std::runtime_error("Transformed UI clips require at least 8 framebuffer stencil bits");
+            canvas.clipRoundedRect(bounds.x, bounds.y, bounds.width, bounds.height, 0);
+        }
+    }
+
+    void paintChildren(WidgetId parent, const Mat3x3& inherited, const Mat3x3& pixels,
+                       const std::vector<WidgetId>& snapshot, Canvas& canvas, const Theme& frameTheme,
+                       const std::vector<WidgetId>& modalRoots, WidgetId only = {})
+    {
+        for (auto id : snapshot)
+        {
+            if (only && id != only)
+                continue;
+            if (id != only && std::find(modalRoots.begin(), modalRoots.end(), id) != modalRoots.end())
+                continue;
+            auto* item = get(id);
+            if (!item || item->pending || item->widget.parent != parent || !item->widget.visible)
+                continue;
+            const auto worldTransform = inherited * item->widget.transform;
+            if (!detail::unmap(worldTransform, {}))
+                continue;
+            const auto transform = pixels * worldTransform;
+            if (!detail::unmap(transform, {}))
+                continue;
+            const auto bounds = item->widget.bounds;
+            const bool clip = item->widget.clipChildren;
+            auto painter = item->widget.painter;
+            CanvasScope branch(canvas);
+            canvas.setTransform(transform);
+            if (painter)
+            {
+                CanvasScope local(canvas);
+                PaintContext data(canvas, frameTheme, bounds, eligible(id), focus == id, hover == id);
+                painter->paint(data);
+                local.restore();
+            }
+            if (!get(id))
+            {
+                branch.restore();
+                continue;
+            }
+            if (clip)
+                applyChildClip(canvas, bounds, transform);
+            paintChildren(id, worldTransform, pixels, snapshot, canvas, frameTheme, modalRoots);
+            branch.restore();
+        }
+    }
 };
 
 Context::Context(Services services) : impl_(std::make_unique<Impl>(*this, std::move(services))) {}
@@ -320,6 +457,8 @@ Context::~Context() = default;
 WidgetId Context::add(Widget widget)
 {
     validateBounds(widget.bounds);
+    if (!detail::finiteAffine(widget.transform))
+        throw std::invalid_argument("UI transform must be finite and affine");
     if (widget.parent && !contains(widget.parent))
         throw std::invalid_argument("UI parent is stale or belongs to another Context");
     int depth = 0;
@@ -408,6 +547,100 @@ void Context::setEnabled(WidgetId id, bool enabled)
         });
 }
 
+void Context::setTransform(WidgetId id, const Mat3x3& transform)
+{
+    if (!detail::finiteAffine(transform))
+        throw std::invalid_argument("UI transform must be finite and affine");
+    impl_->transaction(
+        [&]
+        {
+            if (auto* item = impl_->get(id))
+            {
+                item->widget.transform = transform;
+                invalidate(Invalidation::Arrange | Invalidation::Semantics);
+            }
+        });
+}
+std::optional<Vec2> Context::mapFromRoot(WidgetId id, Vec2 point) const
+{
+    return contains(id) ? detail::unmap(impl_->world(id), point) : std::nullopt;
+}
+WidgetId Context::hitTest(Vec2 point) const
+{
+    if (!std::isfinite(point.x) || !std::isfinite(point.y))
+        return {};
+    Event event;
+    event.x = point.x;
+    event.y = point.y;
+    return impl_->hit({}, event);
+}
+WidgetId Context::hovered() const
+{
+    return impl_->hover;
+}
+void Context::setTheme(Theme theme)
+{
+    for (auto color : {theme.background, theme.surface, theme.hover, theme.text, theme.muted, theme.accent,
+                       theme.border, theme.disabled})
+        if (!std::isfinite(color.r) || !std::isfinite(color.g) || !std::isfinite(color.b) || !std::isfinite(color.a))
+            throw std::invalid_argument("UI theme colors must be finite");
+    if (!std::isfinite(theme.fontSize) || theme.fontSize <= 0 || !std::isfinite(theme.borderWidth) ||
+        theme.borderWidth < 0)
+        throw std::invalid_argument(
+            "UI theme metrics must be finite with positive font size and nonnegative border width");
+    impl_->theme = std::move(theme);
+    invalidate(Invalidation::All);
+}
+const Theme& Context::theme() const
+{
+    return impl_->theme;
+}
+void Context::paint(Canvas& canvas, const Viewport& viewport)
+{
+    if (impl_->processing)
+        throw std::logic_error("UI painting cannot be reentered from a callback");
+    if (!canvas.renderer().isFrameActive())
+        throw std::logic_error("UI painting requires an active Canvas frame");
+    impl_->transaction(
+        [&]
+        {
+            CanvasScope scope(canvas);
+            const auto snapshot = impl_->order;
+            const auto theme = impl_->theme;
+            const auto pixels = Mat3x3::scaling(viewport.scaleX(), viewport.scaleY());
+            try
+            {
+                std::vector<WidgetId> modalRoots;
+                for (const auto& modal : impl_->modals)
+                    modalRoots.push_back(modal.root);
+                impl_->paintChildren({}, {}, pixels, snapshot, canvas, theme, modalRoots);
+                for (auto root : modalRoots)
+                {
+                    auto* item = impl_->get(root);
+                    if (!item || !impl_->available(root) || !detail::unmap(impl_->world(root), {}))
+                        continue;
+                    const auto parent = item->widget.parent;
+                    CanvasScope layer(canvas);
+                    std::vector<WidgetId> ancestors;
+                    for (auto id = parent; auto* ancestor = impl_->get(id); id = ancestor->widget.parent)
+                        ancestors.push_back(id);
+                    for (auto it = ancestors.rbegin(); it != ancestors.rend(); ++it)
+                        if (auto* ancestor = impl_->get(*it); ancestor && ancestor->widget.clipChildren)
+                            impl_->applyChildClip(canvas, ancestor->widget.bounds, pixels * impl_->world(*it));
+                    impl_->paintChildren(parent, parent ? impl_->world(parent) : Mat3x3{}, pixels, snapshot, canvas,
+                                         theme, modalRoots, root);
+                    layer.restore();
+                }
+                scope.restore();
+            }
+            catch (...)
+            {
+                impl_->callbackError = std::current_exception();
+                impl_->cancellation = CancelReason::HandlerFailed;
+            }
+        });
+}
+
 bool Context::dispatch(const Event& event)
 {
     if (impl_->processing)
@@ -426,6 +659,9 @@ bool Context::dispatch(const Event& event)
                 ((event.type == EventType::KeyDown || event.type == EventType::KeyRepeat) && event.key == Key::Escape &&
                  impl_->capture))
             {
+                impl_->hover = {};
+                impl_->pointerPosition.reset();
+                invalidate();
                 handled = impl_->capture.has_value() || !impl_->modals.empty();
                 impl_->cancellation = event.type == EventType::WindowFocusLost ? CancelReason::WindowFocusLost
                                       : event.type == EventType::PointerLeave  ? CancelReason::PointerLeftWindow
@@ -457,9 +693,16 @@ bool Context::dispatch(const Event& event)
             WidgetId target = impl_->focus;
             if (pointerEvent(event.type))
             {
+                impl_->pointerPosition = Vec2{event.x, event.y};
+                const auto underPointer = impl_->hit({}, event);
+                if (underPointer != impl_->hover)
+                {
+                    impl_->hover = underPointer;
+                    invalidate();
+                }
                 target = impl_->capture && impl_->capture->pointer == event.pointer && event.type != EventType::Wheel
                              ? impl_->capture->id
-                             : impl_->hit({}, event);
+                             : underPointer;
                 if (event.type == EventType::PointerDown)
                     for (auto id = target; auto* item = impl_->get(id); id = item->widget.parent)
                         if (impl_->focusable(id))
@@ -484,7 +727,7 @@ bool Context::focus(WidgetId id)
     if (id)
     {
         auto* item = impl_->get(id);
-        if (!item || !item->widget.focusable || !impl_->available(id, true) ||
+        if (!item || !item->widget.focusable || !impl_->available(id, true) || !detail::unmap(impl_->world(id), {}) ||
             (!impl_->modals.empty() && !impl_->descendant(id, impl_->modals.back().root)))
             return false;
     }
@@ -505,7 +748,7 @@ void Context::cancelCapture(CancelReason reason)
 }
 void Context::pushModal(WidgetId root)
 {
-    if (!impl_->available(root, true) ||
+    if (!impl_->available(root, true) || !detail::unmap(impl_->world(root), {}) ||
         (!impl_->modals.empty() && !impl_->descendant(root, impl_->modals.back().root)))
         throw std::invalid_argument("UI modal root must be available inside the current scope");
     impl_->transaction(
@@ -548,6 +791,10 @@ void Context::invalidate(Invalidation flags)
 Invalidation Context::takeInvalidation()
 {
     return std::exchange(impl_->dirty, Invalidation::None);
+}
+Invalidation Context::pendingInvalidation() const
+{
+    return impl_->dirty;
 }
 double Context::now() const
 {

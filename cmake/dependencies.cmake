@@ -59,7 +59,7 @@ endif()
 
 # GLFW is only needed by example applications and opt-in GPU integration
 # tests. Library-only builds and installed-package consumers do not need it.
-if(VECTORGL_BUILD_EXAMPLES OR VECTORGL_BUILD_APPS OR VECTORGL_BUILD_GPU_TESTS)
+if(VECTORGL_BUILD_EXAMPLES OR VECTORGL_BUILD_APPS OR VECTORGL_BUILD_GPU_TESTS OR VECTORGL_BUILD_GLFW_ADAPTER)
 	find_package(glfw3 3.3 CONFIG QUIET)
 	if(NOT TARGET glfw)
 		FetchContent_Declare(
@@ -67,11 +67,15 @@ if(VECTORGL_BUILD_EXAMPLES OR VECTORGL_BUILD_APPS OR VECTORGL_BUILD_GPU_TESTS)
 			GIT_REPOSITORY https://github.com/glfw/glfw.git
 			GIT_TAG 3.3.8
 		)
-		set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
+		set(GLFW_INSTALL ${VECTORGL_BUILD_GLFW_ADAPTER} CACHE BOOL "" FORCE)
 		set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 		set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 		set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 		FetchContent_MakeAvailable(glfw)
+		if(VECTORGL_BUILD_GLFW_ADAPTER)
+			install(FILES "${glfw_SOURCE_DIR}/LICENSE.md"
+				DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/vectorgl/GLFW)
+		endif()
 	endif()
 endif()
 

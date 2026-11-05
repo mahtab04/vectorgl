@@ -1,4 +1,4 @@
-# Optional UI input foundation
+# Optional application UI context
 
 VectorGL's optional `vectorgl::ui` target supplies widget registration, input routing,
 keyboard focus, pointer capture, modal scopes, and repaint/wakeup scheduling.
@@ -7,10 +7,11 @@ foundation for future application controls and layout.
 
 The existing `vectorgl/ui.hpp` Label/Button/TextBox helpers remain unchanged.
 Include `vectorgl/ui/context.hpp` to use the new module. `Widget` is a registration
-descriptor with an event callback, not a rendered control. In this slice the app
-supplies fixed, absolute logical rectangles and paints its own content; automatic
-layout, affine widget transforms, UI painting, and a reusable GLFW adapter follow
-in later slices. This module does not yet replace a complete desktop toolkit.
+descriptor with an event callback and an optional WidgetPainter strategy. The app
+supplies local rectangles and affine transforms; Context paints the tree with shared
+themes and matching clip-aware hit tests. The optional GLFW adapter translates host
+events and sizing. See [painting and host integration](ui-glfw.md). Automatic layout
+and the richer control catalog remain later slices.
 
 ## Build and run the routing example
 
@@ -141,7 +142,8 @@ Focus notifications and cancellation settle before returning from dispatch. Call
 
 Exceptions from widget handlers are rethrown after deferred changes settle and
 capture is cancelled. Hosts must catch exceptions at native callback boundaries.
-No render target or GL state is touched. Pathological notification cycles are capped
+Event dispatch touches no render target or GL state. Painting requires an active Canvas
+frame and scopes Canvas styling/transforms/clips. Pathological notification cycles are capped
 at 1,024 transitions, clear focus/capture, and throw `logic_error`.
 Destruction does not invoke application callbacks; tear down application operations
 explicitly if they need cancellation notifications before Context destruction.
@@ -168,8 +170,8 @@ reschedule other timers before they are delivered.
 `Services::clipboard` is an optional injectable interface with explicit results.
 Null means unavailable. No system provider is installed and no user clipboard is
 touched by the tests/example. Clipboard clients must write successfully before
-deleting selected text on Cut. Native clipboard, cursor, and dialog adapters follow
-in later slices.
+deleting selected text on Cut. The optional GLFW adapter provides native clipboard/cursor services;
+dialog services remain a later slice.
 
 Behavior tests cover ID reuse and foreign IDs, focus traversal, no-op key consumption,
 ancestor clipping, bubbling and wheel units, capture identity/cancellation, modal

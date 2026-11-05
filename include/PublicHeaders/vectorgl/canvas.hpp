@@ -121,6 +121,10 @@ public:
      *  @param[in] y  Vertical scale factor.
      */
     void scale(float x, float y);
+    /*! Replaces the current transform with a finite affine matrix. Saved/restored
+     * with Canvas state. Singular transforms are allowed (geometry may collapse).
+     */
+    void setTransform(const Mat3x3& transform);
 
     /*! @brief Sets the fill color for subsequent fill operations.
      *  @param[in] c  The color to use.

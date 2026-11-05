@@ -603,7 +603,18 @@ public:
             glStencilFunc(GL_EQUAL, static_cast<GLint>(depth), 0xFF);
             glStencilOp(GL_KEEP, GL_KEEP, GL_INCR);
             const std::array<float, 4> radii = {clip.radius, clip.radius, clip.radius, clip.radius};
-            drawSDFRoundedRect(clip.position, clip.size, radii, maskStyle, clip.transform);
+            if (clip.radius == 0)
+            {
+                // A sharp rectangular mask preserves shear/reflection exactly.
+                // No AA fringe: each interior fragment increments stencil once.
+                const Vec2 a = clip.position - clip.size * 0.5f;
+                const Vec2 b{a.x + clip.size.x, a.y}, c = a + clip.size, d{a.x, a.y + clip.size.y};
+                detail::PathMesh mask;
+                mask.triangles = {a, b, c, a, c, d};
+                fillPathMesh(mask, Color::White, clip.transform);
+            }
+            else
+                drawSDFRoundedRect(clip.position, clip.size, radii, maskStyle, clip.transform);
             flushSDF();
         }
 

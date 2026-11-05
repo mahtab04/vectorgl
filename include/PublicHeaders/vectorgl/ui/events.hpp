@@ -85,6 +85,7 @@ struct Event
     Modifiers modifiers;
     std::string text; // Committed UTF-8; no IME preedit contract in this slice.
     CancelReason reason = CancelReason::Explicit;
+    float localX = 0, localY = 0; // Pointer coordinates mapped for each recipient.
 };
 /*! Handling is independent of value changes. No-op editing keys can be consumed.
  * Capture is granted only on PointerDown; it ends on the matching release.
