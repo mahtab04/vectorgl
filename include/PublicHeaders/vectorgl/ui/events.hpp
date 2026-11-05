@@ -1,10 +1,23 @@
 #pragma once
 
 #include <cstdint>
+#include <limits>
+#include <optional>
 #include <string>
 
 namespace vectorgl::ui
 {
+/*! Generation-checked identity scoped to its originating Context. */
+struct WidgetId
+{
+    std::uint64_t context = 0, generation = 0;
+    std::uint32_t index = std::numeric_limits<std::uint32_t>::max();
+    explicit operator bool() const
+    {
+        return context != 0 && generation != 0;
+    }
+    bool operator==(const WidgetId&) const = default;
+};
 /*! Logical coordinates and semantic keys; no GLFW or native window types. */
 enum class EventType
 {
@@ -22,7 +35,9 @@ enum class EventType
     // Context-generated notifications, not accepted by dispatch().
     FocusGained,
     FocusLost,
-    Timer
+    Timer,
+    LayoutChanged,
+    FocusWithin
 };
 enum class Key
 {
@@ -86,6 +101,11 @@ struct Event
     std::string text; // Committed UTF-8; no IME preedit contract in this slice.
     CancelReason reason = CancelReason::Explicit;
     float localX = 0, localY = 0; // Pointer coordinates mapped for each recipient.
+    WidgetId related;             // FocusWithin: newly focused descendant.
+};
+struct WheelDelta
+{
+    float x = 0, y = 0;
 };
 /*! Handling is independent of value changes. No-op editing keys can be consumed.
  * Capture is granted only on PointerDown; it ends on the matching release.
@@ -96,5 +116,8 @@ struct EventReply
     bool handled = false;
     bool requestFocus = false;
     bool capturePointer = false;
+    // Unused same-sign delta, in original units; continue bubbling.
+    std::optional<WheelDelta> remainingWheel = std::nullopt;
+    bool blockApplication = false; // Wheel may bubble through UI ancestors but dispatch remains consumed.
 };
 } // namespace vectorgl::ui

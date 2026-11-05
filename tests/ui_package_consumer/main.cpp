@@ -1,3 +1,4 @@
+#include <vectorgl/ui/containers.hpp>
 #include <vectorgl/ui/context.hpp>
 #ifdef VECTORGL_TEST_GLFW
 #define GLFW_INCLUDE_NONE
@@ -14,6 +15,18 @@ int main()
         return 1;
 #endif
     vectorgl::ui::Context ui;
+    {
+        vectorgl::ui::SplitPanel split(ui);
+        ui.setLayout(split.first(), std::make_shared<vectorgl::ui::ColumnLayout>());
+        vectorgl::ui::ScrollView view(ui, split.first());
+        vectorgl::ui::LayoutHints hints;
+        hints.flex = 1;
+        ui.setLayoutHints(view.id(), hints);
+        view.setContentSize({100, 900});
+        ui.layout(split.id(), {0, 0, 640, 480});
+        if (!view.scrollBy({0, 60}) || view.offset().y != 60)
+            return 1;
+    }
     vectorgl::ui::Widget widget;
     widget.painter = std::make_shared<vectorgl::ui::SurfacePainter>();
     widget.focusable = true;

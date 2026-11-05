@@ -253,7 +253,7 @@ public:
             ui.setLayoutHints(id, hints);
         }
         text(preview_,
-             "Minimum sizes stay valid when space is exhausted. Scrolling and split panels arrive in the next slice.",
+             "Minimum sizes stay valid when space is exhausted. See the workspace demo for scrolling and split panels.",
              0.85f);
         text(root_,
              "Focus, painting and hit testing use the same arranged geometry. Unchanged layouts reuse bounded "

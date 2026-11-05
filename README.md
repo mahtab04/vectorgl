@@ -58,6 +58,9 @@ strategies add intrinsic measurement, size constraints, padding/gaps, flexible s
 and spans. The richer control set remains a separate feature.
 See the [UI Context guide](docs/ui-context.md) for usage and routing contracts.
 The [layout guide](docs/ui-layout.md) covers measure/arrange and cache invalidation.
+The [container guide](docs/ui-containers.md) covers constrained split panels,
+nested scrolling, residual wheel routing, and automatic focus reveal. Build
+`vectorgl_ui_workspace` for a four-region resizable workspace example.
 Build `vectorgl_ui_layout` for a responsive property-form example, including type-size
 and wrapped-content changes. It accepts `--width`, `--height`, `--font`,
 `--smoke-test`, and `--screenshot FILE.bmp`.

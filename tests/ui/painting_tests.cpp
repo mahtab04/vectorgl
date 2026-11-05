@@ -8,6 +8,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <vectorgl/canvas.hpp>
+#include <vectorgl/ui/containers.hpp>
 #include <vectorgl/ui/glfw_adapter.hpp>
 
 using namespace vectorgl;
@@ -40,6 +41,29 @@ void pixel(int x, int y, int r, int g, int b)
 }
 void paintTests(Canvas& canvas)
 {
+    // Scrolled geometry shares clipping and hit coordinates at fractional DPI.
+    for (float scale : {1.0f, 1.25f, 2.0f})
+    {
+        Context ui;
+        ScrollView view(ui);
+        view.setContentSize({88, 300});
+        Widget block;
+        block.parent = view.content();
+        block.bounds = {0, 80, 88, 80};
+        block.painter = std::make_shared<Solid>(Color{0, 1, 0, 1});
+        const auto item = ui.add(block);
+        ui.layout(view.id(), {10, 10, 100, 80});
+        view.setOffset({0, 60});
+        glClearColor(0, 0, 0, 1);
+        glClear(GL_COLOR_BUFFER_BIT);
+        canvas.beginFrame(256, 256);
+        ui.paint(canvas, Viewport(256 / scale, 256 / scale, 256, 256));
+        canvas.endFrame();
+        pixel(int(40 * scale), int(50 * scale), 0, 255, 0);
+        pixel(int(40 * scale), int(95 * scale), 0, 0, 0);
+        require(ui.hitTest({40, 50}) == item && ui.hitTest({40, 95}) != item,
+                "scroll viewport painting and clipped picking diverged");
+    }
     Context surfaces;
     Widget panel;
     panel.bounds = {0, 0, 180, 180};
