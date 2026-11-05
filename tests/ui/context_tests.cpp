@@ -1,3 +1,4 @@
+#include <cmath>
 #include <iostream>
 #include <limits>
 #include <stdexcept>
@@ -458,12 +459,67 @@ void timerMutation()
     context.pumpTimers();
     require(secondFired == 1, "cancelled timer fired");
 }
+void transformsAndTheme()
+{
+    Context ui;
+    Widget parent;
+    parent.bounds = {0, 0, 40, 40};
+    parent.clipChildren = true;
+    parent.transform = vectorgl::Mat3x3::translation(100, 50) * vectorgl::Mat3x3::rotation(0.3f);
+    const auto root = ui.add(parent);
+    auto child = field({0, 0, 100, 100});
+    child.parent = root;
+    child.transform = vectorgl::Mat3x3::translation(5, 5);
+    int hits = 0, cancellations = 0;
+    child.onEvent = [&](Context&, WidgetId, const Event& e)
+    {
+        if (e.type == EventType::PointerDown)
+        {
+            require(std::abs(e.localX - 10) < 0.001f && std::abs(e.localY - 10) < 0.001f,
+                    "local pointer mapping failed");
+            ++hits;
+            return EventReply{true, true, true};
+        }
+        if (e.type == EventType::Cancel)
+            ++cancellations;
+        return EventReply{};
+    };
+    const auto id = ui.add(child);
+    auto point = (parent.transform * child.transform).transformPoint({10, 10});
+    require(ui.hitTest(point) == id, "transformed hit missed");
+    auto event = pointer(EventType::PointerDown, point.x, point.y);
+    ui.dispatch(event);
+    require(hits == 1 && ui.hovered() == id && ui.captured() == id, "transformed capture/focus failed");
+    auto outside = parent.transform.transformPoint({45, 20});
+    require(!ui.hitTest(outside), "transformed ancestor clip became its AABB");
+    ui.setTransform(root, vectorgl::Mat3x3::scaling(0, 1));
+    require(!ui.captured() && !ui.focused() && cancellations == 1 && !ui.mapFromRoot(id, point),
+            "singular ancestor did not deactivate subtree");
+    require(!ui.hovered(), "singular subtree retained hover");
+    rejects<std::invalid_argument>([&] { ui.pushModal(root); });
+    auto invalid = vectorgl::Mat3x3::identity();
+    invalid.m[2] = 1;
+    rejects<std::invalid_argument>([&] { ui.setTransform(root, invalid); });
+    auto theme = ui.theme();
+    theme.fontSize = 21;
+    ui.setTheme(theme);
+    require(ui.takeInvalidation() == Invalidation::All && ui.theme().fontSize == 21,
+            "theme change did not invalidate layout/paint");
+    theme.fontSize = 0;
+    rejects<std::invalid_argument>([&] { ui.setTheme(theme); });
+    require(ui.theme().fontSize == 21, "invalid theme replaced existing style");
+    Viewport viewport(100, 80, 200, 100);
+    require(viewport.scaleX() == 2 && viewport.scaleY() == 1.25f, "independent viewport ratios failed");
+    rejects<std::invalid_argument>([] { Viewport invalid(0, 80, 200, 100); });
+}
+
 } // namespace
 
 int main()
 {
     try
     {
+        transformsAndTheme();
         identityAndFocus();
         routingAndClipping();
         captureLifecycle();

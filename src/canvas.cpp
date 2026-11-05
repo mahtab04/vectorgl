@@ -150,6 +150,14 @@ void Canvas::scale(float x, float y)
     currentState_.transform = currentState_.transform * Mat3x3::scaling(x, y);
 }
 
+void Canvas::setTransform(const Mat3x3& transform)
+{
+    if (!std::all_of(transform.m.begin(), transform.m.end(), [](float value) { return std::isfinite(value); }) ||
+        transform.m[2] != 0 || transform.m[5] != 0 || transform.m[8] != 1)
+        throw std::invalid_argument("Canvas::setTransform() requires a finite affine matrix");
+    currentState_.transform = transform;
+}
+
 void Canvas::setFillColor(Color c)
 {
     currentState_.fillColor = c;

@@ -3,6 +3,7 @@
 #include <memory>
 #include <optional>
 
+#include "vectorgl/ui/painting.hpp"
 #include "vectorgl/ui/services.hpp"
 #include "vectorgl/ui/widget.hpp"
 
@@ -31,6 +32,17 @@ public:
     void setBounds(WidgetId id, Bounds bounds);
     void setVisible(WidgetId id, bool visible);
     void setEnabled(WidgetId id, bool enabled);
+    void setTransform(WidgetId id, const Mat3x3& transform);
+    std::optional<Vec2> mapFromRoot(WidgetId id, Vec2 point) const;
+    WidgetId hitTest(Vec2 point) const;
+    WidgetId hovered() const;
+    void setTheme(Theme theme);
+    const Theme& theme() const;
+    /*! Paint into an active Canvas frame with identity root UI coordinates.
+     * Preserves Canvas style/transform/clip state. Does not clear or bind FBOs.
+     * Non-axis-aligned ancestor clips require at least 8 framebuffer stencil bits.
+     */
+    void paint(Canvas& canvas, const Viewport& viewport);
 
     /*! Returns true if consumed, including a modal barrier or focus traversal.
      * Pointer input bubbles through ancestors; keys/text begin at focus owner.
@@ -52,6 +64,7 @@ public:
 
     void invalidate(Invalidation flags = Invalidation::Paint);
     Invalidation takeInvalidation();
+    Invalidation pendingInvalidation() const;
     double now() const;
     void requestWakeup(WidgetId id, double deadline); // Replaces this widget's deadline.
     void cancelWakeup(WidgetId id);

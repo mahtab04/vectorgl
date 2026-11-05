@@ -53,14 +53,22 @@ The opt-in `vectorgl::ui` static target adds a host-independent Context over
 registered widget descriptors. It manages identity, focus scopes, event bubbling,
 capture, cancellation, deferred removal, and invalidation/deadlines. It neither
 creates a window nor initializes OpenGL; it does not use Scene picking for UI hits.
-This first slice uses fixed root-logical rectangles and ancestor rectangular clips.
-Application callbacks still own editing/activation behavior and painting.
+Widgets use application-supplied local rectangles and composed affine transforms.
+Inverse mapping drives pointer coordinates and ancestor clip hit tests. Painting
+uses the same transforms and order, with modal subtrees raised in stack order.
+`WidgetPainter` strategies receive a scoped `PaintContext` and a shared Theme;
+application callbacks retain editing/activation behavior. Exact transformed sharp
+rectangular masks use stencil triangles, preserving shear and reflections.
 
 Registrations have context-scoped generation IDs. Callback storage stays alive
 until dispatch settles, including cancel/lost-focus delivery for removed widgets.
 The model is bound to one UI thread. Platform services and clocks are injectable,
 and optional package discovery exports `vectorgl::ui` only on request.
 See [UI Context](docs/ui-context.md) for routing and failure contracts.
+The optional `vectorgl::glfw` adapter translates explicitly forwarded host events,
+provides window/framebuffer/content-scale conversion, and supplies clipboard/cursor
+services. It owns neither native callbacks nor the window/context. Package components
+keep UI-only discovery independent of GLFW. See [host integration](docs/ui-glfw.md).
 
 ## Main classes
 

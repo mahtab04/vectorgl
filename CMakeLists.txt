@@ -16,6 +16,10 @@ option(VECTORGL_BUILD_GPU_TESTS "Build OpenGL integration tests (requires GLFW a
 option(VECTORGL_ENABLE_HINTED_TEXT "Use FreeType for hinted small-text bitmap rendering" ON)
 option(VECTORGL_BUILD_UI "Build the optional application UI input foundation" OFF)
 option(VECTORGL_BUILD_UI_EXAMPLES "Build the headless UI routing example" ${VECTORGL_BUILD_EXAMPLES})
+option(VECTORGL_BUILD_GLFW_ADAPTER "Build the optional UI GLFW host adapter" OFF)
+if(VECTORGL_BUILD_GLFW_ADAPTER AND NOT VECTORGL_BUILD_UI)
+    message(FATAL_ERROR "VECTORGL_BUILD_GLFW_ADAPTER requires VECTORGL_BUILD_UI=ON")
+endif()
 
 add_subdirectory(include/PublicHeaders)
 add_subdirectory(include/InternalHeaders)
