@@ -96,6 +96,14 @@ remains application policy. Label performs constrained measurement and cached
 codepoint-safe ellipsis; display-only labels/separators are pointer-transparent.
 See [workspace controls](docs/ui-workspace-controls.md).
 
+ListView composes a fixed-size registered subtree with ScrollView and a visible-row
+painter. Immutable ListModel snapshots supply stable item IDs; replacement builds
+ID/enabled indices once and reconciles selection/current state by identity.
+Scrolling, input targeting, and painting operate on cached geometry and visible
+rows rather than per-item widgets. The default text painter and app-defined
+ListRowPainter strategies share row/ancestor clipping and Canvas state isolation.
+See [virtualized lists](docs/ui-lists.md).
+
 Registrations have context-scoped generation IDs. Callback storage stays alive
 until dispatch settles, including cancel/lost-focus delivery for removed widgets.
 The model is bound to one UI thread. Platform services and clocks are injectable,
