@@ -292,7 +292,7 @@ int main(int argc, char* argv[])
     int svgSymbolText = svgCache.loadFromString(kSvgSymbolText);
 
     if (svgLogo < 0 || svgGears < 0 || svgChart < 0 || svgIcon < 0 || svgFlower < 0 || svgBezier < 0 ||
-      svgGradients < 0 || svgCssStyle < 0 || svgMarkers < 0 || svgSymbolText < 0)
+        svgGradients < 0 || svgCssStyle < 0 || svgMarkers < 0 || svgSymbolText < 0)
     {
         std::cerr << "Failed to parse one or more inline SVGs\n";
         return 1;
@@ -307,8 +307,8 @@ int main(int argc, char* argv[])
         hasFileSvg = svgCache.valid(svgFile);
         if (hasFileSvg)
         {
-            std::cout << "Loaded SVG: " << argv[1] << " (" << svgCache.width(svgFile) << "x"
-                      << svgCache.height(svgFile) << ")\n";
+            std::cout << "Loaded SVG: " << argv[1] << " (" << svgCache.width(svgFile) << "x" << svgCache.height(svgFile)
+                      << ")\n";
         }
         else
         {
@@ -419,7 +419,7 @@ int main(int argc, char* argv[])
         if (hasFont)
         {
             canvas.setFillColor(vectorgl::Color{0.6f, 0.7f, 0.9f, 0.8f});
-          canvas.fillText("Symbol reuse + text/tspan", 900, 320);
+            canvas.fillText("Symbol reuse + text/tspan", 900, 320);
         }
         svgCache.render(canvas, svgSymbolText, 900, 340, 1.0f);
 

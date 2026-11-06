@@ -1,108 +1,87 @@
 name: Release
-
 on:
   push:
-    tags:
-      - "v*"
+    tags: ['v*']
   workflow_dispatch:
-
 permissions:
   contents: read
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   package:
-    name: Package ${{ matrix.platform }}
+    name: SDK ${{ matrix.platform }} ${{ matrix.flavor }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
         include:
-          - platform: linux-x64
-            os: ubuntu-latest
-            cmake_config: -DCMAKE_BUILD_TYPE=Release
-          - platform: windows-x64
-            os: windows-latest
-            cmake_config: ""
-
-    runs-on: ${{ matrix.os }}
-
+          - {os: ubuntu-24.04, platform: linux-x64-gcc, flavor: core, preset: library-release, generator: Ninja}
+          - {os: ubuntu-24.04, platform: linux-x64-gcc, flavor: full, preset: workspace-release, generator: Ninja}
+          - {os: windows-latest, platform: windows-x64-msvc, flavor: core, preset: library-release, generator: default}
+          - {os: windows-latest, platform: windows-x64-msvc, flavor: full, preset: workspace-release, generator: default}
     steps:
-      - name: Check out source
-        uses: actions/checkout@v6
-
-      - name: Install Linux OpenGL dependencies
+      - uses: actions/checkout@v6
+      - name: Install Linux tools and host development packages
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install --yes \
-            libgl1-mesa-dev \
-            libx11-dev \
-            libxcursor-dev \
-            libxi-dev \
-            libxinerama-dev \
-            libxrandr-dev
-
-      - name: Configure
-        run: >
-          cmake -S . -B build
-          ${{ matrix.cmake_config }}
-          -DVECTORGL_BUILD_EXAMPLES=OFF
-          -DVECTORGL_BUILD_TESTS=ON
-
-      - name: Build
-        run: cmake --build build --config Release --parallel
-
-      - name: Test
-        run: ctest --test-dir build -C Release --output-on-failure
-
-      - name: Install
-        run: cmake --install build --config Release --prefix staging
-
-      - name: Create Linux archive
-        if: runner.os == 'Linux'
-        run: |
-          mkdir -p release-assets
-          tar -czf "release-assets/vectorgl-${{ github.ref_name }}-linux-x64.tar.gz" -C staging .
-
-      - name: Create Windows archive
-        if: runner.os == 'Windows'
+          sudo apt-get install --yes ninja-build libgl1-mesa-dev libx11-dev libxcursor-dev libxi-dev libxinerama-dev libxrandr-dev
+      - name: Cache dependency sources
+        uses: actions/cache@v4
+        with:
+          path: build/${{ matrix.preset }}/_deps/*-src
+          key: deps-${{ runner.os }}-${{ matrix.preset }}-${{ hashFiles('cmake/dependencies.cmake') }}
+      - name: Build and verify installed consumers
+        run: >-
+          cmake -DPRESET=${{ matrix.preset }} -DCONFIGURATION=Release
+          "-DGENERATOR=${{ matrix.generator }}" -P scripts/ci-build.cmake
+      - name: Archive, relocate and verify SDK
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force release-assets | Out-Null
-          Compress-Archive -Path staging\* -DestinationPath "release-assets\vectorgl-${{ github.ref_name }}-windows-x64.zip"
-
-      - name: Upload package
+          $buildDirectory = Join-Path $PWD 'build/${{ matrix.preset }}'
+          $generatorLine = Get-Content (Join-Path $buildDirectory 'CMakeCache.txt') | Where-Object { $_ -match '^CMAKE_GENERATOR:INTERNAL=' }
+          $generator = $generatorLine.Substring($generatorLine.IndexOf('=') + 1)
+          $tag = if ('${{ github.event_name }}' -eq 'push') { '${{ github.ref_name }}' } else { '' }
+          cmake "-DBUILD_DIR=$buildDirectory" "-DOUTPUT_DIR=$PWD/release-assets" "-DGENERATOR=$generator" -DCONFIGURATION=Release -DFLAVOR=${{ matrix.flavor }} -DPLATFORM=${{ matrix.platform }} "-DEXPECTED_TAG=$tag" -P scripts/package.cmake
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Upload verified archive and checksums
         uses: actions/upload-artifact@v6
         with:
-          name: vectorgl-${{ github.ref_name }}-${{ matrix.platform }}
+          name: vectorgl-${{ matrix.platform }}-${{ matrix.flavor }}
           path: release-assets/*
           if-no-files-found: error
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: diagnostics-${{ matrix.platform }}-${{ matrix.flavor }}
+          path: |
+            build/**/results.xml
+            build/**/Testing/Temporary/*.log
+            build/**/CMakeFiles/CMakeConfigureLog.yaml
+          if-no-files-found: ignore
 
   publish:
     name: Publish GitHub release
     if: github.event_name == 'push'
     needs: package
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       actions: read
       contents: write
-
     steps:
-      - name: Check out source
-        uses: actions/checkout@v6
-
-      - name: Download packages
-        uses: actions/download-artifact@v8
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v8
         with:
-          pattern: vectorgl-${{ github.ref_name }}-*
+          pattern: vectorgl-*
           path: release-assets
           merge-multiple: true
-
-      - name: Publish release
+      - name: Publish verified SDKs
         env:
           GH_TOKEN: ${{ github.token }}
-        run: >
-          gh release create "${{ github.ref_name }}"
-          release-assets/*
-          --verify-tag
-          --generate-notes
-          --title "VectorGL ${{ github.ref_name }}"
+        run: >-
+          gh release create "${{ github.ref_name }}" release-assets/*
+          --verify-tag --generate-notes --title "VectorGL ${{ github.ref_name }}"

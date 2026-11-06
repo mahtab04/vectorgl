@@ -21,3 +21,5 @@ target_compile_features(vectorgl_package_consumer PRIVATE cxx_std_20)
 
 enable_testing()
 add_test(NAME vectorgl_package_consumer COMMAND vectorgl_package_consumer)
+
+set_tests_properties(vectorgl_package_consumer PROPERTIES LABELS "package")

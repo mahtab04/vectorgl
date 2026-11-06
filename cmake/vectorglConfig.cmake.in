@@ -2,7 +2,11 @@
 
 if(@VECTORGL_ENABLE_HINTED_TEXT@)
     include(CMakeFindDependencyMacro)
-    find_dependency(freetype CONFIG)
+    if("@VECTORGL_FREETYPE_RESOLVED@" STREQUAL "SYSTEM")
+        find_dependency(Freetype)
+    else()
+        find_dependency(freetype CONFIG)
+    endif()
 endif()
 
 include("${CMAKE_CURRENT_LIST_DIR}/vectorglTargets.cmake")

@@ -3,6 +3,7 @@
 set -Eeuo pipefail
 
 configuration="Debug"
+profile="developer"
 clean=0
 skip_tests=0
 skip_examples=0
@@ -17,6 +18,7 @@ Usage:
 
 Options:
   --configuration <Debug|Release>  Build configuration (default: Debug)
+  --profile <name>                 library, developer, ui, workspace, full
   --clean                          Remove the selected build directory first
   --skip-tests                     Do not build or run tests
   --skip-examples                  Do not build example applications
@@ -39,6 +41,11 @@ while (($#)); do
         --configuration)
             (($# >= 2)) || fail "--configuration requires a value"
             configuration="$2"
+            shift 2
+            ;;
+        --profile)
+            (($# >= 2)) || fail "--profile requires a value"
+            profile="$2"
             shift 2
             ;;
         --clean)
@@ -73,13 +80,18 @@ case "$configuration" in
     *) fail "configuration must be Debug or Release" ;;
 esac
 
+case "$profile" in
+    library|developer|ui|workspace|full) ;;
+    *) fail "unknown build profile: $profile" ;;
+esac
+
 command -v cmake >/dev/null 2>&1 ||
-    fail "CMake 3.20 or newer was not found in PATH"
+    fail "CMake 3.21 or newer was not found in PATH"
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 project_root="$(cd -- "$script_dir/.." && pwd -P)"
 configuration_name="$(printf '%s' "$configuration" | tr '[:upper:]' '[:lower:]')"
-build_directory="$project_root/build/local-$configuration_name"
+build_directory="$project_root/build/local-$profile-$configuration_name"
 
 printf '[VectorGL] %s\n' "$(cmake --version | head -n 1)"
 
@@ -103,7 +115,7 @@ printf '[VectorGL] Generator: %s\n' "$generator"
 
 if ((clean)) && [[ -e "$build_directory" ]]; then
     case "$build_directory" in
-        "$project_root"/build/local-debug|"$project_root"/build/local-release)
+        "$project_root"/build/local-"$profile"-debug|"$project_root"/build/local-"$profile"-release)
             step "Cleaning $build_directory"
             rm -rf -- "$build_directory"
             ;;
@@ -113,19 +125,20 @@ if ((clean)) && [[ -e "$build_directory" ]]; then
     esac
 fi
 
-build_examples="ON"
-build_tests="ON"
-((skip_examples)) && build_examples="OFF"
-((skip_tests)) && build_tests="OFF"
-
 configure_arguments=(
     -S "$project_root"
+    --preset "$profile"
     -B "$build_directory"
     -G "$generator"
     "-DCMAKE_BUILD_TYPE=$configuration"
-    "-DVECTORGL_BUILD_EXAMPLES=$build_examples"
-    "-DVECTORGL_BUILD_TESTS=$build_tests"
 )
+
+if ((skip_examples)); then
+    configure_arguments+=(-DVECTORGL_BUILD_EXAMPLES=OFF -DVECTORGL_BUILD_UI_EXAMPLES=OFF -DVECTORGL_BUILD_APPS=OFF)
+fi
+if ((skip_tests)); then
+    configure_arguments+=(-DVECTORGL_BUILD_TESTS=OFF -DVECTORGL_BUILD_APP_TESTS=OFF -DVECTORGL_BUILD_GPU_TESTS=OFF)
+fi
 
 step "Configuring $configuration in $build_directory"
 cmake "${configure_arguments[@]}"
@@ -133,9 +146,9 @@ cmake "${configure_arguments[@]}"
 step "Building $configuration"
 cmake --build "$build_directory" --config "$configuration" --parallel
 
-if ((!skip_tests)); then
+if ((!skip_tests)) && [[ "$profile" != library ]]; then
     step "Running tests"
-    ctest --test-dir "$build_directory" -C "$configuration" --output-on-failure
+    ctest --test-dir "$build_directory" -C "$configuration" --output-on-failure --no-tests=error
 fi
 
 printf '\n[VectorGL] Build completed successfully.\n'

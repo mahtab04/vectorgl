@@ -326,7 +326,7 @@ if accessed from multiple threads.
 |---|---|
 | C++ Standard | C++20 |
 | Compiler | MSVC 2022, GCC 12+, or Clang 15+ |
-| CMake | 3.20+ |
+| CMake | 3.21+ (4.2+ for VS 2026) |
 | GPU | OpenGL 3.3 capable; 8-bit stencil buffer for rounded clipping |
 
 > All other dependencies are fetched automatically via **CMake FetchContent**.
@@ -337,9 +337,9 @@ if accessed from multiple threads.
 
 | Dependency | Version | Purpose |
 |---|---|---|
-| [GLFW](https://www.glfw.org/) | 3.3.8 | Window/context management *(examples only)* |
+| [GLFW](https://www.glfw.org/) | 3.3.8 | Optional host adapter, apps, examples and GPU tests |
 | [glad](https://github.com/Dav1dde/glad) | 2.0.8 | Vendored OpenGL 3.3 loader |
-| [stb](https://github.com/nothings/stb) | latest | Image loading (`stb_image`) and font rasterization (`stb_truetype`) |
+| [stb](https://github.com/nothings/stb) | Pinned commit | Image loading (`stb_image`) and font rasterization (`stb_truetype`) |
 
 ---
 
@@ -348,57 +348,49 @@ if accessed from multiple threads.
 For prerequisites, troubleshooting, and contribution steps,
 see [Building and Contributing](CONTRIBUTING.md).
 
-### Windows helper
+Choose a profile and use it for configure, build and test:
+
+```sh
+cmake --preset developer
+cmake --build --preset developer
+ctest --preset developer
+```
+
+- `library`: core SDK only, without tests, UI, GLFW or developer tools.
+- `developer`: core library and CPU tests.
+- `ui`: UI module and headless tests.
+- `workspace`: UI examples, GLFW adapter and native dialogs.
+- `full`: all examples, Flow Studio, tests and GPU smoke checks.
+
+Release profiles include `library-release`, `workspace-release` and `full-release`.
+Linux also has `sanitizers` and `quality`. Existing Windows/Linux/MinGW presets
+remain available. Generic presets let CMake choose the generator; select Ninja or
+MinGW explicitly when using those toolchains. Visual Studio 2022/2026 discovery
+is preserved.
+
+The helpers select the available toolchain and use these same profiles:
 
 ```bat
-scripts\build.bat -Configuration Debug
+scripts\build.bat -Profile workspace
 ```
 
-The helper works from PowerShell or Command Prompt. It detects the available
-toolchain, builds examples, deploys MinGW runtime DLLs when needed, and runs
-tests. See the contribution guide for direct PowerShell usage and options.
-
-Linux and macOS users can run:
-
-```bash
-./scripts/build.sh
+```sh
+./scripts/build.sh --profile workspace
 ```
 
-Visual Studio is optional on Windows: the helper also detects MinGW-w64,
-Ninja with GCC/Clang, and NMake developer environments.
+For the showcase, configure `full`, then build target `vectorgl_showcase`. For the
+UI workspace, build `vectorgl_ui_editor_workspace` from `workspace`. Visual Studio
+executables are under `build/<preset>/example/Debug/`; Ninja executables are under
+`build/<preset>/example/`.
 
-GitHub Actions tests both Debug and Release with Windows MSVC and Windows
-MinGW GCC/Ninja, in addition to Linux GCC.
+Developer checks are opt-in. Library tests, app tests, examples and applications
+are independently controlled. See [the build guide](CONTRIBUTING.md) for options,
+offline/system dependencies, test labels and compiler setup.
 
-### Standard CMake
-
-```bash
-# Configure
-cmake -S vectorgl -B build
-
-# Build
-cmake --build build --config Debug
-
-# Build the flagship showcase
-cmake --build build --config Debug --target vectorgl_showcase
-```
-
-### Using CMake Presets
-
-```bash
-cmake --preset windows-debug
-cmake --build --preset windows-debug
-ctest --preset windows-debug
-```
-
-The Windows presets let CMake select the installed Visual Studio version,
-including VS 2022 and VS 2026. VS 2026 requires CMake 4.2 or newer;
-VS 2022 and the presets require CMake 3.21 or newer.
-
-For MinGW-w64 with `gcc`, `g++`, and `mingw32-make` in PATH, use
-`windows-mingw-debug` or `windows-mingw-release` instead. The Windows helper
-also detects MinGW automatically and uses separate output directories for
-each generator/compiler combination.
+[Releases](https://github.com/mahtab04/vectorgl/releases) provide core/full static
+SDK archives with compiler/platform metadata and checksums. Full SDKs include the
+optional UI, host and dialog components. Release CI verifies external consumers
+after extracting and relocating each archive.
 
 ---
 

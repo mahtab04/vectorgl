@@ -304,13 +304,21 @@ docs/                            GitHub Pages documentation
 
 ## Build and package flow
 
-The top-level CMake project compiles VectorGL as a static library. GLAD is
-compiled directly into that library. stb is a private build dependency. GLFW is
-only discovered or fetched when examples or GPU integration tests are enabled.
+The root CMake file orchestrates options, dependencies and subdirectories.
+`src/CMakeLists.txt` owns the renderer target; `src/ui/CMakeLists.txt` owns optional
+UI/host/dialog targets. `cmake/install.cmake` defines SDK installation/exports,
+while `cmake/options.cmake` owns namespaced configuration. Public include paths
+and static target names are unchanged. App tests are independent of engine tests.
 
-The install step exports `vectorgl::vectorgl` and installs public headers,
-shaders, and package configuration files. CI then builds a separate consumer
-with `find_package(vectorgl CONFIG REQUIRED)` to verify the exported package.
+Shared profiles in `CMakePresets.json` drive local scripts and CI. First-party
+formatting is independent of enabled targets; warnings/analysis remain private.
+Dependency source overrides and installed FreeType/GLFW support consumer builds
+without forced parent cache changes. Graphics-only builds do not resolve GLFW.
+
+Core/full release archives carry metadata/licenses/checksums and are extracted
+into a new prefix for external-consumer verification before publication. See
+[Building and contributing](CONTRIBUTING.md) for profiles, test labels and package
+commands. No runtime/source directory moves are required by this build refactor.
 
 ## Adding a feature
 

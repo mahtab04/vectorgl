@@ -1,9 +1,11 @@
-#include "editor_app.hpp"
 #include <glad/gl.h>
-#include <GLFW/glfw3.h>
-#include <iostream>
 
+#include <GLFW/glfw3.h>
+
+#include <iostream>
 #include <vectorgl/canvas.hpp>
+
+#include "editor_app.hpp"
 
 static constexpr int WIN_W = 1280;
 static constexpr int WIN_H = 680;
@@ -92,36 +94,37 @@ int main()
         lastTime = currentTime;
 
         app.input().beginFrame(app.state());
-        app.input().handlePointerMove(app.state(), app.model(), static_cast<float>(cursorX), static_cast<float>(cursorY));
+        app.input().handlePointerMove(app.state(), app.model(), static_cast<float>(cursorX),
+                                      static_cast<float>(cursorY));
 
         const bool leftDown = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
         if (leftDown && !wasLeftDown)
         {
-            app.input().handlePointerDown(app.state(), app.model(), static_cast<float>(cursorX), static_cast<float>(cursorY),
-                                          GLFW_MOUSE_BUTTON_LEFT);
+            app.input().handlePointerDown(app.state(), app.model(), static_cast<float>(cursorX),
+                                          static_cast<float>(cursorY), GLFW_MOUSE_BUTTON_LEFT);
         }
         else if (!leftDown && wasLeftDown)
         {
-            app.input().handlePointerUp(app.state(), app.model(), static_cast<float>(cursorX), static_cast<float>(cursorY),
-                                        GLFW_MOUSE_BUTTON_LEFT);
+            app.input().handlePointerUp(app.state(), app.model(), static_cast<float>(cursorX),
+                                        static_cast<float>(cursorY), GLFW_MOUSE_BUTTON_LEFT);
         }
         wasLeftDown = leftDown;
 
         const bool middleDown = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_MIDDLE) == GLFW_PRESS;
         if (middleDown && !wasMiddleDown)
         {
-            app.input().handlePointerDown(app.state(), app.model(), static_cast<float>(cursorX), static_cast<float>(cursorY),
-                                          GLFW_MOUSE_BUTTON_MIDDLE);
+            app.input().handlePointerDown(app.state(), app.model(), static_cast<float>(cursorX),
+                                          static_cast<float>(cursorY), GLFW_MOUSE_BUTTON_MIDDLE);
         }
         else if (!middleDown && wasMiddleDown)
         {
-            app.input().handlePointerUp(app.state(), app.model(), static_cast<float>(cursorX), static_cast<float>(cursorY),
-                                        GLFW_MOUSE_BUTTON_MIDDLE);
+            app.input().handlePointerUp(app.state(), app.model(), static_cast<float>(cursorX),
+                                        static_cast<float>(cursorY), GLFW_MOUSE_BUTTON_MIDDLE);
         }
         wasMiddleDown = middleDown;
 
-        const bool deleteDown = glfwGetKey(window, GLFW_KEY_DELETE) == GLFW_PRESS ||
-          glfwGetKey(window, GLFW_KEY_BACKSPACE) == GLFW_PRESS;
+        const bool deleteDown =
+            glfwGetKey(window, GLFW_KEY_DELETE) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_BACKSPACE) == GLFW_PRESS;
         if (deleteDown && !wasDeleteDown)
             app.input().deleteSelected(app.model(), app.state());
         wasDeleteDown = deleteDown;

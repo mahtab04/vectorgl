@@ -55,3 +55,5 @@ if(VECTORGL_TEST_WORKSPACE)
         set_tests_properties(vectorgl_installed_workspace_smoke PROPERTIES TIMEOUT 45)
     endif()
 endif()
+
+set_tests_properties(vectorgl_ui_consumer PROPERTIES LABELS "package")

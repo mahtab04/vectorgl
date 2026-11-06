@@ -99,8 +99,8 @@ int main()
         from.mask = vectorgl::AnimTarget::Opacity;
         to.opacity = 1.0f;
         to.mask = vectorgl::AnimTarget::Opacity;
-        scene.animator().emplace<vectorgl::TweenAnimation>(circle->id(), from, to, 2.0f,
-                                                           vectorgl::Ease::InOutCubic, vectorgl::LoopMode::PingPong);
+        scene.animator().emplace<vectorgl::TweenAnimation>(circle->id(), from, to, 2.0f, vectorgl::Ease::InOutCubic,
+                                                           vectorgl::LoopMode::PingPong);
     }
 
     double lastTime = glfwGetTime();

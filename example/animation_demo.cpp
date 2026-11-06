@@ -80,7 +80,7 @@ int main()
         to.y = 450.0f;
         to.mask = vectorgl::AnimTarget::PosY;
         animator.emplace<vectorgl::TweenAnimation>(ball->id(), from, to, 2.0f, easings[i].ease,
-                               vectorgl::LoopMode::PingPong);
+                                                   vectorgl::LoopMode::PingPong);
     }
 
     // --- Row 3: Rotating group of shapes ---
