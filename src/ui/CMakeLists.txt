@@ -4,6 +4,8 @@ add_library(vectorgl_ui STATIC
     controls.cpp text_field.cpp numeric_editor.cpp control_detail.hpp
     overlays.cpp combo_box.cpp
     label.cpp tab_view.cpp section_search.cpp
+    list_view.cpp
+    ${PROJECT_SOURCE_DIR}/include/PublicHeaders/vectorgl/ui/list_view.hpp
     ${PROJECT_SOURCE_DIR}/include/PublicHeaders/vectorgl/ui/workspace_controls.hpp
     ${PROJECT_SOURCE_DIR}/include/PublicHeaders/vectorgl/ui/overlays.hpp
     ${PROJECT_SOURCE_DIR}/include/PublicHeaders/vectorgl/ui/controls.hpp

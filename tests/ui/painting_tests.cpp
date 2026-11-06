@@ -11,6 +11,7 @@
 #include <vectorgl/ui/containers.hpp>
 #include <vectorgl/ui/controls.hpp>
 #include <vectorgl/ui/glfw_adapter.hpp>
+#include <vectorgl/ui/list_view.hpp>
 #include <vectorgl/ui/overlays.hpp>
 #include <vectorgl/ui/workspace_controls.hpp>
 
@@ -44,6 +45,93 @@ void pixel(int x, int y, int r, int g, int b)
 }
 void paintTests(Canvas& canvas)
 {
+    class CountedModel final : public ListModel
+    {
+    public:
+        mutable std::size_t ids = 0, texts = 0;
+        std::size_t rowCount() const override
+        {
+            return 2000;
+        }
+        ItemId itemId(std::size_t row) const override
+        {
+            ++ids;
+            return row + 1;
+        }
+        std::string_view text(std::size_t) const override
+        {
+            ++texts;
+            return "Row";
+        }
+    };
+    class Rows final : public ListRowPainter
+    {
+    public:
+        std::vector<std::size_t> visited;
+        void paint(PaintContext& p, const ListModel& model, const ListRow& row) override
+        {
+            visited.push_back(row.index);
+            require(!model.text(row.index).empty(), "Visible row text unavailable");
+            // Deliberately oversized; the view must isolate each custom painter.
+            p.fillRect({row.bounds.x - 10, row.bounds.y - 10, row.bounds.width + 20, row.bounds.height + 20},
+                       row.index % 2 ? Color::Blue : Color::Red);
+        }
+    };
+    for (float scale : {1.0f, 1.25f, 1.5f, 2.0f})
+    {
+        Context ui;
+        std::vector<ListItem> items;
+        for (ItemId i = 1; i <= 2000; ++i)
+            items.push_back({i, "Row"});
+        auto rows = std::make_shared<Rows>();
+        ListViewOptions options;
+        options.rowHeight = 20;
+        options.rowPainter = rows;
+        ListView list(ui, {}, std::make_shared<VectorListModel>(std::move(items)), options);
+        ui.layout(list.id(), {10, 10, 100, 100});
+        list.setScrollOffset(20005);
+        require(list.visibleRows() == ListRowRange{1000, 1006}, "GPU list range mismatch");
+        glClearColor(0, 0, 0, 1);
+        glClear(GL_COLOR_BUFFER_BIT);
+        canvas.beginFrame(256, 256);
+        ui.paint(canvas, Viewport(256 / scale, 256 / scale, 256, 256));
+        canvas.endFrame();
+        require(rows->visited == std::vector<std::size_t>({1000, 1001, 1002, 1003, 1004, 1005}),
+                "Painting visited offscreen list rows");
+        pixel(int(30 * scale), int(16 * scale), 255, 0, 0);
+        pixel(int(30 * scale), int(30 * scale), 0, 0, 255);
+        pixel(int(30 * scale), int(112 * scale), 0, 0, 0);
+        pixel(int(8 * scale), int(30 * scale), 0, 0, 0);
+        const auto viewport = ui.bounds(list.viewportId()).value();
+        auto point = ui.mapToRoot(list.viewportId(), {viewport.x + 15, viewport.y + 5}).value();
+        Event e;
+        e.type = EventType::PointerDown;
+        e.x = point.x;
+        e.y = point.y;
+        e.button = PointerButton::Primary;
+        ui.dispatch(e);
+        e.type = EventType::PointerUp;
+        ui.dispatch(e);
+        require(list.selection() == std::vector<ItemId>{1001}, "List pixels and picking disagree at DPI scale");
+        require(!ui.isDescendant(ui.hitTest({8, 30}), list.id()), "List clipped pixels remained clickable");
+    }
+    {
+        Context ui;
+        auto theme = ui.theme();
+        theme.fontPath = VECTORGL_TEST_FONT;
+        ui.setTheme(theme);
+        auto model = std::make_shared<CountedModel>();
+        ListView list(ui, {}, model);
+        ui.layout(list.id(), {0, 0, 200, 200});
+        list.setScrollOffset(36005);
+        const auto range = list.visibleRows();
+        glClear(GL_COLOR_BUFFER_BIT);
+        canvas.beginFrame(256, 256);
+        ui.paint(canvas, Viewport(256, 256, 256, 256));
+        canvas.endFrame();
+        require(model->ids == 2000 && model->texts == range.end - range.first,
+                "Default list painter fetched offscreen row text or rescanned IDs");
+    }
     for (float scale : {1.0f, 1.25f, 1.5f, 2.0f})
     {
         Context ui;

@@ -2,6 +2,7 @@
 #include <vectorgl/ui/containers.hpp>
 #include <vectorgl/ui/context.hpp>
 #include <vectorgl/ui/controls.hpp>
+#include <vectorgl/ui/list_view.hpp>
 #include <vectorgl/ui/overlays.hpp>
 #include <vectorgl/ui/workspace_controls.hpp>
 #ifdef VECTORGL_TEST_GLFW
@@ -19,6 +20,15 @@ int main()
         return 1;
 #endif
     vectorgl::ui::Context ui;
+    {
+        auto model = std::make_shared<vectorgl::ui::VectorListModel>(
+            std::vector<vectorgl::ui::ListItem>{{100, "First"}, {200, "Second"}});
+        vectorgl::ui::ListView list(ui, {}, model);
+        ui.layout(list.id(), {0, 0, 320, 240});
+        list.setSelection({200});
+        if (list.currentItem() != 200 || list.selection() != std::vector<vectorgl::ui::ItemId>{200})
+            return 1;
+    }
     {
         vectorgl::Canvas canvas;
         vectorgl::ui::TabView tabs(ui, {}, {{{"One"}, {"Two"}}, 0});
