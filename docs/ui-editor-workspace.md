@@ -13,7 +13,7 @@ numeric editor, checkbox, collapsible section, and symbolic ComboBox. Save/Disca
 Cancel returns an explicit result; persistence remains an application hook.
 
 ```powershell
-cmake --preset windows-debug -DVECTORGL_BUILD_UI=ON -DVECTORGL_BUILD_GLFW_ADAPTER=ON -DVECTORGL_BUILD_UI_EXAMPLES=ON
+cmake --preset windows-debug -DVECTORGL_BUILD_UI=ON -DVECTORGL_BUILD_GLFW_ADAPTER=ON -DVECTORGL_BUILD_UI_EXAMPLES=ON -DVECTORGL_BUILD_DIALOGS=ON
 cmake --build build/windows-debug --config Debug --target vectorgl_ui_editor_workspace
 .\build\windows-debug\example\Debug\vectorgl_ui_editor_workspace.exe
 ```
@@ -94,12 +94,17 @@ headers. No build-tree include paths or example-private headers are provided.
 Set the GPU option OFF to compile without running a graphical test. UI-only/base
 consumer configurations remain separate and do not import the host accidentally.
 
-## Remaining release work
+## Platform services and remaining release work
 
-Roadmap milestone 11 remains: Windows/Linux file-dialog services, remaining host
-hardening, platform matrix results, and migration guidance. This sample's Save
-action reports an application request; it does not provide native file dialogs or
-a document format. Linux interactive/native-dialog validation is not implied by
-Windows smoke tests. Full shaping, IME, grapheme editing, and accessibility remain
+The milestone 11 implementation adds [file-dialog services](ui-file-dialogs.md),
+host iconification/nondrawable cleanup and [migration guidance](ui-migration.md).
+When built with dialogs enabled, Open selects a path and Save opens a native chooser
+after the in-app prompt. Without a backend they report Unavailable. Path selection
+does not serialize a document or clear its dirty state. Smoke mode uses an injected
+backend for Success/Cancelled/Error/Unavailable and never opens native dialogs.
+Installed workspace builds can set `VECTORGL_TEST_DIALOGS=ON` to link the optional
+component. Platform matrix results and real desktop tests remain separate gates;
+Linux interactive/native-dialog validation is not implied by Windows smoke tests.
+Full shaping, IME, grapheme editing, and accessibility remain
 the plan's later/consumer-dependent release gates. This delivery does not establish
 universal Qt parity or verify HMI Designer's domain implementation.

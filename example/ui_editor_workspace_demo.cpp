@@ -25,7 +25,11 @@
 #include <vectorgl/canvas.hpp>
 #include <vectorgl/scene.hpp>
 #include <vectorgl/ui/containers.hpp>
+#include <vectorgl/ui/file_dialogs.hpp>
 #include <vectorgl/ui/glfw_adapter.hpp>
+#ifdef VECTORGL_HAS_NATIVE_DIALOGS
+#include <vectorgl/ui/native_dialogs.hpp>
+#endif
 #include <vectorgl/ui/overlays.hpp>
 #include <vectorgl/ui/table_view.hpp>
 #include <vectorgl/ui/tree_view.hpp>
@@ -67,6 +71,37 @@ struct ToolboxSymbol
     ItemId id;
     int kind;
 };
+class WorkspaceFileBackend final : public FileDialogBackend
+{
+public:
+    FileDialogResult result{{ServiceStatus::Success, {}}, "/example/selected.svg"};
+    FileDialogCapabilities capabilities() const override
+    {
+        return {true, true, false, "Workspace fake"};
+    }
+    FileDialogResult show(const FileDialogOptions&) override
+    {
+        return result;
+    }
+};
+class WorkspaceClipboard final : public Clipboard
+{
+    std::string text_;
+
+public:
+    bool failWrites = false;
+    ClipboardResult read() override
+    {
+        return {{ServiceStatus::Success, {}}, text_};
+    }
+    ServiceResult write(std::string_view text) override
+    {
+        if (failWrites)
+            return {ServiceStatus::Error, "Injected clipboard failure"};
+        text_ = text;
+        return {ServiceStatus::Success, {}};
+    }
+};
 class EditorWorkspace
 {
 public:
@@ -75,11 +110,30 @@ public:
     GlfwAdapter host;
     OverlayManager overlays;
     std::exception_ptr error;
-    EditorWorkspace(GLFWwindow* window, std::string font, bool)
-        : ui(Services{{}, std::make_shared<GlfwClipboard>(window)}), host(window, ui), overlays(ui),
-          scene_(canvas.renderer())
+    EditorWorkspace(GLFWwindow* window, std::string font, bool smoke)
+        : ui(Services{{},
+                      smoke ? std::shared_ptr<Clipboard>(std::make_shared<WorkspaceClipboard>())
+                            : std::make_shared<GlfwClipboard>(window),
+                      {}}),
+          host(window, ui), overlays(ui), scene_(canvas.renderer())
     {
         canvas.init();
+        std::shared_ptr<FileDialogBackend> backend;
+        if (smoke)
+        {
+            fakeFiles_ = std::make_shared<WorkspaceFileBackend>();
+            backend = fakeFiles_;
+        }
+#ifdef VECTORGL_HAS_NATIVE_DIALOGS
+        else
+        {
+            NativeDialogOptions native;
+            native.ownerWindow = host.nativeDialogOwner();
+            backend = createNativeFileDialogs(native);
+        }
+#endif
+        files_ = std::make_unique<FileDialogService>(ui, std::move(backend));
+        files_->setHostEventDrain([] { glfwPollEvents(); });
         auto theme = ui.theme();
         theme.fontPath = std::move(font);
         theme.fontSize = 16;
@@ -96,6 +150,7 @@ public:
         LayoutHints toolbarHints;
         toolbarHints.height = 40.0f;
         ui.setLayoutHints(toolbar, toolbarHints);
+        button(toolbar, "Open...", [this] { requestFile(FileDialogKind::Open); });
         button(toolbar, "Save / close", [this] { showDialog(); });
         button(toolbar, "Zoom -", [this] { setZoom(zoom_ * .9f); });
         button(toolbar, "Zoom +", [this] { setZoom(zoom_ / .9f); });
@@ -191,6 +246,15 @@ public:
     {
         frameStart_ = std::chrono::steady_clock::now();
         frameStarted_ = true;
+    }
+    void pumpPlatformServices()
+    {
+        if (files_->pending())
+            files_->pump();
+    }
+    bool platformPending() const
+    {
+        return files_->pending();
     }
     void command(int key)
     {
@@ -292,6 +356,14 @@ public:
         ui.focus(name_->id());
         require(host.key(GLFW_KEY_DELETE, GLFW_PRESS, 0), "Inspector Delete escaped to application commands");
         require(placed_.size() == before + 1, "Inspector Delete reached artboard commands");
+        const auto clipboard = std::dynamic_pointer_cast<WorkspaceClipboard>(ui.services().clipboard);
+        require(bool(clipboard), "Smoke mode must not use the OS clipboard");
+        host.key(GLFW_KEY_A, GLFW_PRESS, GLFW_MOD_CONTROL);
+        const auto retainedText = name_->text();
+        clipboard->failWrites = true;
+        host.key(GLFW_KEY_X, GLFW_PRESS, GLFW_MOD_CONTROL);
+        require(name_->text() == retainedText, "Failed clipboard cut removed property text");
+        clipboard->failWrites = false;
         host.key(GLFW_KEY_TAB, GLFW_PRESS, 0);
         require(ui.focused() != name_->id(), "Workspace Tab traversal failed");
         showDialog();
@@ -308,6 +380,21 @@ public:
         // Public API rendering into embedded nonzero FBOs at four DPI scales,
         // including a nonuniform X/Y ratio and active field/popup cases.
         testScales(native);
+        for (auto serviceStatus :
+             {ServiceStatus::Success, ServiceStatus::Cancelled, ServiceStatus::Error, ServiceStatus::Unavailable})
+        {
+            fakeFiles_->result = {
+                {serviceStatus, serviceStatus == ServiceStatus::Error ? "Injected backend failure" : ""},
+                "/example/selected.svg"};
+            requestFile(FileDialogKind::Open);
+            pumpPlatformServices();
+            require(lastFile_.result.status == serviceStatus && !ui.modalRoot(),
+                    "Workspace dialog result/cleanup failed");
+        }
+        fakeFiles_->result = {{ServiceStatus::Success, {}}, "/example/workspace.svg"};
+        requestFile(FileDialogKind::Save);
+        pumpPlatformServices();
+        require(lastFile_.result.status == ServiceStatus::Success, "Workspace save selection failed");
         ui.focus({});
         prepare(native);
         ui.takeInvalidation();
@@ -356,6 +443,9 @@ private:
     std::unique_ptr<TextField> name_;
     std::unique_ptr<NumericEditor> opacity_;
     std::unique_ptr<ComboBox> choice_;
+    std::shared_ptr<WorkspaceFileBackend> fakeFiles_;
+    std::unique_ptr<FileDialogService> files_;
+    FileDialogResult lastFile_;
     std::unique_ptr<CheckBox> enabled_;
     std::unique_ptr<Label> status_;
     std::vector<std::unique_ptr<Label>> labels_;
@@ -771,13 +861,43 @@ private:
         dialog.cancelAction = 2;
         dialog.onFinished = [this](std::optional<int> result)
         {
-            if (result && *result != 0)
+            if (result && *result == 2)
                 dirty_ = false;
+            if (result && *result == 1)
+            {
+                requestFile(FileDialogKind::Save);
+                return;
+            }
             status(!result || *result == 0 ? "Close cancelled"
                    : *result == 1          ? "Save requested (connect application persistence)"
                                            : "Discard selected");
         };
         overlays.openDialog(dialog);
+    }
+    void requestFile(FileDialogKind kind)
+    {
+        FileDialogOptions options;
+        options.kind = kind;
+        options.title = kind == FileDialogKind::Open ? "Open a VectorGL document" : "Choose save destination";
+        if (kind == FileDialogKind::Save)
+            options.suggestedName = "workspace.svg";
+        options.filters = {{"VectorGL documents", {"svg", "json"}}, {"All files", {}}};
+        files_->request(
+            std::move(options),
+            [this, kind](const FileDialogResult& result)
+            {
+                lastFile_ = result;
+                if (result.result.status == ServiceStatus::Success)
+                    status(
+                        std::string(kind == FileDialogKind::Open ? "Open selected: " : "Save destination selected: ") +
+                        result.path + " / connect application serialization");
+                else
+                    status(result.result.status == ServiceStatus::Cancelled ? "File selection cancelled"
+                           : result.result.status == ServiceStatus::Unavailable
+                               ? "File dialogs unavailable: " + result.result.message
+                               : "File dialog error: " + result.result.message);
+            },
+            root_);
     }
     struct TestFramebuffer
     {
@@ -937,6 +1057,7 @@ int main(int argc, char** argv)
                 glfwSetKeyCallback(window, nullptr);
                 glfwSetCharCallback(window, nullptr);
                 glfwSetWindowFocusCallback(window, nullptr);
+                glfwSetWindowIconifyCallback(window, nullptr);
                 glfwSetCursorEnterCallback(window, nullptr);
                 glfwSetWindowSizeCallback(window, nullptr);
                 glfwSetFramebufferSizeCallback(window, nullptr);
@@ -998,6 +1119,12 @@ int main(int argc, char** argv)
                                        auto& d = *static_cast<EditorWorkspace*>(glfwGetWindowUserPointer(w));
                                        d.callback([&] { d.host.cursorEntered(e != 0); });
                                    });
+        glfwSetWindowIconifyCallback(window,
+                                     [](GLFWwindow* w, int iconified)
+                                     {
+                                         auto& d = *static_cast<EditorWorkspace*>(glfwGetWindowUserPointer(w));
+                                         d.callback([&] { d.host.iconified(iconified != 0); });
+                                     });
         glfwSetWindowSizeCallback(window,
                                   [](GLFWwindow* w, int, int)
                                   {
@@ -1029,6 +1156,7 @@ int main(int argc, char** argv)
                 std::rethrow_exception(demo.error);
             demo.host.refreshMetrics();
             demo.ui.pumpTimers();
+            demo.pumpPlatformServices();
             auto viewport = demo.host.metrics().viewport();
             if (viewport)
                 demo.prepare(*viewport);
@@ -1057,7 +1185,7 @@ int main(int argc, char** argv)
                     break;
                 glfwPollEvents();
             }
-            else if (viewport && demo.ui.pendingInvalidation() != Invalidation::None)
+            else if (demo.platformPending() || (viewport && demo.ui.pendingInvalidation() != Invalidation::None))
                 glfwPollEvents();
             else if (auto wakeup = demo.ui.nextWakeup())
                 glfwWaitEventsTimeout(std::max(0.001, std::min(0.5, *wakeup - demo.ui.now())));

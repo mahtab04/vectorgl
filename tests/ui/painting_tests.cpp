@@ -730,6 +730,15 @@ void adapterTests(GLFWwindow* window)
         ui.dispatch(down);
         adapter.focusChanged(false);
         require(!ui.captured() && !ui.focused() && cancelled == 2, "focus loss did not clear state");
+        ui.focus(id);
+        ui.dispatch(down);
+        adapter.iconified(true);
+        require(!ui.captured() && !ui.focused() && cancelled == 3, "Iconification retained capture/focus");
+#ifdef _WIN32
+        require(adapter.nativeDialogOwner() != 0, "Windows dialog owner missing");
+#else
+        require(adapter.nativeDialogOwner() == 0, "Unsupported native dialog owner advertised");
+#endif
         require(adapter.setCursor(Cursor::Text).status == ServiceStatus::Success, "cursor service failed");
         GlfwClipboard clipboard(window);
         require(clipboard.write(std::string_view("a\0b", 3)).status == ServiceStatus::Error,

@@ -1,4 +1,6 @@
 add_library(vectorgl_ui STATIC
+    file_dialogs.cpp dialog_validation.hpp
+    ${PROJECT_SOURCE_DIR}/include/PublicHeaders/vectorgl/ui/file_dialogs.hpp
     ${PROJECT_SOURCE_DIR}/include/PublicHeaders/vectorgl/ui/drag_drop.hpp
     context.cpp painting.cpp layout.cpp geometry.hpp
     split_panel.cpp scroll_model.cpp scroll_view.cpp
@@ -32,7 +34,7 @@ install(TARGETS vectorgl_ui EXPORT vectorglUiTargets
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/PublicHeaders/vectorgl/ui/
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/vectorgl/ui
-    FILES_MATCHING PATTERN "*.hpp" PATTERN "glfw_adapter.hpp" EXCLUDE)
+    FILES_MATCHING PATTERN "*.hpp" PATTERN "glfw_adapter.hpp" EXCLUDE PATTERN "native_dialogs.hpp" EXCLUDE)
 install(EXPORT vectorglUiTargets FILE vectorglUiTargets.cmake NAMESPACE vectorgl::
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/vectorgl)
 
@@ -50,4 +52,23 @@ if(VECTORGL_BUILD_GLFW_ADAPTER)
     install(EXPORT vectorglGlfwTargets FILE vectorglGlfwTargets.cmake NAMESPACE vectorgl::
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/vectorgl)
 
+endif()
+
+if(VECTORGL_BUILD_DIALOGS)
+    add_library(vectorgl_dialogs STATIC native_dialogs.cpp
+        ${PROJECT_SOURCE_DIR}/include/PublicHeaders/vectorgl/ui/native_dialogs.hpp)
+    add_library(vectorgl::dialogs ALIAS vectorgl_dialogs)
+    set_target_properties(vectorgl_dialogs PROPERTIES EXPORT_NAME dialogs)
+    target_link_libraries(vectorgl_dialogs PUBLIC vectorgl::ui)
+    target_include_directories(vectorgl_dialogs PRIVATE ${VECTORGL_INTERNAL_INCLUDE_DIR})
+    target_compile_definitions(vectorgl_dialogs INTERFACE VECTORGL_HAS_NATIVE_DIALOGS=1)
+    if(WIN32)
+        target_link_libraries(vectorgl_dialogs PRIVATE ole32 shell32 uuid)
+    endif()
+    setup_clang_tooling(vectorgl_dialogs)
+    install(TARGETS vectorgl_dialogs EXPORT vectorglDialogsTargets ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+    install(FILES ${PROJECT_SOURCE_DIR}/include/PublicHeaders/vectorgl/ui/native_dialogs.hpp
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/vectorgl/ui)
+    install(EXPORT vectorglDialogsTargets FILE vectorglDialogsTargets.cmake NAMESPACE vectorgl::
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/vectorgl)
 endif()

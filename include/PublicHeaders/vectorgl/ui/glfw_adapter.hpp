@@ -69,8 +69,10 @@ public:
     bool key(int key, int action, int mods);
     bool character(unsigned int codepoint);
     bool focusChanged(bool focused);
+    bool iconified(bool iconified); // Forward GLFW iconify callback; suspension cancels input/focus.
     bool cursorEntered(bool entered);
     ServiceResult setCursor(Cursor cursor);
+    std::uintptr_t nativeDialogOwner() const; // Windows HWND; zero on other platforms. Window must remain alive.
 
 private:
     struct Impl;

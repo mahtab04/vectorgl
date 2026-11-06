@@ -178,7 +178,17 @@ target_link_libraries(my_editor PRIVATE vectorgl::glfw)
 Base and `ui` component discovery do not resolve GLFW. The `glfw` component calls
 `find_dependency(glfw3 3.3 CONFIG)`. Graphics-only builds keep both modules OFF.
 Linux host builds need GLFW's platform development packages; headless UI tests remain
-independent of X11/Wayland. Native dialog services are a later milestone.
+independent of X11/Wayland. Optional [native dialog services](ui-file-dialogs.md)
+are available separately through `vectorgl::dialogs`.
+
+Forward iconification with `adapter.iconified(iconified != 0)` in addition to
+focus callbacks. Iconification and nondrawable framebuffer transitions cancel
+capture/drag state and clear focus. `nativeDialogOwner()` returns a Windows HWND
+as `uintptr_t` (zero elsewhere) for parenting the optional file chooser. Install
+`FileDialogService::setHostEventDrain([] { glfwPollEvents(); })` so queued input is
+consumed while the temporary native-dialog modal barrier is still active. Pump
+file requests outside UI callbacks, and avoid waiting for new events while work
+is already queued. The integrated workspace demonstrates this host loop.
 
 ## Design references
 

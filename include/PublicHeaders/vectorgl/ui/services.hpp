@@ -6,6 +6,7 @@
 
 namespace vectorgl::ui
 {
+class FileDialogBackend;
 enum class ServiceStatus
 {
     Success,
@@ -40,7 +41,8 @@ public:
 };
 struct Services
 {
-    std::shared_ptr<Clock> clock;         // Null selects std::chrono::steady_clock.
-    std::shared_ptr<Clipboard> clipboard; // Null means unavailable; never touches OS clipboard.
+    std::shared_ptr<Clock> clock;                   // Null selects std::chrono::steady_clock.
+    std::shared_ptr<Clipboard> clipboard;           // Null means unavailable; never touches OS clipboard.
+    std::shared_ptr<FileDialogBackend> fileDialogs; // Null means unavailable; fake providers need no window.
 };
 } // namespace vectorgl::ui

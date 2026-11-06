@@ -2,6 +2,10 @@
 #include <vectorgl/ui/containers.hpp>
 #include <vectorgl/ui/context.hpp>
 #include <vectorgl/ui/controls.hpp>
+#include <vectorgl/ui/file_dialogs.hpp>
+#ifdef VECTORGL_HAS_NATIVE_DIALOGS
+#include <vectorgl/ui/native_dialogs.hpp>
+#endif
 #include <vectorgl/ui/list_view.hpp>
 #include <vectorgl/ui/overlays.hpp>
 #include <vectorgl/ui/table_view.hpp>
@@ -22,6 +26,20 @@ int main()
         return 1;
 #endif
     vectorgl::ui::Context ui;
+    {
+        vectorgl::ui::FileDialogService service(ui);
+        bool completed = false;
+        service.request({}, [&](const auto& result)
+                        { completed = result.result.status == vectorgl::ui::ServiceStatus::Unavailable; });
+        service.pump();
+        if (!completed || service.pending())
+            return 1;
+#ifdef VECTORGL_HAS_NATIVE_DIALOGS
+        auto native = vectorgl::ui::createNativeFileDialogs();
+        if (!native)
+            return 1; // Do not enter OS dialogs in an installed-consumer test.
+#endif
+    }
     {
         auto payload = vectorgl::ui::DragPayload::make(std::string("owned"));
         if (!payload.get<std::string>() || payload.get<int>())

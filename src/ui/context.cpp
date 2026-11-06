@@ -1250,6 +1250,10 @@ bool Context::focus(WidgetId id)
     impl_->transaction([&] { impl_->requestFocus(id); });
     return true;
 }
+bool Context::isProcessing() const
+{
+    return impl_->processing;
+}
 WidgetId Context::focused() const
 {
     return impl_->focus;

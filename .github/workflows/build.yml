@@ -128,6 +128,7 @@ jobs:
           -DVECTORGL_BUILD_EXAMPLES=OFF
           -DVECTORGL_BUILD_TESTS=ON
           -DVECTORGL_BUILD_UI=ON
+          -DVECTORGL_BUILD_DIALOGS=ON
           -DVECTORGL_BUILD_UI_EXAMPLES=ON
           -DVECTORGL_BUILD_GLFW_ADAPTER=${{ runner.os == 'Windows' && 'ON' || matrix.gpu_tests }}
           -DVECTORGL_BUILD_APPS=${{ matrix.gpu_tests }}
@@ -177,6 +178,7 @@ jobs:
           -DVECTORGL_TEST_GLFW=${{ runner.os == 'Windows' && 'ON' || matrix.gpu_tests }}
           -DVECTORGL_TEST_WORKSPACE=${{ runner.os == 'Windows' && 'ON' || matrix.gpu_tests }}
           -DVECTORGL_TEST_WORKSPACE_GPU=${{ matrix.gpu_tests }}
+          -DVECTORGL_TEST_DIALOGS=ON
           ${{ matrix.consumer_config }}
           -DCMAKE_PREFIX_PATH=${{ github.workspace }}/staging
 
@@ -231,6 +233,7 @@ jobs:
           -DVECTORGL_BUILD_EXAMPLES=OFF
           -DVECTORGL_BUILD_TESTS=OFF
           -DVECTORGL_BUILD_UI=ON
+          -DVECTORGL_BUILD_DIALOGS=ON
           -DVECTORGL_BUILD_APPS=OFF
           -DVECTORGL_BUILD_GPU_TESTS=OFF
 
