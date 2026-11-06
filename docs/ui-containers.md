@@ -90,6 +90,10 @@ Context notifications, not public input events; their replies are ignored.
 
 ## Workspace example
 
+Composite controls can set `ScrollOptions::focusable=false` to route keyboard input
+through their enclosing control scope instead of focusing the internal scroll root.
+Descendant focusable controls and wheel/thumb scrolling continue to work.
+
 `example/ui_workspace_demo.cpp` demonstrates toolbox, artboard, inspector, and
 activity regions with three nested splitters. The toolbox contains a nested scroll
 view; the artboard scrolls on both axes. Rows are focusable demonstration data;

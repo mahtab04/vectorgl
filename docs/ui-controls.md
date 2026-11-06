@@ -133,3 +133,5 @@ disabled state, callback removal, Unicode editing, clipboard failures, completio
 blur, caret deadlines, numeric bounds/stepping, and injected policies. GPU tests
 check state colors and pointer caret placement at 100%, 125%, 150%, and 200% scale.
 Installed consumers exercise the public API without example-private headers.
+The [overlay extension](ui-overlays.md) adds a ComboBox, File/context menus,
+delayed tooltips, and modal Save/Discard/Cancel to the same inspector demo.

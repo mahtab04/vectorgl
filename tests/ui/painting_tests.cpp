@@ -11,6 +11,7 @@
 #include <vectorgl/ui/containers.hpp>
 #include <vectorgl/ui/controls.hpp>
 #include <vectorgl/ui/glfw_adapter.hpp>
+#include <vectorgl/ui/overlays.hpp>
 
 using namespace vectorgl;
 using namespace vectorgl::ui;
@@ -42,6 +43,33 @@ void pixel(int x, int y, int r, int g, int b)
 }
 void paintTests(Canvas& canvas)
 {
+    for (float scale : {1.0f, 1.25f, 1.5f, 2.0f})
+    {
+        Context ui;
+        OverlayManager overlays(ui);
+        overlays.update({0, 0, 128, 128});
+        Button owner(ui);
+        ui.layout(owner.id(), {4, 4, 20, 20});
+        PopupOptions options;
+        options.items = {{""}};
+        options.width = 70;
+        options.rowHeight = 20;
+        const auto popup = overlays.openPopup(owner.id(), options);
+        overlays.update({0, 0, 128, 128});
+        Widget later;
+        later.bounds = {0, 0, 128, 128};
+        later.painter = std::make_shared<Solid>(Color{1, 0, 0, 1});
+        ui.add(later);
+        const auto b = *overlays.contentBounds(popup);
+        canvas.beginFrame(256, 256);
+        ui.paint(canvas, Viewport(256 / scale, 256 / scale, 256, 256));
+        canvas.endFrame();
+        const auto color = ui.theme().surface;
+        pixel(int((b.x + 20) * scale), int((b.y + 14) * scale), int(color.r * 255), int(color.g * 255),
+              int(color.b * 255));
+        require(ui.isDescendant(ui.hitTest({b.x + 20, b.y + 14}), overlays.root(popup)),
+                "popup painted above content but input hit content");
+    }
     for (float scale : {1.0f, 1.25f, 1.5f, 2.0f})
     {
         Context controls;

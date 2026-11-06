@@ -64,6 +64,8 @@ nested scrolling, residual wheel routing, and automatic focus reveal. Build
 The [controls guide](docs/ui-controls.md) covers routed text fields, buttons,
 checkboxes/toggles, numeric editing, validation, and commit/cancel behavior.
 Build `vectorgl_ui_controls` for an editable inspector example.
+The [overlay guide](docs/ui-overlays.md) covers ComboBox lists, menus/context menus,
+delayed tooltips, and modal dialogs with focus restoration and click-through barriers.
 Build `vectorgl_ui_layout` for a responsive property-form example, including type-size
 and wrapped-content changes. It accepts `--width`, `--height`, `--font`,
 `--smoke-test`, and `--screenshot FILE.bmp`.

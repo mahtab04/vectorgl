@@ -32,6 +32,8 @@ struct Widget
     std::shared_ptr<const Layout> layout; // Arranges visible direct children.
     LayoutHints layoutHints;
     std::function<Size(const MeasureContext&)> onMeasure;
+    bool hitTestVisible = true; // False excludes this subtree from pointer hit testing.
+    bool overlay = false;       // Top-level painting layer, after content and before modal scopes.
 };
 enum class Invalidation : unsigned
 {

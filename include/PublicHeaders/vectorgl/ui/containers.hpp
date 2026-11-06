@@ -84,6 +84,7 @@ struct ScrollOptions
     float lineStep = 40, scrollbar = 12, minimumThumb = 24;
     Size preferredSize{240, 180};
     ScrollChaining chaining = ScrollChaining::Ancestors;
+    bool focusable = true; // Composite controls may route keyboard input through their enclosing scope.
 };
 /*! Owns a clipped viewport, content container, and reserved scrollbar lanes.
  * Add application children/layouts to content(). Context must outlive this object.
