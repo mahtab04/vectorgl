@@ -876,7 +876,7 @@ void Context::setTheme(Theme theme)
 {
     impl_->requireMutable();
     for (auto color : {theme.background, theme.surface, theme.hover, theme.text, theme.muted, theme.accent,
-                       theme.border, theme.disabled})
+                       theme.border, theme.disabled, theme.pressed, theme.error})
         if (!std::isfinite(color.r) || !std::isfinite(color.g) || !std::isfinite(color.b) || !std::isfinite(color.a))
             throw std::invalid_argument("UI theme colors must be finite");
     if (!std::isfinite(theme.fontSize) || theme.fontSize <= 0 || !std::isfinite(theme.borderWidth) ||

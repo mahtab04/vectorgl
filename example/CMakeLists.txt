@@ -9,6 +9,8 @@ if(VECTORGL_BUILD_UI AND VECTORGL_BUILD_UI_EXAMPLES)
         target_link_libraries(vectorgl_ui_layout PRIVATE vectorgl::glfw)
         add_executable(vectorgl_ui_workspace ui_workspace_demo.cpp)
         target_link_libraries(vectorgl_ui_workspace PRIVATE vectorgl::glfw)
+        add_executable(vectorgl_ui_controls ui_controls_demo.cpp)
+        target_link_libraries(vectorgl_ui_controls PRIVATE vectorgl::glfw)
     endif()
 endif()
 

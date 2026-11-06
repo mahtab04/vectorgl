@@ -58,6 +58,8 @@ struct Theme
     std::string fontPath;
     float fontSize = 18;
     float borderWidth = 1;
+    Color pressed{0.12f, 0.32f, 0.43f, 1};
+    Color error{0.98f, 0.35f, 0.38f, 1};
 };
 /*! Ephemeral paint data. Canvas already has the widget-to-framebuffer transform
  * and ancestor clips. Painters must not begin/end frames or unbalance save/restore.

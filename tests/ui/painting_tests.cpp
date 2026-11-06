@@ -9,6 +9,7 @@
 #include <stdexcept>
 #include <vectorgl/canvas.hpp>
 #include <vectorgl/ui/containers.hpp>
+#include <vectorgl/ui/controls.hpp>
 #include <vectorgl/ui/glfw_adapter.hpp>
 
 using namespace vectorgl;
@@ -41,6 +42,57 @@ void pixel(int x, int y, int r, int g, int b)
 }
 void paintTests(Canvas& canvas)
 {
+    for (float scale : {1.0f, 1.25f, 1.5f, 2.0f})
+    {
+        Context controls;
+        auto theme = controls.theme();
+        theme.fontPath = VECTORGL_TEST_FONT;
+        controls.setTheme(theme);
+        Button button(controls);
+        controls.layout(button.id(), {10, 10, 100, 44});
+        TextField field(controls, canvas, {}, TextFieldOptions{"ABCD"});
+        controls.layout(field.id(), {10, 70, 180, 44});
+        Event event;
+        event.type = EventType::PointerMove;
+        event.x = 20;
+        event.y = 20;
+        controls.dispatch(event);
+        for (bool pressed : {false, true})
+        {
+            if (pressed)
+            {
+                event.type = EventType::PointerDown;
+                event.button = PointerButton::Primary;
+                controls.dispatch(event);
+            }
+            glClearColor(0, 0, 0, 1);
+            glClear(GL_COLOR_BUFFER_BIT);
+            canvas.beginFrame(256, 256);
+            controls.paint(canvas, Viewport(256 / scale, 256 / scale, 256, 256));
+            canvas.endFrame();
+            const auto color = pressed ? theme.pressed : theme.hover;
+            pixel(int(40 * scale), int(35 * scale), int(color.r * 255), int(color.g * 255), int(color.b * 255));
+        }
+        controls.setEnabled(button.id(), false);
+        canvas.beginFrame(256, 256);
+        controls.paint(canvas, Viewport(256 / scale, 256 / scale, 256, 256));
+        canvas.endFrame();
+        pixel(int(40 * scale), int(35 * scale), int(theme.disabled.r * 255), int(theme.disabled.g * 255),
+              int(theme.disabled.b * 255));
+        require(!controls.captured(), "disabled rendered control retained capture");
+
+        // Pointer caret placement uses the same font/layout and logical coordinates as painting.
+        event.type = EventType::PointerDown;
+        event.x = 23;
+        event.y = 85;
+        controls.dispatch(event);
+        event.type = EventType::PointerUp;
+        controls.dispatch(event);
+        event.type = EventType::TextInput;
+        event.text = "X";
+        controls.dispatch(event);
+        require(field.text() == "XABCD", "field pointer placement diverged from rendered text");
+    }
     // Scrolled geometry shares clipping and hit coordinates at fractional DPI.
     for (float scale : {1.0f, 1.25f, 2.0f})
     {

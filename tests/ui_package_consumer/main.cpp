@@ -1,5 +1,7 @@
+#include <vectorgl/canvas.hpp>
 #include <vectorgl/ui/containers.hpp>
 #include <vectorgl/ui/context.hpp>
+#include <vectorgl/ui/controls.hpp>
 #ifdef VECTORGL_TEST_GLFW
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
@@ -15,6 +17,17 @@ int main()
         return 1;
 #endif
     vectorgl::ui::Context ui;
+    {
+        vectorgl::Canvas canvas;
+        vectorgl::ui::TextField field(ui, canvas);
+        ui.focus(field.id());
+        vectorgl::ui::Event input;
+        input.type = vectorgl::ui::EventType::TextInput;
+        input.text = "Installed control";
+        if (!ui.dispatch(input) || !field.commit() || field.committedText() != input.text)
+            return 1;
+        ui.focus({});
+    }
     {
         vectorgl::ui::SplitPanel split(ui);
         ui.setLayout(split.first(), std::make_shared<vectorgl::ui::ColumnLayout>());
