@@ -52,10 +52,15 @@ column limits/total extent; it may also update columns marked nonresizable, whos
 flag restricts input only. Unknown IDs/nonfinite requests throw.
 
 `setModel()` retains selected/current IDs still present and enabled, using the
-same removal/fallback policy as ListView. Removed/filtered selections are discarded;
+same removal/fallback policy as ListView. Removed selections are discarded;
 sorting does not replace selection with row indices. Null is empty. Programmatic
 setters are silent; model/column/sort updates cancel pending header actions. Call `Context::layout()`
 after model/column changes and before painting/input.
+
+For filtering, `setProjection(visibleModel, completeEnabledIds)` retains hidden
+selected IDs until the unfiltered dataset removes/disables them. The universe
+also supplies selection query order; visible current/focus remains separate.
+Using `setModel` alone means absent rows have actually been removed.
 
 ## Sorting, selection, and keyboard input
 

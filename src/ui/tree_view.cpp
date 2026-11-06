@@ -84,6 +84,7 @@ struct IndexedTree
     std::vector<Node> nodes;
     std::vector<std::size_t> roots;
     std::unordered_map<ItemId, std::size_t> indices;
+    std::vector<ItemId> enabledIds;
     explicit IndexedTree(std::shared_ptr<const TreeModel> value) : model(std::move(value))
     {
         if (!model)
@@ -112,6 +113,8 @@ struct IndexedTree
             if (count > 1000000 - nodes.size() - pending.size() - 1)
                 throw std::length_error("Tree exceeds supported node count");
             nodes.push_back({next.id, next.parent, next.depth, model->enabled(next.id), {}});
+            if (nodes.back().enabled)
+                enabledIds.push_back(next.id);
             if (next.parent == noParent)
                 roots.push_back(index);
             else
@@ -274,7 +277,7 @@ struct TreeView::State
                     }
                 }
         }
-        list->setModel(nextFlat); // Validates extent before publishing the hierarchy/expansion state.
+        list->setProjection(nextFlat, nextTree->enabledIds); // Hidden descendants retain selection by ID.
         tree = std::move(nextTree);
         flat = std::move(nextFlat);
         expanded.swap(nextExpanded);

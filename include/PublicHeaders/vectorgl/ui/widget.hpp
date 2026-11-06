@@ -6,6 +6,7 @@
 #include <memory>
 
 #include "vectorgl/node.hpp"
+#include "vectorgl/ui/drag_drop.hpp"
 #include "vectorgl/ui/events.hpp"
 #include "vectorgl/ui/layout.hpp"
 
@@ -35,6 +36,9 @@ struct Widget
     bool hitTestVisible = true; // False excludes this subtree from pointer hit testing.
     bool overlay = false;       // Top-level painting layer, after content and before modal scopes.
     bool tabStop = true;        // Sequential navigation only; explicit/pointer focus remains available.
+    // Deepest hit ancestor with this handler is the drop target. False rejects;
+    // rejected targets do not fall through to parents. Leave return is ignored.
+    std::function<bool(Context&, WidgetId, const DragEvent&)> onDrag;
 };
 enum class Invalidation : unsigned
 {

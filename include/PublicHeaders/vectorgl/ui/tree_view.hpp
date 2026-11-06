@@ -74,8 +74,8 @@ struct TreeViewOptions
     std::function<void(ItemId, bool expanded)> onExpansionChanged;
 };
 /*! Fixed-height virtual tree composed with ListView. Context must outlive it.
- * Initially collapsed, with one Tab stop. Selection is limited to visible enabled
- * nodes; collapse discards hidden selection and moves hidden current to a surviving
+ * Initially collapsed, with one Tab stop. Selection retains hidden enabled
+ * nodes; collapse keeps selection and moves hidden current to a surviving
  * enabled ancestor. Model replacement preserves expansion and selection by ID.
  * Programmatic setters are silent; input callbacks may replace/destroy the tree.
  */
@@ -95,7 +95,7 @@ public:
     bool setExpanded(ItemId id, bool expanded);     // Unknown ID throws; a leaf is a no-op.
     void setExpandedItems(std::vector<ItemId> ids); // Existing branches only; duplicates collapse.
     std::vector<ItemId> expandedItems() const;
-    void setSelection(std::vector<ItemId> ids); // Visible enabled IDs only.
+    void setSelection(std::vector<ItemId> ids); // Existing enabled IDs, including hidden descendants.
     std::vector<ItemId> selection() const;
     std::optional<ItemId> currentItem() const;
     std::size_t visibleItemCount() const;

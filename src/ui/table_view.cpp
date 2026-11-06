@@ -581,6 +581,12 @@ std::shared_ptr<const TableModel> TableView::model() const
 {
     return state_->model;
 }
+void TableView::setProjection(std::shared_ptr<const TableModel> model, std::vector<ItemId> enabledItems)
+{
+    state_->list->setProjection(std::make_shared<TableRows>(model), std::move(enabledItems));
+    state_->model = std::move(model);
+    state_->cancel();
+}
 void TableView::setColumns(std::vector<TableColumn> columns)
 {
     state_->replaceColumns(std::move(columns));

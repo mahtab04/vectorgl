@@ -114,11 +114,12 @@ void hierarchyAndNavigation()
     tree.setExpanded(10, true);
     tree.setSelection({21, 30});
     tree.setExpanded(10, false);
-    require(tree.selection().empty() && tree.currentItem() == 10 && selections == before,
-            "Silent collapse did not prune hidden selection/current");
+    require(tree.selection() == std::vector<ItemId>({21, 30}) && tree.currentItem() == 10 && selections == before,
+            "Collapse did not retain hidden selection/separate current");
     require(!tree.setExpanded(40, true), "Leaf expansion changed state");
     rejects([&] { tree.setExpanded(999, true); });
-    rejects([&] { tree.setSelection({21}); });
+    tree.setSelection({21});
+    require(tree.selection() == std::vector<ItemId>{21}, "Hidden enabled selection was rejected");
     rejects([&] { tree.setExpandedItems({40}); });
 }
 void pointerAndCancellation()
@@ -139,8 +140,8 @@ void pointerAndCancellation()
     click(ui, tree, 2, 80);
     require(tree.selection() == std::vector<ItemId>{21}, "Text click did not select descendant");
     click(ui, tree, 0);
-    require(tree.selection().empty() && tree.currentItem() == 10 && changes == 2 && expanded == 3,
-            "Collapse did not report pruned selection");
+    require(tree.selection() == std::vector<ItemId>{21} && tree.currentItem() == 10 && changes == 1 && expanded == 3,
+            "Collapse discarded hidden selection or incorrectly notified");
     ui.layout(tree.id(), {0, 0, 240, 160});
     click(ui, tree, 0, 12, true);
     require(!tree.isExpanded(10) && !ui.captured(), "Outside disclosure release toggled branch");
@@ -307,7 +308,7 @@ void workAndCallbacks()
     control->setExpandedItems({10, 20});
     control->setSelection({21});
     ui.layout(control->id(), {0, 0, 240, 200});
-    click(ui, *control, 0);
+    click(ui, *control, 0, 80);
     require(!control && !ui.captured() && expansionCallbacks == 0,
             "Destruction callback left capture or stale expansion notification");
     o.onSelectionChanged = {};

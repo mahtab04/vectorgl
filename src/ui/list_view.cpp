@@ -83,6 +83,7 @@ struct ListView::State final : WidgetPainter
     std::vector<Entry> entries;
     std::vector<std::size_t> enabled;
     std::unordered_map<ItemId, std::size_t> indices;
+    std::unordered_map<ItemId, std::size_t> selectionIndices;
     std::unordered_set<ItemId> selected;
     std::optional<ItemId> current, anchor, pressed;
     Modifiers pressModifiers;
@@ -103,7 +104,8 @@ struct ListView::State final : WidgetPainter
     std::vector<ItemId> selection() const
     {
         std::vector<ItemId> result(selected.begin(), selected.end());
-        std::sort(result.begin(), result.end(), [&](ItemId a, ItemId b) { return indices.at(a) < indices.at(b); });
+        std::sort(result.begin(), result.end(),
+                  [&](ItemId a, ItemId b) { return selectionIndices.at(a) < selectionIndices.at(b); });
         return result;
     }
     ListRowRange visible() const
@@ -125,7 +127,7 @@ struct ListView::State final : WidgetPainter
             offset = top + options.rowHeight - b->height;
         return scroll->setOffset({scroll->offset().x, offset});
     }
-    void replace(std::shared_ptr<const ListModel> next)
+    void replace(std::shared_ptr<const ListModel> next, std::optional<std::vector<ItemId>> universe = {})
     {
         // Validate and allocate before publishing any new state.
         const auto count = next ? next->rowCount() : 0;
@@ -147,13 +149,24 @@ struct ListView::State final : WidgetPainter
             if (available)
                 newEnabled.push_back(i);
         }
+        std::unordered_map<ItemId, std::size_t> newSelectionIndices;
+        if (universe)
+        {
+            if (universe->size() > 1000000)
+                throw std::length_error("Selection universe exceeds supported item count");
+            for (std::size_t i = 0; i < universe->size(); ++i)
+                if (!(*universe)[i] || !newSelectionIndices.emplace((*universe)[i], i).second)
+                    throw std::invalid_argument("Selection universe IDs must be nonzero and unique");
+            for (const auto& entry : newEntries)
+                if (entry.enabled != newSelectionIndices.contains(entry.id))
+                    throw std::invalid_argument("Visible enabled state differs from selection universe");
+        }
+        else
+            for (std::size_t i = 0; i < newEntries.size(); ++i)
+                if (newEntries[i].enabled)
+                    newSelectionIndices.emplace(newEntries[i].id, i);
         auto retained = selected;
-        std::erase_if(retained,
-                      [&](ItemId id)
-                      {
-                          const auto at = newIndices.find(id);
-                          return at == newIndices.end() || !newEntries[at->second].enabled;
-                      });
+        std::erase_if(retained, [&](ItemId id) { return !newSelectionIndices.contains(id); });
         auto retainedCurrent = current;
         const auto exists = [&](std::optional<ItemId> id)
         {
@@ -178,6 +191,7 @@ struct ListView::State final : WidgetPainter
         entries.swap(newEntries);
         enabled.swap(newEnabled);
         indices.swap(newIndices);
+        selectionIndices.swap(newSelectionIndices);
         selected.swap(retained);
         current = retainedCurrent;
         anchor = retainedAnchor;
@@ -460,6 +474,10 @@ void ListView::setModel(std::shared_ptr<const ListModel> model)
 {
     state_->replace(std::move(model));
 }
+void ListView::setProjection(std::shared_ptr<const ListModel> model, std::vector<ItemId> enabledItems)
+{
+    state_->replace(std::move(model), std::move(enabledItems));
+}
 std::shared_ptr<const ListModel> ListView::model() const
 {
     return state_->model;
@@ -531,16 +549,19 @@ void ListView::setSelection(std::vector<ItemId> ids)
     std::unordered_set<ItemId> next;
     for (auto id : ids)
     {
-        const auto at = state_->indices.find(id);
-        if (at == state_->indices.end() || !state_->entries[at->second].enabled)
+        if (!state_->selectionIndices.contains(id))
             throw std::invalid_argument("Selection must identify enabled list items");
         next.insert(id);
     }
     if (state_->options.selectionMode == ListSelectionMode::Single && next.size() > 1)
         throw std::invalid_argument("Single list selection accepts at most one item");
     state_->selected.swap(next);
-    if (!ids.empty())
-        state_->current = state_->anchor = ids.front();
+    for (auto id : ids)
+        if (state_->indices.contains(id))
+        {
+            state_->current = state_->anchor = id;
+            break;
+        }
     if (state_->current)
         state_->reveal(*state_->current);
     state_->ui.invalidate(Invalidation::Paint | Invalidation::Semantics);

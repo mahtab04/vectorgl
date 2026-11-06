@@ -137,7 +137,7 @@ public:
         selection_ = std::make_unique<Label>(ui, canvas, sideId, LabelOptions{"0 selected"});
         current_ = std::make_unique<Label>(ui, canvas, sideId, LabelOptions{"Current: project"});
         action_ = std::make_unique<Label>(ui, canvas, sideId, LabelOptions{"Expand a screen to explore"});
-        wrap.text = "Expansion and selection survive sibling reordering by ID. Collapsing a branch clears its hidden "
+        wrap.text = "Expansion and selection survive sibling reordering by ID. Collapsing a branch retains hidden "
                     "selection and moves the current row to an enabled ancestor.";
         labels_.push_back(std::make_unique<Label>(ui, canvas, sideId, wrap));
         wrap.text = "Up/Down skip disabled rows. Home/End and Page Up/Down reveal the current item. Left collapses or "

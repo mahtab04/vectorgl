@@ -120,6 +120,15 @@ callback; resizing changes shared column geometry without reindexing row data.
 Cancellation restores the old width before publishing replacement columns, even
 when Context defers cleanup delivery. See [virtualized tables](docs/ui-tables.md).
 
+Context owns typed in-process drag sessions alongside pointer capture. Drag target
+resolution reuses clipping/modal/overlay hit traversal; owned payloads and retained
+registration storage keep cancellation/removal notifications safe. Sessions consume
+source gestures, reset source press state, and finish once after target cleanup.
+See [drag/drop](docs/ui-drag-drop.md). Collection projections carry a complete
+enabled-ID universe so hidden selection survives filtering/collapse independently
+of visible current/focus. The integrated public-API workspace exercises these
+contracts; see [milestone 10 validation](docs/ui-editor-workspace.md).
+
 Registrations have context-scoped generation IDs. Callback storage stays alive
 until dispatch settles, including cancel/lost-focus delivery for removed widgets.
 The model is bound to one UI thread. Platform services and clocks are injectable,

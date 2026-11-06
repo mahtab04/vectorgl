@@ -259,7 +259,13 @@ private:
                 results.push_back(item);
         if (descending_)
             std::reverse(results.begin(), results.end());
-        list_->setModel(std::make_shared<VectorListModel>(std::move(results)));
+        std::vector<ItemId> enabled;
+        for (const auto& item : catalog_)
+            if (item.enabled)
+                enabled.push_back(item.id);
+        if (descending_)
+            std::reverse(enabled.begin(), enabled.end());
+        list_->setProjection(std::make_shared<VectorListModel>(std::move(results)), std::move(enabled));
         updateSelection();
     }
     void updateSelection()

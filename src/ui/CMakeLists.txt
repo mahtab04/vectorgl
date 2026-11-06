@@ -1,4 +1,5 @@
 add_library(vectorgl_ui STATIC
+    ${PROJECT_SOURCE_DIR}/include/PublicHeaders/vectorgl/ui/drag_drop.hpp
     context.cpp painting.cpp layout.cpp geometry.hpp
     split_panel.cpp scroll_model.cpp scroll_view.cpp
     controls.cpp text_field.cpp numeric_editor.cpp control_detail.hpp

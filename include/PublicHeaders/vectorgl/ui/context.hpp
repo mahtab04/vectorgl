@@ -70,6 +70,12 @@ public:
     WidgetId focused() const;
     WidgetId captured() const;
     void cancelCapture(CancelReason reason = CancelReason::Explicit);
+    // Start in the source's primary PointerDown or captured PointerMove callback.
+    // Owns payload until completion; consumes drag moves/releases and resets source
+    // press state with Cancel. Completion runs once, after target Leave cleanup.
+    bool beginDrag(WidgetId source, DragPayload payload, std::function<void(const DragResult&)> finished = {});
+    void cancelDrag(CancelReason reason = CancelReason::Explicit);
+    std::optional<DragState> dragState() const;
 
     /*! Modal scope is a registered subtree. Push cancels capture and focuses its
      * first eligible widget. Pop restores the previous eligible focus owner.

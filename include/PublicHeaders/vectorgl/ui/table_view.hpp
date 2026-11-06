@@ -112,6 +112,7 @@ public:
     WidgetId bodyId() const;
     WidgetId viewportId() const;
     void setModel(std::shared_ptr<const TableModel> model);
+    void setProjection(std::shared_ptr<const TableModel> model, std::vector<ItemId> enabledItems);
     std::shared_ptr<const TableModel> model() const;
     void setColumns(std::vector<TableColumn> columns); // Validate before replacing; keeps active/sort column by ID.
     std::vector<TableColumn> columns() const;

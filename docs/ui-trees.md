@@ -56,15 +56,16 @@ unknown ID throws. `setExpandedItems(ids)` replaces the complete expansion set,
 accepts hidden branches, collapses duplicate IDs, and rejects leaves/unknown IDs.
 Collapsing an ancestor retains descendant expansion flags for a later reopening.
 
-Selection contains visible enabled nodes only. `setSelection()` follows ListView's
-single/multiple/duplicate rules. Collapsing a branch discards its hidden selection;
-reopening does not restore that selection. If current becomes hidden/disabled,
+Selection contains existing enabled nodes, including collapsed descendants.
+`setSelection()` follows ListView's single/multiple/duplicate rules. Collapsing a
+branch retains hidden selection until the model removes/disables those nodes.
+If current becomes hidden/disabled,
 the view prefers its closest surviving visible enabled ancestor. Otherwise it
 uses ListView's next/previous enabled-row fallback. Selection can remain empty
 independently of current. A projection change resets the range anchor to current.
 
 `setModel()` preserves expansion for surviving branch IDs and selection for
-surviving visible enabled IDs, even after sibling reordering. Null is empty.
+surviving enabled IDs, even after sibling reordering. Null is empty.
 Expansion and selection queries return copies; `visibleItemCount()` includes all
 expanded hierarchy rows, while `visibleRows()` returns only the viewport range.
 `visibleItem(row)` maps a projection row to its stable ID and throws out of range.
@@ -94,8 +95,8 @@ use Context. In addition:
   implicitly expand branches.
 
 Input expansion emits `onExpansionChanged(id, expanded)` once for an actual change.
-If collapse prunes selected descendants, `onSelectionChanged` runs first. Its
-vector reference is valid only for that call. Callbacks may replace the model,
+Collapse does not emit a selection change merely because selected nodes become
+hidden. Selection callback vector references are valid only for that call. Callbacks may replace the model,
 remove the subtree, destroy the controller, or throw under Context's normal cleanup
 rules. If the selection callback changes the projection/removes the control, the
 obsolete expansion notification is suppressed. Context must outlive TreeView;
@@ -111,7 +112,7 @@ TreeView retains its hit testing. Each call has scoped Canvas state and enforced
 row/ancestor clips. Painting visits viewport rows only.
 
 Snapshot indexing uses O(N) work/storage. Expansion changes rebuild the expanded
-preorder projection and its list index in O(expanded rows) work, using cached
+preorder projection and its selection-universe index in O(N) work, using cached
 metadata. Ordinary scrolling, input targeting, and painting do not traverse the
 hierarchy. The widget subtree has constant size. Rows have fixed height and the
 view scrolls vertically; indentation/text clip when the viewport is too narrow.
