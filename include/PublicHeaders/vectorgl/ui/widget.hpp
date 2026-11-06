@@ -34,6 +34,7 @@ struct Widget
     std::function<Size(const MeasureContext&)> onMeasure;
     bool hitTestVisible = true; // False excludes this subtree from pointer hit testing.
     bool overlay = false;       // Top-level painting layer, after content and before modal scopes.
+    bool tabStop = true;        // Sequential navigation only; explicit/pointer focus remains available.
 };
 enum class Invalidation : unsigned
 {

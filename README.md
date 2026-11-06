@@ -66,6 +66,9 @@ checkboxes/toggles, numeric editing, validation, and commit/cancel behavior.
 Build `vectorgl_ui_controls` for an editable inspector example.
 The [overlay guide](docs/ui-overlays.md) covers ComboBox lists, menus/context menus,
 delayed tooltips, and modal dialogs with focus restoration and click-through barriers.
+The [workspace controls guide](docs/ui-workspace-controls.md) covers tabs/pages,
+collapsible sections, clipped/ellipsized/wrapped labels, separators, and live search.
+The workspace demo includes searchable groups and a tabbed inspector (`--metadata`).
 Build `vectorgl_ui_layout` for a responsive property-form example, including type-size
 and wrapped-content changes. It accepts `--width`, `--height`, `--font`,
 `--smoke-test`, and `--screenshot FILE.bmp`.

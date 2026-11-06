@@ -17,6 +17,7 @@
 #include <vectorgl/text_box.hpp>
 #include <vectorgl/ui/containers.hpp>
 #include <vectorgl/ui/glfw_adapter.hpp>
+#include <vectorgl/ui/workspace_controls.hpp>
 using namespace vectorgl;
 using namespace vectorgl::ui;
 namespace
@@ -123,7 +124,8 @@ public:
     Context ui;
     GlfwAdapter host;
     std::exception_ptr error;
-    WorkspaceDemo(GLFWwindow* window, std::string font, bool) : host(window, ui)
+    WorkspaceDemo(GLFWwindow* window, std::string font, bool)
+        : ui(Services{{}, std::make_shared<GlfwClipboard>(window)}), host(window, ui)
     {
         canvas.init();
         auto theme = ui.theme();
@@ -163,21 +165,68 @@ public:
         center_ = std::make_unique<SplitPanel>(ui, middle_->first(), bottom);
         ui.setLayoutHints(center_->id(), flex);
 
-        toolbox_ = panel(outer_->first(), "Toolbox");
-        text(toolbox_->content(), "Nested list: scroll here, then keep going at its edge.", 0.85f);
-        nested_ = std::make_unique<ScrollView>(ui, toolbox_->content());
+        column(outer_->first());
+        text(outer_->first(), "Toolbox", 1.15f);
+        SearchFieldOptions search;
+        search.placeholder = "Find symbols...";
+        search.onServiceError = [this](const ServiceResult& result)
+        { status_->setText("Clipboard: " + result.message); };
+        search.onChanged = [this](std::string_view) { filter(); };
+        search_ = std::make_unique<SearchField>(ui, canvas, outer_->first(), std::move(search));
+        matchCount_ = std::make_unique<Label>(ui, canvas, outer_->first(), LabelOptions{"32 symbols"});
+        separators_.push_back(std::make_unique<Separator>(ui, outer_->first()));
+        toolbox_ = std::make_unique<ScrollView>(ui, outer_->first());
+        ui.setLayoutHints(toolbox_->id(), flex);
+        toolbox_->setContentLayout(std::make_shared<ColumnLayout>(Padding{8, 8, 8, 8}, 10.0f));
+        symbols_ = std::make_unique<CollapsibleSection>(ui, toolbox_->content(), SectionOptions{"Symbols"});
+        nested_ = std::make_unique<ScrollView>(ui, symbols_->content());
         LayoutHints nestedHints;
         nestedHints.height = 180.0f;
         ui.setLayoutHints(nested_->id(), nestedHints);
-        nested_->setContentLayout(std::make_shared<ColumnLayout>(Padding{8, 8, 8, 8}, 6.0f));
-        for (int i = 0; i < 14; ++i)
-            text(nested_->content(), "Symbol " + std::to_string(i + 1), 1, true);
+        nested_->setContentLayout(std::make_shared<ColumnLayout>(Padding{4, 4, 4, 4}, 6.0f));
+        const std::vector<std::string> names{"Rectangle", "Ellipse", "Arrow",     "Text",         "Image",
+                                             "Group",     "Curve",   "Polygon",   "Rounded rect", "Path",
+                                             "Icon",      "Line",    "Connector", "Circle"};
+        for (const auto& name : names)
+            addItem(nested_->content(), name, true);
+        groups_ = std::make_unique<CollapsibleSection>(ui, toolbox_->content(), SectionOptions{"Library groups"});
         for (int i = 0; i < 18; ++i)
-            text(toolbox_->content(), "Library group " + std::to_string(i + 1), 1, true);
+            addItem(groups_->content(), "Library group " + std::to_string(i + 1), false);
+        noResults_ = std::make_unique<Label>(ui, canvas, toolbox_->content(), LabelOptions{"No matching symbols"});
+        ui.setVisible(noResults_->id(), false);
 
-        inspector_ = panel(middle_->second(), "Inspector");
-        for (int i = 0; i < 24; ++i)
-            lastField_ = text(inspector_->content(), "Property " + std::to_string(i + 1) + "   /   Default", 1, true);
+        column(middle_->second());
+        text(middle_->second(), "Inspector", 1.15f);
+        inspectorTabs_ = std::make_unique<TabView>(ui, middle_->second(),
+                                                   TabBarOptions{{{"Properties"}, {"Metadata"}}, 0, {100, 40}});
+        ui.setLayoutHints(inspectorTabs_->id(), flex);
+        inspector_ = std::make_unique<ScrollView>(ui, inspectorTabs_->page(0));
+        ui.setLayoutHints(inspector_->id(), flex);
+        inspector_->setContentLayout(std::make_shared<ColumnLayout>(Padding{4, 4, 4, 4}, 10.0f));
+        for (int group = 0; group < 3; ++group)
+        {
+            auto section = std::make_unique<CollapsibleSection>(ui, inspector_->content(),
+                                                                SectionOptions{group == 0   ? "Appearance"
+                                                                               : group == 1 ? "Layout"
+                                                                                            : "Behavior"});
+            for (int i = 0; i < 8; ++i)
+                lastField_ =
+                    text(section->content(), "Property " + std::to_string(group * 8 + i + 1) + " / Default", 1, true);
+            inspectorSections_.push_back(std::move(section));
+        }
+        ui.setLayout(inspectorTabs_->page(1), std::make_shared<ColumnLayout>(Padding{}, 12.0f));
+        labels_.push_back(std::make_unique<Label>(
+            ui, canvas, inspectorTabs_->page(1),
+            LabelOptions{"A long source name that should end with an ellipsis in this inspector"}));
+        separators_.push_back(std::make_unique<Separator>(ui, inspectorTabs_->page(1)));
+        LabelOptions note;
+        note.text = "Labels wrap to the available width. Switching tabs or collapsing a section removes hidden content "
+                    "from layout, focus, and picking.";
+        note.overflow = TextOverflow::Wrap;
+        labels_.push_back(std::make_unique<Label>(ui, canvas, inspectorTabs_->page(1), note));
+        metadataAction_ = std::make_unique<Button>(
+            ui, inspectorTabs_->page(1),
+            ButtonOptions{"Properties", {160, 44}, [this] { inspectorTabs_->setSelected(0); }});
         console_ = panel(center_->second(), "Activity");
         for (int i = 0; i < 30; ++i)
             text(console_->content(), "[" + std::to_string(i + 1) + "] Workspace ready / layout resolved", 0.85f);
@@ -193,11 +242,26 @@ public:
         drawing.bounds = {0, 0, 1200, 900};
         drawing.painter = std::make_shared<Artboard>();
         ui.add(drawing);
-        text(root_, "4 regions / constrained splitters / nested scrolling / no Qt", 0.8f);
+        status_ = std::make_unique<Label>(ui, canvas, root_,
+                                          LabelOptions{"4 regions / search, tabs and collapsible sections / no Qt"});
     }
     void prepare(const Viewport& viewport)
     {
         ui.layout(root_, {0, 0, viewport.width(), viewport.height()});
+    }
+    void showMetadata()
+    {
+        inspectorTabs_->setSelected(1);
+    }
+    ~WorkspaceDemo()
+    {
+        try
+        {
+            ui.remove(root_);
+        }
+        catch (...)
+        {
+        }
     }
     template <class F> void callback(F&& f) noexcept
     {
@@ -217,6 +281,27 @@ public:
     }
     void smokeTest()
     {
+        ui.focus(search_->fieldId());
+        Event query;
+        query.type = EventType::TextInput;
+        query.text = "ELLIPSE";
+        ui.dispatch(query);
+        if (matches_ != 1)
+            throw std::runtime_error("Workspace search filtering failed");
+        query.text = "does-not-exist";
+        ui.dispatch(query);
+        if (matches_ != 0)
+            throw std::runtime_error("Workspace no-results filtering failed");
+        search_->clear();
+        if (matches_ != 32)
+            throw std::runtime_error("Workspace clear did not restore catalog");
+        ui.focus(inspectorTabs_->tabId(0));
+        host.key(GLFW_KEY_RIGHT, GLFW_PRESS, 0);
+        if (inspectorTabs_->selected() != 1 || ui.isAvailable(lastField_))
+            throw std::runtime_error("Workspace tab visibility failed");
+        inspectorTabs_->setSelected(0);
+        if (auto v = host.metrics().viewport())
+            prepare(*v);
         ui.focus(lastField_);
         if (inspector_->offset().y <= 0)
             throw std::runtime_error("Workspace focus reveal failed");
@@ -236,6 +321,77 @@ private:
     // Context precedes controllers: their registered subtrees are removed first.
     std::unique_ptr<SplitPanel> outer_, middle_, center_;
     std::unique_ptr<ScrollView> toolbox_, nested_, inspector_, console_, artboard_;
+    struct Item
+    {
+        std::string name;
+        bool symbol;
+        std::unique_ptr<Button> button;
+        bool visible = true;
+    };
+    std::unique_ptr<SearchField> search_;
+    std::unique_ptr<Label> matchCount_, noResults_, status_;
+    std::unique_ptr<CollapsibleSection> symbols_, groups_;
+    std::unique_ptr<TabView> inspectorTabs_;
+    std::vector<std::unique_ptr<CollapsibleSection>> inspectorSections_;
+    std::unique_ptr<Button> metadataAction_;
+    std::vector<std::unique_ptr<Label>> labels_;
+    std::vector<std::unique_ptr<Separator>> separators_;
+    std::vector<Item> items_;
+    std::size_t matches_ = 32;
+    void addItem(WidgetId parent, std::string name, bool symbol)
+    {
+        auto button = std::make_unique<Button>(
+            ui, parent, ButtonOptions{name, {160, 40}, [this, name] { status_->setText("Selected: " + name); }});
+        items_.push_back({std::move(name), symbol, std::move(button)});
+    }
+    static std::string folded(std::string value)
+    {
+        for (auto& c : value)
+            if (c >= 'A' && c <= 'Z')
+                c = char(c - 'A' + 'a');
+        return value;
+    }
+    void filter()
+    {
+        const auto query = folded(search_->query());
+        matches_ = 0;
+        std::size_t symbolCount = 0, groupCount = 0;
+        for (auto& item : items_)
+        {
+            const bool show = folded(item.name).find(query) != std::string::npos;
+            if (show)
+            {
+                ++matches_;
+                if (item.symbol)
+                    ++symbolCount;
+                else
+                    ++groupCount;
+            }
+            if (item.visible != show)
+            {
+                if (!show && ui.focused() == item.button->id())
+                    ui.focus(search_->fieldId());
+                ui.setVisible(item.button->id(), show);
+                item.visible = show;
+            }
+        }
+        const bool symbolsVisible = symbolCount > 0 || query.empty(), groupsVisible = groupCount > 0 || query.empty();
+        if (!symbolsVisible && ui.isDescendant(ui.focused(), symbols_->id()))
+            ui.focus(search_->fieldId());
+        if (!groupsVisible && ui.isDescendant(ui.focused(), groups_->id()))
+            ui.focus(search_->fieldId());
+        ui.setVisible(symbols_->id(), symbolsVisible);
+        ui.setVisible(groups_->id(), groupsVisible);
+        if (!query.empty())
+        {
+            if (symbolCount)
+                symbols_->setExpanded(true);
+            if (groupCount)
+                groups_->setExpanded(true);
+        }
+        ui.setVisible(noResults_->id(), matches_ == 0);
+        matchCount_->setText(std::to_string(matches_) + " matches");
+    }
     void column(WidgetId id)
     {
         ui.setLayout(id, std::make_shared<ColumnLayout>(Padding{12, 12, 12, 12}, 10.0f));
@@ -271,7 +427,7 @@ private:
 
 int main(int argc, char** argv)
 {
-    bool smoke = false;
+    bool smoke = false, metadata = false;
     std::string font, capture;
     int width = 1280, height = 860;
     for (int i = 1; i < argc; ++i)
@@ -283,6 +439,8 @@ int main(int argc, char** argv)
             height = std::stoi(argv[++i]);
         else if (arg == "--smoke-test")
             smoke = true;
+        else if (arg == "--metadata")
+            metadata = true;
         else if (arg == "--font" && i + 1 < argc)
             font = argv[++i];
         else if (arg == "--screenshot" && i + 1 < argc)
@@ -419,6 +577,12 @@ int main(int argc, char** argv)
             auto viewport = demo.host.metrics().viewport();
             if (viewport)
                 demo.prepare(*viewport);
+            if (viewport && frames == 0 && metadata)
+            {
+                demo.showMetadata();
+                demo.prepare(*viewport);
+                metadata = false;
+            }
             if (viewport && (demo.ui.takeInvalidation() != Invalidation::None || frames == 0 || smoke))
             {
                 const auto bg = demo.ui.theme().background;

@@ -211,7 +211,7 @@ struct Context::Impl
     {
         std::vector<WidgetId> result;
         for (auto id : order)
-            if (focusable(id))
+            if (focusable(id) && get(id)->widget.tabStop)
                 result.push_back(id);
         return result;
     }
@@ -219,7 +219,7 @@ struct Context::Impl
     WidgetId firstFocus() const
     {
         for (auto id : order)
-            if (focusable(id))
+            if (focusable(id) && get(id)->widget.tabStop)
                 return id;
         return {};
     }
@@ -704,6 +704,18 @@ void Context::setEnabled(WidgetId id, bool enabled)
         });
 }
 
+void Context::setTabStop(WidgetId id, bool tabStop)
+{
+    impl_->transaction(
+        [&]
+        {
+            if (auto* item = impl_->get(id); item && item->widget.tabStop != tabStop)
+            {
+                item->widget.tabStop = tabStop;
+                invalidate(Invalidation::Semantics);
+            }
+        });
+}
 std::optional<Bounds> Context::bounds(WidgetId id) const
 {
     if (auto* item = impl_->get(id))
