@@ -72,6 +72,9 @@ The workspace demo includes searchable groups and a tabbed inspector (`--metadat
 The [list guide](docs/ui-lists.md) covers fixed-height virtualized lists, stable item
 IDs, single/multiple selection, keyboard activation, and filtered/reordered models.
 Build `vectorgl_ui_list` for a searchable 2,000-row catalog with custom row painting.
+The [tree guide](docs/ui-trees.md) adds virtualized hierarchy views with disclosure
+controls, expansion persistence, parent/child navigation, and stable item selection.
+Build `vectorgl_ui_tree` for a 2,024-node project hierarchy example.
 Build `vectorgl_ui_layout` for a responsive property-form example, including type-size
 and wrapped-content changes. It accepts `--width`, `--height`, `--font`,
 `--smoke-test`, and `--screenshot FILE.bmp`.

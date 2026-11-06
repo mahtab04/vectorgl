@@ -270,6 +270,54 @@ void sparseNavigationAndClipping()
     ui.setEnabled(list.id(), false);
     require(!ui.isDescendant(ui.hitTest({100, 60}), list.id()), "Disabled list remained clickable");
 }
+void compositeCommands()
+{
+    Context ui;
+    int changes = 0;
+    ListViewOptions o;
+    o.rowHeight = 30;
+    o.selectionMode = ListSelectionMode::Multiple;
+    o.onSelectionChanged = [&](const auto&) { ++changes; };
+    o.eventFilter = [](const Event& e) -> std::optional<EventReply>
+    {
+        if ((e.type == EventType::KeyDown && e.key == Key::Right) || e.type == EventType::Cancel)
+            return EventReply{true};
+        return {};
+    };
+    ListView list(ui, {}, sample(), o);
+    ui.layout(list.id(), {0, 0, 240, 160});
+    require(list.navigateToItem(30) && changes == 1, "Composite navigation did not notify");
+    list.setCurrentItem(10);
+    require(list.currentItem() == 10 && list.selection() == std::vector<ItemId>{30} && changes == 1,
+            "Silent current command changed selection");
+    rejects([&] { list.setCurrentItem(20); });
+    require(!list.navigateToItem(20), "Composite navigation selected disabled row");
+    ui.focus(list.id());
+    require(ui.dispatch(key(Key::Right)) && list.currentItem() == 10, "Composite filter did not intercept key");
+    Event e;
+    e.type = EventType::PointerDown;
+    e.x = 15;
+    e.y = 15;
+    e.button = PointerButton::Primary;
+    ui.dispatch(e);
+    ui.cancelCapture();
+    e.type = EventType::PointerUp;
+    ui.dispatch(e);
+    require(list.selection() == std::vector<ItemId>{30}, "Filter bypassed mandatory cancellation cleanup");
+    Widget modal;
+    modal.bounds = {300, 0, 100, 100};
+    modal.focusable = true;
+    const auto modalId = ui.add(modal);
+    ui.pushModal(modalId);
+    require(!list.navigateToItem(10), "Composite user navigation bypassed modal scope");
+    ui.popModal();
+    ui.remove(modalId);
+    std::unique_ptr<ListView> removed;
+    o.eventFilter = {};
+    o.onSelectionChanged = [&](const auto&) { removed.reset(); };
+    removed = std::make_unique<ListView>(ui, WidgetId{}, sample(), o);
+    require(removed->navigateToItem(30) && !removed, "Navigation callback destruction failed");
+}
 } // namespace
 int main()
 {
@@ -281,6 +329,7 @@ int main()
         boundedWorkAndCancellation();
         reentrantCallbacks();
         sparseNavigationAndClipping();
+        compositeCommands();
         std::cout << "List tests passed\n";
     }
     catch (const std::exception& e)

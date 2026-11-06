@@ -239,11 +239,27 @@ struct ListView::State final : WidgetPainter
     }
     EventReply event(const Event& e)
     {
+        // Cleanup precedes client filters, including filters that throw.
         if (e.type == EventType::Cancel || e.type == EventType::FocusLost)
         {
             pressed.reset();
             pointerPress = false;
             activationKey = Key::None;
+        }
+        if (options.eventFilter)
+        {
+            auto callback = options.eventFilter;
+            const auto reply = callback(e);
+            if (!ui.contains(root))
+                return {true};
+            const bool cleanup = e.type == EventType::Cancel || e.type == EventType::FocusLost ||
+                                 e.type == EventType::FocusGained || e.type == EventType::Timer ||
+                                 e.type == EventType::LayoutChanged || e.type == EventType::FocusWithin;
+            if (reply && !cleanup)
+                return *reply;
+        }
+        if (e.type == EventType::Cancel || e.type == EventType::FocusLost)
+        {
             return {};
         }
         if (e.type == EventType::FocusGained)
@@ -452,6 +468,26 @@ std::vector<ItemId> ListView::selection() const
 std::optional<ItemId> ListView::currentItem() const
 {
     return state_->current;
+}
+void ListView::setCurrentItem(ItemId id)
+{
+    const auto at = state_->indices.find(id);
+    if (at == state_->indices.end() || !state_->entries[at->second].enabled)
+        throw std::invalid_argument("Current item must identify an enabled list row");
+    state_->current = state_->anchor = id;
+    state_->reveal(id);
+    state_->ui.invalidate(Invalidation::Paint | Invalidation::Semantics);
+}
+bool ListView::navigateToItem(ItemId id, Modifiers modifiers)
+{
+    auto state = state_; // The selection callback may destroy this controller.
+    const auto at = state->indices.find(id);
+    const auto modal = state->ui.modalRoot();
+    if (at == state->indices.end() || !state->entries[at->second].enabled || !state->ui.isAvailable(state->root) ||
+        (modal && !state->ui.isDescendant(state->root, modal)))
+        return false;
+    state->choose(id, modifiers, (modifiers.control || modifiers.meta) && !modifiers.shift);
+    return true;
 }
 bool ListView::scrollToItem(ItemId id)
 {

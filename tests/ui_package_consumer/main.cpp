@@ -4,6 +4,7 @@
 #include <vectorgl/ui/controls.hpp>
 #include <vectorgl/ui/list_view.hpp>
 #include <vectorgl/ui/overlays.hpp>
+#include <vectorgl/ui/tree_view.hpp>
 #include <vectorgl/ui/workspace_controls.hpp>
 #ifdef VECTORGL_TEST_GLFW
 #define GLFW_INCLUDE_NONE
@@ -20,6 +21,16 @@ int main()
         return 1;
 #endif
     vectorgl::ui::Context ui;
+    {
+        auto model = std::make_shared<vectorgl::ui::VectorTreeModel>(
+            std::vector<vectorgl::ui::TreeItem>{{10, 0, "Root"}, {20, 10, "Child"}});
+        vectorgl::ui::TreeView tree(ui, {}, model);
+        tree.setExpanded(10, true);
+        tree.setSelection({20});
+        ui.layout(tree.id(), {0, 0, 320, 240});
+        if (tree.visibleItemCount() != 2 || tree.currentItem() != 20 || !tree.isExpanded(10))
+            return 1;
+    }
     {
         auto model = std::make_shared<vectorgl::ui::VectorListModel>(
             std::vector<vectorgl::ui::ListItem>{{100, "First"}, {200, "Second"}});
