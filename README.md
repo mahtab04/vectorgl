@@ -55,9 +55,15 @@ Widgets support affine transforms, clipping-aware hit tests, shared themes, and
 polymorphic `WidgetPainter` strategies. Context paints into an active Canvas frame
 with independent logical-to-framebuffer scale on each axis. Row, column, and grid
 strategies add intrinsic measurement, size constraints, padding/gaps, flexible space,
-and spans. The richer control set remains a separate feature.
+and spans. Routed controls add editing, validation, and activation.
 See the [UI Context guide](docs/ui-context.md) for usage and routing contracts.
 The [layout guide](docs/ui-layout.md) covers measure/arrange and cache invalidation.
+The [container guide](docs/ui-containers.md) covers constrained split panels,
+nested scrolling, residual wheel routing, and automatic focus reveal. Build
+`vectorgl_ui_workspace` for a four-region resizable workspace example.
+The [controls guide](docs/ui-controls.md) covers routed text fields, buttons,
+checkboxes/toggles, numeric editing, validation, and commit/cancel behavior.
+Build `vectorgl_ui_controls` for an editable inspector example.
 Build `vectorgl_ui_layout` for a responsive property-form example, including type-size
 and wrapped-content changes. It accepts `--width`, `--height`, `--font`,
 `--smoke-test`, and `--screenshot FILE.bmp`.

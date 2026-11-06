@@ -67,6 +67,20 @@ before application transforms in both painting and hits. It retains at most four
 measurements per widget, with revision-based invalidation and an unchanged-root fast
 path. Measurement callbacks cannot mutate Context. See [layout](docs/ui-layout.md).
 
+`SplitPanel` and `ScrollView` own registered widget subtrees through small controllers.
+Their layout strategies remain immutable; shared private state connects painting,
+input, and geometry notifications without coupling Context to specific controls.
+`ScrollModel` contains host-independent bounded geometry. Scroll transforms preserve
+layout caches; residual wheel deltas bubble only through UI ancestors, and focused
+descendants reveal from inner to outer views. See [containers](docs/ui-containers.md).
+
+Routed control controllers share state between input and polymorphic painters.
+TextField reuses TextBox's codepoint editing model and separates the buffer from
+the committed value. NumericEditor composes a field and step buttons with an
+injectable parse/format policy. Context owns focus/capture; controls own activation,
+validation, completion, and caret deadlines. Shared theme state colors apply to
+buttons, checkbox/toggle surfaces, and editors. See [controls](docs/ui-controls.md).
+
 Registrations have context-scoped generation IDs. Callback storage stays alive
 until dispatch settles, including cancel/lost-focus delivery for removed widgets.
 The model is bound to one UI thread. Platform services and clocks are injectable,

@@ -249,6 +249,17 @@ struct Context::Impl
                     mapped.localY = point->y;
                 }
             auto reply = handler(owner, id, mapped);
+            if (!notification && reply.remainingWheel)
+            {
+                auto valid = [](float original, float remaining)
+                {
+                    return std::isfinite(remaining) && std::abs(remaining) <= std::abs(original) &&
+                           (original >= 0 ? remaining >= 0 : remaining <= 0);
+                };
+                if (event.type != EventType::Wheel || !valid(event.wheelX, reply.remainingWheel->x) ||
+                    !valid(event.wheelY, reply.remainingWheel->y))
+                    throw std::invalid_argument("Wheel residual must preserve sign and not exceed the input delta");
+            }
             if (!notification && (reply.handled || reply.requestFocus || reply.capturePointer))
                 dirty = dirty | Invalidation::Paint;
             if (!notification && eligible(id))
@@ -336,6 +347,20 @@ struct Context::Impl
                         focus = next;
                         event.type = EventType::FocusGained;
                         invoke(next, event, true);
+                        event.type = EventType::FocusWithin;
+                        event.related = next;
+                        auto* focusedItem = get(next);
+                        for (auto parent = focusedItem ? focusedItem->widget.parent : WidgetId{};
+                             auto* ancestor = get(parent);)
+                        {
+                            const auto nextParent = ancestor->widget.parent;
+                            if (!eligible(parent))
+                                break;
+                            invoke(parent, event, true);
+                            if (!modals.empty() && parent == modals.back().root)
+                                break;
+                            parent = nextParent;
+                        }
                     }
                     dirty = dirty | Invalidation::Paint | Invalidation::Semantics;
                     continue;
@@ -408,19 +433,34 @@ struct Context::Impl
 
     bool route(WidgetId target, const Event& event)
     {
+        Event remaining = event;
+        bool consumed = false;
         while (auto* item = get(target))
         {
             const auto parent = item->widget.parent;
             if (!eligible(target))
                 break;
-            const auto reply = invoke(target, event);
+            const auto reply = invoke(target, remaining);
+            if (remaining.type == EventType::Wheel)
+            {
+                consumed |= reply.blockApplication;
+                if (reply.remainingWheel)
+                {
+                    consumed |=
+                        reply.remainingWheel->x != remaining.wheelX || reply.remainingWheel->y != remaining.wheelY;
+                    remaining.wheelX = reply.remainingWheel->x;
+                    remaining.wheelY = reply.remainingWheel->y;
+                    if (remaining.wheelX == 0 && remaining.wheelY == 0)
+                        return consumed || reply.handled;
+                }
+            }
             if (reply.handled || reply.requestFocus || reply.capturePointer)
                 return true;
             if (!modals.empty() && target == modals.back().root)
                 break;
             target = parent;
         }
-        return false;
+        return consumed;
     }
 
     std::vector<WidgetId> layoutChildren(WidgetId parent) const
@@ -466,8 +506,10 @@ struct Context::Impl
         item->measures.push_back({constraints, desired, layoutRevision});
         return desired;
     }
-    void arrangeChildren(WidgetId parent, Size area, std::vector<std::pair<WidgetId, Bounds>>& staged)
+    void arrangeChildren(WidgetId parent, Size area, std::vector<std::pair<WidgetId, Bounds>>& staged,
+                         std::vector<WidgetId>& arranged)
     {
+        arranged.push_back(parent);
         auto* item = get(parent);
         const auto children = layoutChildren(parent);
         if (item->widget.layout)
@@ -479,14 +521,14 @@ struct Context::Impl
             {
                 validateBounds(boxes[i]);
                 staged.emplace_back(children[i], boxes[i]);
-                arrangeChildren(children[i], {boxes[i].width, boxes[i].height}, staged);
+                arrangeChildren(children[i], {boxes[i].width, boxes[i].height}, staged, arranged);
             }
         }
         else
             for (auto child : children)
             {
                 const auto bounds = get(child)->widget.bounds;
-                arrangeChildren(child, {bounds.width, bounds.height}, staged);
+                arrangeChildren(child, {bounds.width, bounds.height}, staged, arranged);
             }
     }
 
@@ -751,6 +793,7 @@ void Context::layout(WidgetId root, Bounds area)
         [&]
         {
             std::vector<std::pair<WidgetId, Bounds>> staged;
+            std::vector<WidgetId> arranged;
             {
                 MeasurementScope scope(impl_->measuring);
                 const Size offered{area.width, area.height};
@@ -759,7 +802,7 @@ void Context::layout(WidgetId root, Bounds area)
                         return impl_->measureNode(root, c);
                     }}.measure({offered, offered});
                 staged.emplace_back(root, Bounds{area.x, area.y, size.width, size.height});
-                impl_->arrangeChildren(root, size, staged);
+                impl_->arrangeChildren(root, size, staged, arranged);
             }
             for (auto [id, box] : staged)
             {
@@ -773,6 +816,11 @@ void Context::layout(WidgetId root, Bounds area)
             item->lastRevision = impl_->layoutRevision;
             item->lastGeometry = impl_->geometryRevision;
             invalidate(Invalidation::Paint | Invalidation::Semantics);
+            Event event;
+            event.type = EventType::LayoutChanged;
+            for (auto id : arranged)
+                if (contains(id))
+                    impl_->invoke(id, event, true);
         });
 }
 LayoutStats Context::layoutStats() const
@@ -790,13 +838,26 @@ void Context::setTransform(WidgetId id, const Mat3x3& transform)
             if (auto* item = impl_->get(id))
             {
                 item->widget.transform = transform;
-                invalidate(Invalidation::Arrange | Invalidation::Semantics);
+                invalidate(Invalidation::Paint | Invalidation::Semantics);
             }
         });
 }
 std::optional<Vec2> Context::mapFromRoot(WidgetId id, Vec2 point) const
 {
     return contains(id) ? detail::unmap(impl_->world(id), point) : std::nullopt;
+}
+std::optional<Vec2> Context::mapToRoot(WidgetId id, Vec2 point) const
+{
+    if (!contains(id))
+        return {};
+    const auto mapped = impl_->world(id).transformPoint(point);
+    if (!std::isfinite(mapped.x) || !std::isfinite(mapped.y))
+        return {};
+    return mapped;
+}
+bool Context::isDescendant(WidgetId id, WidgetId ancestor) const
+{
+    return contains(id) && contains(ancestor) && impl_->descendant(id, ancestor);
 }
 WidgetId Context::hitTest(Vec2 point) const
 {
@@ -815,7 +876,7 @@ void Context::setTheme(Theme theme)
 {
     impl_->requireMutable();
     for (auto color : {theme.background, theme.surface, theme.hover, theme.text, theme.muted, theme.accent,
-                       theme.border, theme.disabled})
+                       theme.border, theme.disabled, theme.pressed, theme.error})
         if (!std::isfinite(color.r) || !std::isfinite(color.g) || !std::isfinite(color.b) || !std::isfinite(color.a))
             throw std::invalid_argument("UI theme colors must be finite");
     if (!std::isfinite(theme.fontSize) || theme.fontSize <= 0 || !std::isfinite(theme.borderWidth) ||
@@ -879,7 +940,8 @@ bool Context::dispatch(const Event& event)
 {
     if (impl_->processing)
         throw std::logic_error("UI dispatch cannot be reentered from a callback");
-    if (event.type == EventType::FocusGained || event.type == EventType::FocusLost || event.type == EventType::Timer)
+    if (event.type == EventType::FocusGained || event.type == EventType::FocusLost || event.type == EventType::Timer ||
+        event.type == EventType::LayoutChanged || event.type == EventType::FocusWithin)
         throw std::invalid_argument("UI notification events are generated by Context");
     if (pointerEvent(event.type) && (!std::isfinite(event.x) || !std::isfinite(event.y) ||
                                      !std::isfinite(event.wheelX) || !std::isfinite(event.wheelY)))

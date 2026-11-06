@@ -47,6 +47,8 @@ public:
     LayoutStats layoutStats() const;
     void setTransform(WidgetId id, const Mat3x3& transform);
     std::optional<Vec2> mapFromRoot(WidgetId id, Vec2 point) const;
+    std::optional<Vec2> mapToRoot(WidgetId id, Vec2 point) const;
+    bool isDescendant(WidgetId id, WidgetId ancestor) const;
     WidgetId hitTest(Vec2 point) const;
     WidgetId hovered() const;
     void setTheme(Theme theme);

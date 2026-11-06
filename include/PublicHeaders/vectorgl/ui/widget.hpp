@@ -13,17 +13,6 @@ namespace vectorgl::ui
 {
 class Context;
 class WidgetPainter;
-/*! Generation-checked identity scoped to its originating Context. */
-struct WidgetId
-{
-    std::uint64_t context = 0, generation = 0;
-    std::uint32_t index = std::numeric_limits<std::uint32_t>::max();
-    explicit operator bool() const
-    {
-        return context != 0 && generation != 0;
-    }
-    bool operator==(const WidgetId&) const = default;
-};
 /*! Registration descriptor with optional polymorphic painting. Bounds are local
  * geometry, mapped through the composed ancestor transforms. Later siblings paint/hit above earlier
  * siblings; parents receive unhandled events after children. Ancestor visibility,

@@ -1,4 +1,9 @@
-add_library(vectorgl_ui STATIC context.cpp painting.cpp layout.cpp geometry.hpp
+add_library(vectorgl_ui STATIC
+    context.cpp painting.cpp layout.cpp geometry.hpp
+    split_panel.cpp scroll_model.cpp scroll_view.cpp
+    controls.cpp text_field.cpp numeric_editor.cpp control_detail.hpp
+    ${PROJECT_SOURCE_DIR}/include/PublicHeaders/vectorgl/ui/controls.hpp
+    ${PROJECT_SOURCE_DIR}/include/PublicHeaders/vectorgl/ui/containers.hpp
     ${PROJECT_SOURCE_DIR}/include/PublicHeaders/vectorgl/ui/layout.hpp
     ${PROJECT_SOURCE_DIR}/include/PublicHeaders/vectorgl/ui/painting.hpp
     ${PROJECT_SOURCE_DIR}/include/PublicHeaders/vectorgl/ui/context.hpp

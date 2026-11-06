@@ -97,7 +97,8 @@ reached. Without flex, surplus space remains after the children. A deficit shrin
 children proportionally to their available size above their minima. Fixed dimensions
 do not shrink. Minima remain intact when the container cannot accommodate them;
 remaining overflow starts at the padded origin. Clipping is an explicit container
-choice. Scrolling and split panels are a later feature.
+choice. [ScrollView and SplitPanel](ui-containers.md) add clipped scrolling and
+constrained resizable panes without changing the layout strategy interface.
 
 Column widths are resolved before height measurement. Rows remeasure children
 at their allocated widths. Transforms affect painting/hits and do not inflate a
