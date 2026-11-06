@@ -104,6 +104,14 @@ rows rather than per-item widgets. The default text painter and app-defined
 ListRowPainter strategies share row/ancestor clipping and Canvas state isolation.
 See [virtualized lists](docs/ui-lists.md).
 
+TreeView indexes an immutable TreeModel forest once, validates identity/parent
+relationships through iterative traversal, and projects expanded nodes into the
+existing ListView. A weakly bound row painter and input filter add indentation,
+disclosures, and hierarchy navigation without a second selection/scroll engine or
+per-node widgets. Projection changes reconcile current/expansion state by identity;
+revision checks suppress obsolete notifications after callback-driven changes.
+See [virtualized trees](docs/ui-trees.md).
+
 Registrations have context-scoped generation IDs. Callback storage stays alive
 until dispatch settles, including cancel/lost-focus delivery for removed widgets.
 The model is bound to one UI thread. Platform services and clocks are injectable,

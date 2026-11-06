@@ -96,6 +96,16 @@ selection and select-all naturally touch the selected range/all enabled items.
 Tree hierarchy, variable row heights, inline editors, drag/drop, table headers, and
 sorting policy are outside this slice; filtering/sorting remain application policy.
 
+Tree hierarchy is provided by the separate [TreeView](ui-trees.md), which reuses
+this list's selection, scrolling, and visible-row painting. Composite controls can
+use `ListViewOptions::eventFilter` to handle input before normal list behavior:
+return nullopt to continue, or EventReply to replace handling. Notifications must
+return nullopt; cancellation/focus cleanup always runs regardless of the reply.
+Filters must not mutate state during paint/layout. `setCurrentItem()` silently
+sets current/range anchor without changing selection; `navigateToItem()` applies
+user-navigation modifier semantics and selection notifications. It returns false
+for unknown/disabled items, unavailable controls, or controls behind a modal scope.
+
 ## Catalog example
 
 `example/ui_list_demo.cpp` shows a searchable 2,000-item catalog, multiple selection,

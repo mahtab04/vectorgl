@@ -5,6 +5,8 @@ add_library(vectorgl_ui STATIC
     overlays.cpp combo_box.cpp
     label.cpp tab_view.cpp section_search.cpp
     list_view.cpp
+    tree_view.cpp
+    ${PROJECT_SOURCE_DIR}/include/PublicHeaders/vectorgl/ui/tree_view.hpp
     ${PROJECT_SOURCE_DIR}/include/PublicHeaders/vectorgl/ui/list_view.hpp
     ${PROJECT_SOURCE_DIR}/include/PublicHeaders/vectorgl/ui/workspace_controls.hpp
     ${PROJECT_SOURCE_DIR}/include/PublicHeaders/vectorgl/ui/overlays.hpp

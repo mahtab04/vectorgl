@@ -82,6 +82,9 @@ struct ListViewOptions
     std::shared_ptr<ListRowPainter> rowPainter; // Null selects the themed text painter.
     std::function<void(const std::vector<ItemId>&)> onSelectionChanged;
     std::function<void(ItemId)> onActivated; // Enter release; repeats do not activate.
+    // Optional composite-control input filter. nullopt keeps normal handling;
+    // an EventReply replaces it. Notifications must return nullopt.
+    std::function<std::optional<EventReply>(const Event&)> eventFilter;
 };
 /*! Fixed-height virtual list: a constant-size widget subtree, O(visible rows)
  * painting, O(N) snapshot indexing, O(selected rows) selection storage.
@@ -105,6 +108,8 @@ public:
     void setSelection(std::vector<ItemId> ids); // Existing enabled IDs only; duplicates collapse.
     std::vector<ItemId> selection() const;      // Current row order; copy safe across callbacks/model replacement.
     std::optional<ItemId> currentItem() const;
+    void setCurrentItem(ItemId id);                           // Silent current/anchor change; selection is unchanged.
+    bool navigateToItem(ItemId id, Modifiers modifiers = {}); // User navigation semantics, reveal and notification.
     bool scrollToItem(ItemId id);
     bool setScrollOffset(float offset);
     float scrollOffset() const;

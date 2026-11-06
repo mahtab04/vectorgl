@@ -13,6 +13,7 @@
 #include <vectorgl/ui/glfw_adapter.hpp>
 #include <vectorgl/ui/list_view.hpp>
 #include <vectorgl/ui/overlays.hpp>
+#include <vectorgl/ui/tree_view.hpp>
 #include <vectorgl/ui/workspace_controls.hpp>
 
 using namespace vectorgl;
@@ -45,6 +46,110 @@ void pixel(int x, int y, int r, int g, int b)
 }
 void paintTests(Canvas& canvas)
 {
+    class CountedTree final : public TreeModel
+    {
+    public:
+        mutable std::size_t metadata = 0, texts = 0;
+        std::size_t rootCount() const override
+        {
+            ++metadata;
+            return 1;
+        }
+        ItemId rootId(std::size_t) const override
+        {
+            ++metadata;
+            return 1;
+        }
+        std::size_t childCount(ItemId id) const override
+        {
+            ++metadata;
+            return id == 1 ? 2000 : 0;
+        }
+        ItemId childId(ItemId, std::size_t row) const override
+        {
+            ++metadata;
+            return row + 2;
+        }
+        std::string_view text(ItemId) const override
+        {
+            ++texts;
+            return "Node";
+        }
+    };
+    class TreeRows final : public TreeRowPainter
+    {
+    public:
+        std::vector<ItemId> visited;
+        void paint(PaintContext& p, const TreeModel& model, const TreeRow& data) override
+        {
+            visited.push_back(data.row.id);
+            require(data.depth == (data.row.id == 1 ? 0u : 1u), "Tree painter received wrong depth");
+            require(!model.text(data.row.id).empty(), "Tree visible text unavailable");
+            const auto b = data.row.bounds;
+            p.fillRect({b.x - 10, b.y - 10, b.width + 20, b.height + 20},
+                       data.row.index % 2 ? Color::Blue : Color::Red);
+            if (data.hasChildren)
+                p.fillRect(data.disclosureBounds, Color::Green);
+        }
+    };
+    for (float scale : {1.0f, 1.25f, 1.5f, 2.0f})
+    {
+        Context ui;
+        auto model = std::make_shared<CountedTree>();
+        auto painter = std::make_shared<TreeRows>();
+        TreeViewOptions options;
+        options.rowHeight = 20;
+        options.rowPainter = painter;
+        TreeView tree(ui, {}, model, options);
+        const auto indexed = model->metadata;
+        ui.layout(tree.id(), {10, 10, 100, 100});
+        Event e;
+        e.type = EventType::PointerDown;
+        e.x = 24;
+        e.y = 20;
+        e.button = PointerButton::Primary;
+        ui.dispatch(e);
+        e.type = EventType::PointerUp;
+        ui.dispatch(e);
+        require(tree.isExpanded(1) && tree.selection().empty(), "Tree disclosure picked row instead of expanding");
+        ui.layout(tree.id(), {10, 10, 100, 100});
+        tree.setScrollOffset(20005);
+        glClearColor(0, 0, 0, 1);
+        glClear(GL_COLOR_BUFFER_BIT);
+        canvas.beginFrame(256, 256);
+        ui.paint(canvas, Viewport(256 / scale, 256 / scale, 256, 256));
+        canvas.endFrame();
+        require(painter->visited == std::vector<ItemId>({1001, 1002, 1003, 1004, 1005, 1006}),
+                "Tree painted offscreen/collapsed rows");
+        require(model->metadata == indexed && model->texts == 6,
+                "Tree paint rescanned hierarchy or queried hidden text");
+        pixel(int(30 * scale), int(16 * scale), 255, 0, 0);
+        pixel(int(30 * scale), int(30 * scale), 0, 0, 255);
+        pixel(int(30 * scale), int(112 * scale), 0, 0, 0);
+        e.type = EventType::PointerDown;
+        e.x = 70;
+        e.y = 16;
+        ui.dispatch(e);
+        e.type = EventType::PointerUp;
+        ui.dispatch(e);
+        require(tree.selection() == std::vector<ItemId>{1001}, "Tree pixels and picking disagree at DPI scale");
+    }
+    {
+        Context ui;
+        auto theme = ui.theme();
+        theme.fontPath = VECTORGL_TEST_FONT;
+        ui.setTheme(theme);
+        auto model = std::make_shared<CountedTree>();
+        TreeView tree(ui, {}, model);
+        tree.setExpanded(1, true);
+        ui.layout(tree.id(), {0, 0, 200, 200});
+        tree.setScrollOffset(36005);
+        const auto range = tree.visibleRows();
+        canvas.beginFrame(256, 256);
+        ui.paint(canvas, Viewport(256, 256, 256, 256));
+        canvas.endFrame();
+        require(model->texts == range.end - range.first, "Default tree painter fetched offscreen text");
+    }
     class CountedModel final : public ListModel
     {
     public:
