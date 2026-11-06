@@ -19,6 +19,8 @@ if(NOT VECTORGL_BUILD_EXAMPLES)
 endif()
 
 add_executable(vectorgl_example main.cpp)
+add_executable(vectorgl_palette palette_demo.cpp)
+target_link_libraries(vectorgl_palette PRIVATE vectorgl glfw)
 
 add_executable(vectorgl_fill_rules fill_rules_demo.cpp)
 target_link_libraries(vectorgl_fill_rules PRIVATE vectorgl glfw)
