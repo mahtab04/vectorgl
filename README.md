@@ -93,6 +93,14 @@ Build target `vectorgl_ui_host` with `VECTORGL_BUILD_UI_EXAMPLES=ON`; it accepts
 `--font PATH`, `--smoke-test`, and `--screenshot FILE.bmp`.
 See the [painting and GLFW guide](docs/ui-glfw.md) for coordinate and lifetime rules.
 
+Enable `VECTORGL_BUILD_DIALOGS=ON` alongside UI for optional `vectorgl::dialogs`
+backends: Windows Common Item Dialog and runtime-optional Linux Zenity. The
+[file dialog guide](docs/ui-file-dialogs.md) covers queued completion, cancellation,
+owner lifetime and host event draining. The integrated workspace's Open and Save
+actions demonstrate path selection; document I/O remains application code.
+See the [migration guide](docs/ui-migration.md) for component choices, release
+checks, and remaining text/accessibility limitations.
+
 The [routing example](example/ui_routing_demo.cpp) exercises two text fields,
 keyboard activation, a captured drag, and modal isolation in a deterministic
 console program. Build it without GLFW or graphical examples:

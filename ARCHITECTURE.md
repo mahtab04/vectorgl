@@ -139,6 +139,14 @@ provides window/framebuffer/content-scale conversion, and supplies clipboard/cur
 services. It owns neither native callbacks nor the window/context. Package components
 keep UI-only discovery independent of GLFW. See [host integration](docs/ui-glfw.md).
 
+`FileDialogService` queues injected backend work and completes it outside Context
+transactions. Before native entry it cancels gestures and creates a modal barrier;
+host events drain under that barrier before eligible focus is restored. Generation
+IDs revalidate bound owners before completion. Active cancellation suppresses late
+results but does not close a blocking native chooser. Optional `vectorgl::dialogs`
+provides Windows COM and Linux Zenity backends independently of GLFW. See
+[file dialogs](docs/ui-file-dialogs.md) and [migration gates](docs/ui-migration.md).
+
 ## Main classes
 
 | Class | Responsibility | Owns GPU resources |

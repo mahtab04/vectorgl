@@ -2,6 +2,13 @@
 #include "vectorgl/ui/glfw_adapter.hpp"
 
 #include <GLFW/glfw3.h>
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#define GLFW_EXPOSE_NATIVE_WIN32
+#include <GLFW/glfw3native.h>
+#endif
 
 #include <array>
 #include <cmath>
@@ -168,6 +175,14 @@ GlfwAdapter::GlfwAdapter(GLFWwindow* window, Context& context)
     refreshMetrics();
 }
 GlfwAdapter::~GlfwAdapter() = default;
+std::uintptr_t GlfwAdapter::nativeDialogOwner() const
+{
+#ifdef _WIN32
+    return reinterpret_cast<std::uintptr_t>(glfwGetWin32Window(impl_->window));
+#else
+    return 0;
+#endif
+}
 void GlfwAdapter::refreshMetrics()
 {
     int w = 0, h = 0, fw = 0, fh = 0;
@@ -180,6 +195,11 @@ void GlfwAdapter::refreshMetrics()
     {
         impl_->metrics = next;
         impl_->context.invalidate(Invalidation::All);
+        if (!next.viewport())
+        {
+            impl_->context.cancelCapture(CancelReason::Unavailable);
+            impl_->context.focus({});
+        }
     }
 }
 const WindowMetrics& GlfwAdapter::metrics() const
@@ -268,6 +288,10 @@ bool GlfwAdapter::cursorEntered(bool entered)
     Event event;
     event.type = EventType::PointerLeave;
     return impl_->context.dispatch(event);
+}
+bool GlfwAdapter::iconified(bool minimized)
+{
+    return minimized ? focusChanged(false) : false;
 }
 ServiceResult GlfwAdapter::setCursor(Cursor cursor)
 {

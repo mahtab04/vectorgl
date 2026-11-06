@@ -66,7 +66,8 @@ public:
      * Unconsumed input can be offered to application shortcuts/artboard actions.
      */
     bool dispatch(const Event& event);
-    bool focus(WidgetId id); // Empty ID clears focus; returns false if ineligible.
+    bool isProcessing() const; // Event/layout/paint/notification transaction; platform pumps must run outside it.
+    bool focus(WidgetId id);   // Empty ID clears focus; returns false if ineligible.
     WidgetId focused() const;
     WidgetId captured() const;
     void cancelCapture(CancelReason reason = CancelReason::Explicit);
