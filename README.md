@@ -93,6 +93,13 @@ Installed consumers request the optional component with
 `find_package(vectorgl CONFIG REQUIRED COMPONENTS ui)` and link `vectorgl::ui`.
 Graphics-only builds keep the UI module disabled by default.
 
+## Color palette
+
+`Color` includes expanded named colors, aliases, a suggested UI palette, constexpr
+helpers, and explicit component clamping. Existing values and interpolation alpha
+behavior are preserved. See the [color guide](docs/colors.md) and build
+`vectorgl_palette` for the paged swatch and RGB/Oklab comparison example.
+
 ## Compound paths and fill rules
 
 All contours in a path are filled together. `FillRule::NonZero` is the default:

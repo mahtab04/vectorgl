@@ -2,6 +2,10 @@
 #include <vectorgl/color.hpp>
 #include <vectorgl/path.hpp>
 
+constexpr vectorgl::Color (*opaqueColor)(uint32_t) = &vectorgl::Color::hex;
+static_assert(opaqueColor(0x663399) == vectorgl::Color::RebeccaPurple);
+static_assert(vectorgl::Color{2, -1, .5f, 1}.clamped() == vectorgl::Color{1, 0, .5f, 1});
+
 int main()
 {
     // Constructing Canvas forces the consumer to link the renderer and vendored
