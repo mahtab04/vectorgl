@@ -318,6 +318,32 @@ void compositeCommands()
     removed = std::make_unique<ListView>(ui, WidgetId{}, sample(), o);
     require(removed->navigateToItem(30) && !removed, "Navigation callback destruction failed");
 }
+void horizontalExtentAndReveal()
+{
+    Context ui;
+    ListViewOptions o;
+    o.rowHeight = 30;
+    o.horizontalScroll = true;
+    auto model = std::make_shared<CountingModel>();
+    ListView list(ui, {}, model, o);
+    list.setContentWidth(600);
+    ui.layout(list.id(), {0, 0, 200, 200});
+    require(list.setHorizontalScrollOffset(150) && list.horizontalScrollOffset() == 150,
+            "List horizontal extent failed");
+    list.setScrollOffset(45000);
+    require(list.horizontalScrollOffset() == 150, "Vertical setter reset horizontal offset");
+    list.setSelection({1800});
+    ui.focus(list.id());
+    ui.dispatch(key(Key::Home));
+    require(list.horizontalScrollOffset() == 150, "Navigation reveal reset horizontal offset");
+    rejects([&] { list.setContentWidth(-1); });
+    rejects([&] { list.setHorizontalScrollOffset(std::numeric_limits<float>::infinity()); });
+    list.setContentWidth(0);
+    ui.layout(list.id(), {0, 0, 200, 200});
+    require(list.horizontalScrollOffset() == 0, "Shrinking content retained horizontal overscroll");
+    ListView vertical(ui, {}, sample());
+    rejects([&] { vertical.setContentWidth(100); });
+}
 } // namespace
 int main()
 {
@@ -330,6 +356,7 @@ int main()
         reentrantCallbacks();
         sparseNavigationAndClipping();
         compositeCommands();
+        horizontalExtentAndReveal();
         std::cout << "List tests passed\n";
     }
     catch (const std::exception& e)

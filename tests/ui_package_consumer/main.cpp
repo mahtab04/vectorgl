@@ -4,6 +4,7 @@
 #include <vectorgl/ui/controls.hpp>
 #include <vectorgl/ui/list_view.hpp>
 #include <vectorgl/ui/overlays.hpp>
+#include <vectorgl/ui/table_view.hpp>
 #include <vectorgl/ui/tree_view.hpp>
 #include <vectorgl/ui/workspace_controls.hpp>
 #ifdef VECTORGL_TEST_GLFW
@@ -21,6 +22,17 @@ int main()
         return 1;
 #endif
     vectorgl::ui::Context ui;
+    {
+        auto model = std::make_shared<vectorgl::ui::VectorTableModel>(
+            std::vector<vectorgl::ui::TableItem>{{100, {{1, "Name"}, {2, "42"}}}});
+        vectorgl::ui::TableView table(ui, {}, model, {{1, "Name"}, {2, "Value"}});
+        ui.layout(table.id(), {0, 0, 320, 240});
+        table.setSelection({100});
+        table.setSort(vectorgl::ui::TableSort{2, vectorgl::ui::SortDirection::Descending});
+        table.setColumnWidth(1, 200);
+        if (table.currentItem() != 100 || table.columns()[0].width != 200 || table.sort()->column != 2)
+            return 1;
+    }
     {
         auto model = std::make_shared<vectorgl::ui::VectorTreeModel>(
             std::vector<vectorgl::ui::TreeItem>{{10, 0, "Root"}, {20, 10, "Child"}});

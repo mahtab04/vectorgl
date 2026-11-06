@@ -13,6 +13,7 @@
 #include <vectorgl/ui/glfw_adapter.hpp>
 #include <vectorgl/ui/list_view.hpp>
 #include <vectorgl/ui/overlays.hpp>
+#include <vectorgl/ui/table_view.hpp>
 #include <vectorgl/ui/tree_view.hpp>
 #include <vectorgl/ui/workspace_controls.hpp>
 
@@ -46,6 +47,114 @@ void pixel(int x, int y, int r, int g, int b)
 }
 void paintTests(Canvas& canvas)
 {
+    class CountedTable final : public TableModel
+    {
+    public:
+        mutable std::size_t ids = 0, texts = 0;
+        std::size_t rowCount() const override
+        {
+            return 2000;
+        }
+        ItemId itemId(std::size_t row) const override
+        {
+            ++ids;
+            return row + 1;
+        }
+        std::string_view cellText(std::size_t, ColumnId) const override
+        {
+            ++texts;
+            return "Cell";
+        }
+    };
+    class Cells final : public TableCellPainter
+    {
+    public:
+        std::vector<std::pair<ItemId, ColumnId>> visited;
+        void paint(PaintContext& p, const TableModel& model, const TableCell& cell) override
+        {
+            visited.emplace_back(cell.row.id, cell.column);
+            require(!model.cellText(cell.row.index, cell.column).empty(), "Visible table cell unavailable");
+            const auto b = cell.bounds;
+            p.fillRect({b.x - 10, b.y - 10, b.width + 20, b.height + 20}, cell.column % 2 ? Color::Red : Color::Blue);
+        }
+    };
+    for (float scale : {1.0f, 1.25f, 1.5f, 2.0f})
+    {
+        Context ui;
+        auto model = std::make_shared<CountedTable>();
+        auto painter = std::make_shared<Cells>();
+        std::vector<TableColumn> columns;
+        for (ColumnId id = 1; id <= 8; ++id)
+            columns.push_back({id, "Column", 100, 60, 200});
+        TableViewOptions options;
+        options.rowHeight = 20;
+        options.headerHeight = 24;
+        options.cellPainter = painter;
+        TableView table(ui, {}, model, columns, options);
+        ui.layout(table.id(), {10, 10, 120, 120});
+        table.setHorizontalScrollOffset(150);
+        table.setScrollOffset(20005);
+        const auto range = table.visibleRows();
+        require(range == ListRowRange{1000, 1005}, "Table visible row range incorrect");
+        const auto draw = [&]
+        {
+            glClearColor(0, 0, 0, 1);
+            glClear(GL_COLOR_BUFFER_BIT);
+            canvas.beginFrame(256, 256);
+            ui.paint(canvas, Viewport(256 / scale, 256 / scale, 256, 256));
+            canvas.endFrame();
+        };
+        draw();
+        require(painter->visited.size() == 10 && model->texts == 10 && model->ids == 2000,
+                "Table painted offscreen cells or rescanned rows");
+        for (const auto& [row, column] : painter->visited)
+            require(row >= 1001 && row <= 1005 && (column == 2 || column == 3), "Table visited wrong visible cell");
+        auto header = table.headerCellBounds(3).value();
+        auto edge = ui.mapToRoot(table.headerId(), {header.x, header.y}).value();
+        require(std::abs(edge.x - 62) < .001f, "Header/body horizontal geometry disagreed");
+        pixel(int(40 * scale), int(42 * scale), 0, 0, 255);
+        pixel(int(80 * scale), int(42 * scale), 255, 0, 0);
+        pixel(int(8 * scale), int(42 * scale), 0, 0, 0);
+        table.setColumnWidth(2, 140);
+        ui.layout(table.id(), {10, 10, 120, 120});
+        painter->visited.clear();
+        model->texts = 0;
+        draw();
+        header = table.headerCellBounds(3).value();
+        edge = ui.mapToRoot(table.headerId(), {header.x, header.y}).value();
+        require(std::abs(edge.x - 102) < .001f && model->ids == 2000 && model->texts == 10,
+                "Column resize lost alignment/work bound");
+        pixel(int(80 * scale), int(42 * scale), 0, 0, 255);
+        pixel(int(110 * scale), int(42 * scale), 255, 0, 0);
+        Event e;
+        e.type = EventType::PointerDown;
+        e.x = 80;
+        e.y = 42;
+        e.button = PointerButton::Primary;
+        ui.dispatch(e);
+        e.type = EventType::PointerUp;
+        ui.dispatch(e);
+        require(table.selection() == std::vector<ItemId>{1001} && table.horizontalScrollOffset() == 150,
+                "Table picking/reveal disagreed with painted cell");
+    }
+    {
+        Context ui;
+        auto theme = ui.theme();
+        theme.fontPath = VECTORGL_TEST_FONT;
+        ui.setTheme(theme);
+        auto model = std::make_shared<CountedTable>();
+        TableViewOptions options;
+        options.rowHeight = 20;
+        options.headerHeight = 24;
+        TableView table(ui, {}, model, {{1, "One", 100}, {2, "Two", 100}, {3, "Three", 100}}, options);
+        ui.layout(table.id(), {10, 10, 120, 120});
+        table.setHorizontalScrollOffset(150);
+        table.setScrollOffset(20005);
+        canvas.beginFrame(256, 256);
+        ui.paint(canvas, Viewport(256, 256, 256, 256));
+        canvas.endFrame();
+        require(model->texts == 10 && model->ids == 2000, "Default table painter fetched offscreen cells");
+    }
     class CountedTree final : public TreeModel
     {
     public:

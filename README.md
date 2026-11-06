@@ -75,6 +75,9 @@ Build `vectorgl_ui_list` for a searchable 2,000-row catalog with custom row pain
 The [tree guide](docs/ui-trees.md) adds virtualized hierarchy views with disclosure
 controls, expansion persistence, parent/child navigation, and stable item selection.
 Build `vectorgl_ui_tree` for a 2,024-node project hierarchy example.
+The [table guide](docs/ui-tables.md) covers virtualized rows/cells, fixed headers,
+constrained column resizing, sorting hooks, and synchronized horizontal scrolling.
+Build `vectorgl_ui_table` for a searchable 2,000-row tag browser.
 Build `vectorgl_ui_layout` for a responsive property-form example, including type-size
 and wrapped-content changes. It accepts `--width`, `--height`, `--font`,
 `--smoke-test`, and `--screenshot FILE.bmp`.

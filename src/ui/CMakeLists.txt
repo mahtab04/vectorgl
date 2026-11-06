@@ -6,6 +6,8 @@ add_library(vectorgl_ui STATIC
     label.cpp tab_view.cpp section_search.cpp
     list_view.cpp
     tree_view.cpp
+    table_view.cpp
+    ${PROJECT_SOURCE_DIR}/include/PublicHeaders/vectorgl/ui/table_view.hpp
     ${PROJECT_SOURCE_DIR}/include/PublicHeaders/vectorgl/ui/tree_view.hpp
     ${PROJECT_SOURCE_DIR}/include/PublicHeaders/vectorgl/ui/list_view.hpp
     ${PROJECT_SOURCE_DIR}/include/PublicHeaders/vectorgl/ui/workspace_controls.hpp
