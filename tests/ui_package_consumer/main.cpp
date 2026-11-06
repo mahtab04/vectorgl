@@ -3,6 +3,7 @@
 #include <vectorgl/ui/context.hpp>
 #include <vectorgl/ui/controls.hpp>
 #include <vectorgl/ui/overlays.hpp>
+#include <vectorgl/ui/workspace_controls.hpp>
 #ifdef VECTORGL_TEST_GLFW
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
@@ -18,6 +19,21 @@ int main()
         return 1;
 #endif
     vectorgl::ui::Context ui;
+    {
+        vectorgl::Canvas canvas;
+        vectorgl::ui::TabView tabs(ui, {}, {{{"One"}, {"Two"}}, 0});
+        vectorgl::ui::CollapsibleSection section(ui, tabs.page(0), {"Section"});
+        vectorgl::ui::SearchField search(ui, canvas, section.content());
+        vectorgl::ui::Label label(ui, canvas, tabs.page(1), {"Installed label"});
+        vectorgl::ui::Separator line(ui, tabs.page(1));
+        ui.layout(tabs.id(), {0, 0, 640, 480});
+        ui.focus(search.fieldId());
+        search.setQuery("query");
+        tabs.setSelected(1);
+        if (ui.isAvailable(search.fieldId()) || ui.focused() != tabs.tabId(1))
+            return 1;
+        section.setExpanded(false);
+    }
     {
         vectorgl::ui::OverlayManager overlays(ui);
         overlays.update({0, 0, 640, 480});

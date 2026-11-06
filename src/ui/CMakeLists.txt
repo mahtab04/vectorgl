@@ -3,6 +3,8 @@ add_library(vectorgl_ui STATIC
     split_panel.cpp scroll_model.cpp scroll_view.cpp
     controls.cpp text_field.cpp numeric_editor.cpp control_detail.hpp
     overlays.cpp combo_box.cpp
+    label.cpp tab_view.cpp section_search.cpp
+    ${PROJECT_SOURCE_DIR}/include/PublicHeaders/vectorgl/ui/workspace_controls.hpp
     ${PROJECT_SOURCE_DIR}/include/PublicHeaders/vectorgl/ui/overlays.hpp
     ${PROJECT_SOURCE_DIR}/include/PublicHeaders/vectorgl/ui/controls.hpp
     ${PROJECT_SOURCE_DIR}/include/PublicHeaders/vectorgl/ui/containers.hpp
@@ -15,6 +17,7 @@ add_library(vectorgl_ui STATIC
 add_library(vectorgl::ui ALIAS vectorgl_ui)
 set_target_properties(vectorgl_ui PROPERTIES EXPORT_NAME ui)
 target_link_libraries(vectorgl_ui PUBLIC vectorgl::vectorgl)
+target_include_directories(vectorgl_ui PRIVATE ${VECTORGL_INTERNAL_INCLUDE_DIR})
 target_compile_features(vectorgl_ui PUBLIC cxx_std_20)
 setup_clang_tooling(vectorgl_ui)
 

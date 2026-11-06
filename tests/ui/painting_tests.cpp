@@ -12,6 +12,7 @@
 #include <vectorgl/ui/controls.hpp>
 #include <vectorgl/ui/glfw_adapter.hpp>
 #include <vectorgl/ui/overlays.hpp>
+#include <vectorgl/ui/workspace_controls.hpp>
 
 using namespace vectorgl;
 using namespace vectorgl::ui;
@@ -43,6 +44,51 @@ void pixel(int x, int y, int r, int g, int b)
 }
 void paintTests(Canvas& canvas)
 {
+    for (float scale : {1.0f, 1.25f, 1.5f, 2.0f})
+    {
+        Context ui;
+        auto theme = ui.theme();
+        theme.fontPath = VECTORGL_TEST_FONT;
+        theme.fontSize = 16;
+        ui.setTheme(theme);
+        Label label(ui, canvas, {}, LabelOptions{"AAAAAAAAAAAA"});
+        ui.layout(label.id(), {10, 10, 60, 28});
+        require(canvas.setFont(theme.fontPath, theme.fontSize), "label test font unavailable");
+        const auto expected = ellipsizeText(label.text(), 60, [&](std::string_view text)
+                                            { return canvas.measureText(std::string(text)); });
+        require(canvas.measureText(expected) <= 60.01f && expected != label.text(), "font-backed ellipsis did not fit");
+        std::vector<unsigned char> actual(256 * 256 * 4), reference(actual.size());
+        glClearColor(0, 0, 0, 1);
+        glClear(GL_COLOR_BUFFER_BIT);
+        canvas.beginFrame(256, 256);
+        ui.paint(canvas, Viewport(256 / scale, 256 / scale, 256, 256));
+        canvas.endFrame();
+        glReadPixels(0, 0, 256, 256, GL_RGBA, GL_UNSIGNED_BYTE, actual.data());
+        glClear(GL_COLOR_BUFFER_BIT);
+        canvas.beginFrame(256, 256);
+        canvas.save();
+        canvas.setTransform(Mat3x3::scaling(scale, scale));
+        canvas.clipRect(10, 10, 60, 28);
+        canvas.setFillColor(theme.text);
+        TextLayoutOptions layout;
+        layout.maxWidth = 60;
+        layout.wrap = TextWrap::None;
+        canvas.fillText(expected, 10, 10, layout);
+        canvas.restore();
+        canvas.endFrame();
+        glReadPixels(0, 0, 256, 256, GL_RGBA, GL_UNSIGNED_BYTE, reference.data());
+        require(actual == reference, "label pixels differed from expected clipped ellipsis at DPI scale");
+        ui.remove(label.id());
+        Separator line(ui, {}, SeparatorOptions{SeparatorAxis::Horizontal, 2, 70, 5});
+        ui.layout(line.id(), {10, 50, 70, 4});
+        glClear(GL_COLOR_BUFFER_BIT);
+        canvas.beginFrame(256, 256);
+        ui.paint(canvas, Viewport(256 / scale, 256 / scale, 256, 256));
+        canvas.endFrame();
+        const auto color = theme.border;
+        pixel(int(20 * scale), int(52 * scale), int(color.r * 255), int(color.g * 255), int(color.b * 255));
+        pixel(int(11 * scale), int(52 * scale), 0, 0, 0);
+    }
     for (float scale : {1.0f, 1.25f, 1.5f, 2.0f})
     {
         Context ui;

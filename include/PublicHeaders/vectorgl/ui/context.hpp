@@ -33,6 +33,7 @@ public:
     void setBounds(WidgetId id, Bounds bounds);
     void setVisible(WidgetId id, bool visible);
     void setEnabled(WidgetId id, bool enabled);
+    void setTabStop(WidgetId id, bool tabStop);
     std::optional<Bounds> bounds(WidgetId id) const;
     std::optional<Bounds> layoutBounds(WidgetId id) const; // Placement before the application transform.
     void setLayout(WidgetId id, std::shared_ptr<const Layout> layout);

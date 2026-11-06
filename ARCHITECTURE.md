@@ -88,6 +88,14 @@ deadlines. Placement is in root logical coordinates and updates at the host's
 layout/input boundary. ComboBox reuses the shared activation strategy and manager
 instead of introducing another event router. See [overlays](docs/ui-overlays.md).
 
+Workspace controls compose the same registered primitives. TabBar uses a roving
+sequential Tab stop, while TabView owns page visibility and focus handoff.
+CollapsibleSection hides its body through Context, inheriting cancellation and
+timer cleanup. SearchField reuses TextField and an explicit clear action; filtering
+remains application policy. Label performs constrained measurement and cached
+codepoint-safe ellipsis; display-only labels/separators are pointer-transparent.
+See [workspace controls](docs/ui-workspace-controls.md).
+
 Registrations have context-scoped generation IDs. Callback storage stays alive
 until dispatch settles, including cancel/lost-focus delivery for removed widgets.
 The model is bound to one UI thread. Platform services and clocks are injectable,
