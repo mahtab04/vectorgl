@@ -18,6 +18,7 @@
 #include <vectorgl/ui/containers.hpp>
 #include <vectorgl/ui/controls.hpp>
 #include <vectorgl/ui/glfw_adapter.hpp>
+#include <vectorgl/ui/overlays.hpp>
 using namespace vectorgl;
 using namespace vectorgl::ui;
 namespace
@@ -98,8 +99,9 @@ public:
     Canvas canvas;
     Context ui;
     GlfwAdapter host;
+    OverlayManager overlays;
     std::exception_ptr error;
-    ControlsDemo(GLFWwindow* window, std::string font, bool) : host(window, ui)
+    ControlsDemo(GLFWwindow* window, std::string font, bool) : host(window, ui), overlays(ui)
     {
         canvas.init();
         auto theme = ui.theme();
@@ -153,6 +155,17 @@ public:
         };
         number.onServiceError = name.onServiceError;
         opacity_ = std::make_unique<NumericEditor>(ui, canvas, inspector_, number);
+        label(inspector_, "Style");
+        ComboBoxOptions style;
+        style.items = {{"Filled"}, {"Outline"}, {"Soft shadow"}, {"Unavailable style", false}};
+        style.selected = 0;
+        style.onChanged = [this](std::size_t index)
+        {
+            status_->text = "Style selected: " + std::to_string(index + 1);
+            ui.invalidate(Invalidation::Measure);
+        };
+        style_ = std::make_unique<ComboBox>(ui, overlays, inspector_, std::move(style));
+        overlays.setTooltip(style_->id(), "Choose the card appearance. Arrow keys navigate; Enter selects.");
         visible_ = std::make_unique<CheckBox>(
             ui, inspector_, CheckBoxOptions{"Show preview", true, CheckStyle::Checkbox, {240, 44}, [this](bool value) {
                                                 ui.setVisible(previewTextId_, value);
@@ -188,6 +201,29 @@ public:
                                                         }});
         unavailable_ = std::make_unique<Button>(ui, inspector_, ButtonOptions{"Unavailable action", {240, 44}});
         ui.setEnabled(unavailable_->id(), false);
+        menu_ = std::make_unique<Button>(ui, inspector_,
+                                         ButtonOptions{"File menu",
+                                                       {240, 44},
+                                                       [this]
+                                                       {
+                                                           PopupOptions menu;
+                                                           menu.items = {{"Save changes..."},
+                                                                         {"", true, true},
+                                                                         {"Export (unavailable)", false},
+                                                                         {"Reset properties"}};
+                                                           menu.onSelected = [this](std::size_t index)
+                                                           {
+                                                               if (index == 0)
+                                                                   saveDialog();
+                                                               else if (index == 3)
+                                                               {
+                                                                   name_->setText("Orbit card");
+                                                                   opacity_->setValue(42);
+                                                                   refreshPreview();
+                                                               }
+                                                           };
+                                                           overlays.openPopup(menu_->id(), std::move(menu));
+                                                       }});
         Widget preview;
         preview.parent = body_;
         preview.layoutHints.flex = 1;
@@ -195,6 +231,27 @@ public:
         preview.painter = std::make_shared<SurfacePainter>(SurfaceRole::Panel);
         preview.clipChildren = true;
         preview_ = ui.add(preview);
+        Widget contextArea;
+        contextArea.parent = preview_;
+        contextArea.onEvent = [this](Context&, WidgetId id, const Event& event)
+        {
+            if (event.type == EventType::PointerDown && event.button == PointerButton::Secondary)
+            {
+                PopupOptions menu;
+                menu.items = {{"Save changes..."}, {"Close menu"}};
+                menu.onSelected = [this](std::size_t index)
+                {
+                    if (index == 0)
+                        saveDialog();
+                };
+                overlays.openContextMenu(id, {event.x, event.y}, std::move(menu));
+                return EventReply{true};
+            }
+            return EventReply{};
+        };
+        contextArea.layoutHints.height = 44.0f;
+        contextArea.painter = std::make_shared<TextView>(canvas, "Right-click here for a context menu", 0.9f, true);
+        ui.add(contextArea);
         label(preview_, "Committed values", 1.2f);
         label(preview_, "An edit stays in the field until it is valid and committed. Invalid values have a border and "
                         "an explanation below.");
@@ -225,12 +282,14 @@ public:
             ui.setLayoutHints(inspector_, hints);
         }
         ui.layout(root_, {0, 0, viewport.width(), viewport.height()});
+        overlays.update({0, 0, viewport.width(), viewport.height()});
     }
     ~ControlsDemo()
     {
         // Deliver blur/cancel callbacks while all example state is still alive.
         try
         {
+            overlays.closeAll();
             ui.remove(root_);
         }
         catch (...)
@@ -273,7 +332,29 @@ public:
         host.key(GLFW_KEY_SPACE, GLFW_RELEASE, 0);
         if (status_->text.find("Applied:") != 0)
             throw std::runtime_error("Inspector activation failed");
+        ui.focus(style_->id());
+        host.key(GLFW_KEY_DOWN, GLFW_PRESS, 0);
+        if (auto v = host.metrics().viewport())
+            prepare(*v);
+        host.key(GLFW_KEY_DOWN, GLFW_PRESS, 0);
+        host.key(GLFW_KEY_ENTER, GLFW_PRESS, 0);
+        host.key(GLFW_KEY_ENTER, GLFW_RELEASE, 0);
+        if (style_->selected() != 1 || ui.focused() != style_->id())
+            throw std::runtime_error("Inspector popup selection failed");
+        saveDialog();
+        if (auto v = host.metrics().viewport())
+            prepare(*v);
+        host.key(GLFW_KEY_ESCAPE, GLFW_PRESS, 0);
+        if (ui.modalRoot())
+            throw std::runtime_error("Inspector dialog remained modal");
         host.focusChanged(false);
+    }
+    void showOverlay(bool dialog)
+    {
+        if (dialog)
+            saveDialog();
+        else
+            style_->open();
     }
 
 private:
@@ -284,6 +365,29 @@ private:
     std::unique_ptr<NumericEditor> opacity_;
     std::unique_ptr<CheckBox> visible_, enabled_;
     std::unique_ptr<Button> apply_, reset_, unavailable_;
+    std::unique_ptr<Button> menu_;
+    std::unique_ptr<ComboBox> style_;
+    void saveDialog()
+    {
+        DialogOptions dialog;
+        dialog.title = "Save changes?";
+        dialog.message = "Choose Save to keep your edits, Discard to restore defaults, or Cancel to continue editing.";
+        dialog.actions = {{"Save", 1}, {"Discard", 2}, {"Cancel", 0}};
+        dialog.defaultAction = 0;
+        dialog.cancelAction = 2;
+        dialog.onFinished = [this](std::optional<int> action)
+        {
+            if (action == 2)
+            {
+                name_->setText("Orbit card");
+                opacity_->setValue(42);
+                refreshPreview();
+            }
+            status_->text = action == 1 ? "Changes saved" : action == 2 ? "Changes discarded" : "Continue editing";
+            ui.invalidate(Invalidation::Measure);
+        };
+        overlays.openDialog(std::move(dialog));
+    }
     WidgetId registerText(WidgetId parent, std::shared_ptr<TextView> view)
     {
         Widget w;
@@ -317,7 +421,7 @@ private:
 
 int main(int argc, char** argv)
 {
-    bool smoke = false;
+    bool smoke = false, showDialog = false, showMenu = false;
     std::string font, capture;
     int width = 1280, height = 860;
     for (int i = 1; i < argc; ++i)
@@ -329,6 +433,10 @@ int main(int argc, char** argv)
             height = std::stoi(argv[++i]);
         else if (arg == "--smoke-test")
             smoke = true;
+        else if (arg == "--show-dialog")
+            showDialog = true;
+        else if (arg == "--show-menu")
+            showMenu = true;
         else if (arg == "--font" && i + 1 < argc)
             font = argv[++i];
         else if (arg == "--screenshot" && i + 1 < argc)
@@ -465,6 +573,12 @@ int main(int argc, char** argv)
             auto viewport = demo.host.metrics().viewport();
             if (viewport)
                 demo.prepare(*viewport);
+            if (viewport && frames == 0 && (showDialog || showMenu))
+            {
+                demo.showOverlay(showDialog);
+                demo.prepare(*viewport);
+                showDialog = showMenu = false;
+            }
             if (viewport && (demo.ui.takeInvalidation() != Invalidation::None || frames == 0 || smoke))
             {
                 const auto bg = demo.ui.theme().background;
@@ -475,7 +589,7 @@ int main(int argc, char** argv)
                 demo.canvas.endFrame();
                 if (frames == 0 && !capture.empty())
                     screenshot(capture, viewport->framebufferWidth(), viewport->framebufferHeight());
-                if (frames == 0 && smoke)
+                if (frames == 0 && smoke && !demo.ui.modalRoot())
                     demo.smokeTest();
                 if (glGetError() != GL_NO_ERROR)
                     throw std::runtime_error("UI host OpenGL error");

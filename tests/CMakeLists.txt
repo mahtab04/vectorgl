@@ -6,6 +6,10 @@ endfunction()
 
 vectorgl_add_test(vectorgl_core_tests core_tests.cpp)
 if(VECTORGL_BUILD_UI)
+    add_executable(vectorgl_ui_overlay_tests ui/overlay_tests.cpp)
+    target_link_libraries(vectorgl_ui_overlay_tests PRIVATE vectorgl::ui)
+    add_test(NAME vectorgl_ui_overlay_tests COMMAND vectorgl_ui_overlay_tests)
+    set_tests_properties(vectorgl_ui_overlay_tests PROPERTIES TIMEOUT 15)
     add_executable(vectorgl_ui_control_tests ui/control_tests.cpp)
     target_link_libraries(vectorgl_ui_control_tests PRIVATE vectorgl::ui)
     add_test(NAME vectorgl_ui_control_tests COMMAND vectorgl_ui_control_tests)
@@ -94,6 +98,12 @@ if(VECTORGL_BUILD_GPU_TESTS)
                 $<TARGET_FILE:vectorgl_ui_controls> --smoke-test --width 800 --height 1150
                 --font ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/box.ttf)
             set_tests_properties(vectorgl_ui_controls_smoke vectorgl_ui_controls_narrow_smoke PROPERTIES TIMEOUT 20)
+            foreach(overlay IN ITEMS dialog menu)
+                add_test(NAME vectorgl_ui_controls_${overlay}_smoke COMMAND ${controls_runner}
+                    $<TARGET_FILE:vectorgl_ui_controls> --smoke-test --show-${overlay}
+                    --font ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/box.ttf)
+                set_tests_properties(vectorgl_ui_controls_${overlay}_smoke PROPERTIES TIMEOUT 20)
+            endforeach()
         endif()
         if(TARGET vectorgl_ui_workspace)
             set(workspace_runner)

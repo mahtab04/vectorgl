@@ -29,6 +29,7 @@ public:
     WidgetId add(Widget widget);
     void remove(WidgetId id); // Removes the subtree. Stale IDs are a no-op.
     bool contains(WidgetId id) const;
+    bool isAvailable(WidgetId id) const; // Live, visible/enabled ancestry; independent of modal scope.
     void setBounds(WidgetId id, Bounds bounds);
     void setVisible(WidgetId id, bool visible);
     void setEnabled(WidgetId id, bool enabled);

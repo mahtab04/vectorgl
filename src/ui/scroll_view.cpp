@@ -296,7 +296,7 @@ ScrollView::ScrollView(Context& context, WidgetId parent, ScrollOptions options)
         Widget root;
         root.parent = parent;
         root.clipChildren = true;
-        root.focusable = true;
+        root.focusable = options.focusable;
         root.painter = std::make_shared<SurfacePainter>(SurfaceRole::Panel);
         root.layout = std::make_shared<State::RootLayout>(options);
         root.onEvent = [state](Context&, WidgetId, const Event& e) { return state->event(e); };

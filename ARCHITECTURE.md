@@ -81,6 +81,13 @@ injectable parse/format policy. Context owns focus/capture; controls own activat
 validation, completion, and caret deadlines. Shared theme state colors apply to
 buttons, checkbox/toggle surfaces, and editors. See [controls](docs/ui-controls.md).
 
+OverlayManager owns transient registered subtrees. ScrollView-backed popup lists
+and dialogs use Context modal scopes for input isolation and focus restoration;
+display-only tooltips use a raised, pointer-transparent layer and injected-clock
+deadlines. Placement is in root logical coordinates and updates at the host's
+layout/input boundary. ComboBox reuses the shared activation strategy and manager
+instead of introducing another event router. See [overlays](docs/ui-overlays.md).
+
 Registrations have context-scoped generation IDs. Callback storage stays alive
 until dispatch settles, including cancel/lost-focus delivery for removed widgets.
 The model is bound to one UI thread. Platform services and clocks are injectable,

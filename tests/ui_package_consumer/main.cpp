@@ -2,6 +2,7 @@
 #include <vectorgl/ui/containers.hpp>
 #include <vectorgl/ui/context.hpp>
 #include <vectorgl/ui/controls.hpp>
+#include <vectorgl/ui/overlays.hpp>
 #ifdef VECTORGL_TEST_GLFW
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
@@ -17,6 +18,19 @@ int main()
         return 1;
 #endif
     vectorgl::ui::Context ui;
+    {
+        vectorgl::ui::OverlayManager overlays(ui);
+        overlays.update({0, 0, 640, 480});
+        vectorgl::ui::ComboBox combo(ui, overlays, {}, {{{"One"}, {"Two"}}, 0});
+        ui.layout(combo.id(), {20, 20, 180, 44});
+        combo.open();
+        overlays.update({0, 0, 640, 480});
+        if (!ui.modalRoot())
+            return 1;
+        overlays.closeAll();
+        if (ui.modalRoot())
+            return 1;
+    }
     {
         vectorgl::Canvas canvas;
         vectorgl::ui::TextField field(ui, canvas);

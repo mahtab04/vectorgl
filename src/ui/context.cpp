@@ -415,7 +415,7 @@ struct Context::Impl
         for (auto it = order.rbegin(); it != order.rend(); ++it)
         {
             auto* item = get(*it);
-            if (!item || item->widget.parent != parent || !available(*it))
+            if (!item || item->widget.parent != parent || !available(*it) || !item->widget.hitTestVisible)
                 continue;
             const auto transform = inherited * localTransform(*item);
             const auto point = detail::unmap(transform, {event.x, event.y});
@@ -644,6 +644,10 @@ WidgetId Context::add(Widget widget)
 bool Context::contains(WidgetId id) const
 {
     return impl_->get(id) != nullptr;
+}
+bool Context::isAvailable(WidgetId id) const
+{
+    return impl_->available(id);
 }
 void Context::remove(WidgetId id)
 {
@@ -906,8 +910,12 @@ void Context::paint(Canvas& canvas, const Viewport& viewport)
             try
             {
                 std::vector<WidgetId> modalRoots;
+                for (auto id : snapshot)
+                    if (auto* item = impl_->get(id); item && item->widget.overlay && !item->widget.parent)
+                        modalRoots.push_back(id);
                 for (const auto& modal : impl_->modals)
-                    modalRoots.push_back(modal.root);
+                    if (std::find(modalRoots.begin(), modalRoots.end(), modal.root) == modalRoots.end())
+                        modalRoots.push_back(modal.root);
                 impl_->paintChildren({}, {}, pixels, snapshot, canvas, theme, modalRoots);
                 for (auto root : modalRoots)
                 {
@@ -950,6 +958,18 @@ bool Context::dispatch(const Event& event)
     impl_->transaction(
         [&]
         {
+            if (event.type == EventType::KeyDown && event.key == Key::Escape && !impl_->capture &&
+                impl_->modals.empty())
+            {
+                const auto snapshot = impl_->order;
+                for (auto it = snapshot.rbegin(); it != snapshot.rend(); ++it)
+                    if (auto* item = impl_->get(*it); item && item->widget.overlay && !item->widget.hitTestVisible)
+                        if (impl_->invoke(*it, event).handled)
+                        {
+                            handled = true;
+                            return;
+                        }
+            }
             if (event.type == EventType::WindowFocusLost || event.type == EventType::PointerLeave ||
                 event.type == EventType::Cancel ||
                 ((event.type == EventType::KeyDown || event.type == EventType::KeyRepeat) && event.key == Key::Escape &&
@@ -963,7 +983,13 @@ bool Context::dispatch(const Event& event)
                                       : event.type == EventType::PointerLeave  ? CancelReason::PointerLeftWindow
                                                                                : event.reason;
                 if (event.type == EventType::WindowFocusLost)
+                {
+                    const auto snapshot = impl_->order;
+                    for (auto id : snapshot)
+                        if (auto* item = impl_->get(id); item && item->widget.overlay)
+                            impl_->invoke(id, event, true);
                     impl_->requestFocus({});
+                }
                 return;
             }
             if ((event.type == EventType::KeyDown || event.type == EventType::KeyRepeat ||
@@ -1050,7 +1076,8 @@ void Context::pushModal(WidgetId root)
     impl_->transaction(
         [&]
         {
-            impl_->modals.push_back({root, impl_->focus});
+            impl_->modals.push_back(
+                {root, impl_->focusPending && !impl_->focusFirst ? impl_->desiredFocus : impl_->focus});
             impl_->cancellation = CancelReason::ModalChanged;
             impl_->requestFocus(impl_->firstFocus());
             impl_->focusFirst = true; // Include registrations published when this callback unwinds.
