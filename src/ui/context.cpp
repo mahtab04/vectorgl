@@ -143,6 +143,17 @@ struct Context::Impl
         return Mat3x3::translation(item.layoutOffset.x, item.layoutOffset.y) * item.widget.transform;
     }
     std::optional<Capture> capture;
+    struct DragSession
+    {
+        DragState state;
+        std::uint64_t pointer = 0;
+        Modifiers modifiers;
+        bool update = true;
+        std::function<void(const DragResult&)> finished;
+    };
+    std::shared_ptr<DragSession> drag;
+    WidgetId invoking;
+    const Event* invocation = nullptr;
     std::optional<CancelReason> cancellation;
     std::exception_ptr callbackError;
     Invalidation dirty = Invalidation::All;
@@ -190,10 +201,10 @@ struct Context::Impl
                (modals.empty() || descendant(id, modals.back().root));
     }
 
-    Mat3x3 world(WidgetId id) const
+    Mat3x3 world(WidgetId id, bool includeRemoved = false) const
     {
         std::vector<const Registration*> chain;
-        for (auto* item = get(id); item; item = get(item->widget.parent))
+        for (auto* item = get(id, includeRemoved); item; item = get(item->widget.parent, includeRemoved))
             chain.push_back(item);
         Mat3x3 result;
         for (auto it = chain.rbegin(); it != chain.rend(); ++it)
@@ -248,7 +259,23 @@ struct Context::Impl
                     mapped.localX = point->x;
                     mapped.localY = point->y;
                 }
-            auto reply = handler(owner, id, mapped);
+            const auto previousId = invoking;
+            const auto* previousEvent = invocation;
+            invoking = id;
+            invocation = &mapped;
+            EventReply reply;
+            try
+            {
+                reply = handler(owner, id, mapped);
+            }
+            catch (...)
+            {
+                invoking = previousId;
+                invocation = previousEvent;
+                throw;
+            }
+            invoking = previousId;
+            invocation = previousEvent;
             if (!notification && reply.remainingWheel)
             {
                 auto valid = [](float original, float remaining)
@@ -281,6 +308,101 @@ struct Context::Impl
         }
     }
 
+    bool dragNotify(WidgetId id, DragPhase phase, const std::shared_ptr<DragSession>& session)
+    {
+        auto* item = get(id, phase == DragPhase::Leave);
+        if (!item || !item->widget.onDrag)
+            return false;
+        const auto point = detail::unmap(world(id, phase == DragPhase::Leave), {session->state.x, session->state.y});
+        DragEvent event{phase,
+                        session->state.source,
+                        id,
+                        session->state.payload,
+                        session->state.x,
+                        session->state.y,
+                        point ? point->x : 0,
+                        point ? point->y : 0,
+                        session->modifiers};
+        try
+        {
+            return item->widget.onDrag(owner, id, event);
+        }
+        catch (...)
+        {
+            if (!callbackError)
+                callbackError = std::current_exception();
+            cancellation = CancelReason::HandlerFailed;
+            return false;
+        }
+    }
+    void finishDrag(DragOutcome outcome, CancelReason reason = CancelReason::Explicit)
+    {
+        auto session = std::exchange(drag, {});
+        if (!session)
+            return;
+        const DragResult result{outcome, session->state.source, session->state.target, session->state.payload, reason};
+        if (capture && capture->id == session->state.source)
+            capture.reset();
+        if (session->state.target)
+            dragNotify(session->state.target, DragPhase::Leave, session);
+        Event cancel;
+        cancel.type = EventType::Cancel;
+        cancel.pointer = session->pointer;
+        cancel.button = PointerButton::Primary;
+        cancel.reason = reason;
+        invoke(session->state.source, cancel, true);
+        if (session->finished)
+            try
+            {
+                session->finished(result);
+            }
+            catch (...)
+            {
+                if (!callbackError)
+                    callbackError = std::current_exception();
+            }
+        dirty = dirty | Invalidation::Paint | Invalidation::Semantics;
+    }
+    WidgetId dragTarget(const std::shared_ptr<DragSession>& session) const
+    {
+        Event point;
+        point.x = session->state.x;
+        point.y = session->state.y;
+        auto target = hit({}, point);
+        for (auto* item = get(target); item && !item->widget.onDrag; item = get(target))
+            target = item->widget.parent;
+        return eligible(target) ? target : WidgetId{};
+    }
+    void updateDrag()
+    {
+        const auto session = drag;
+        if (!session)
+            return;
+        auto target = dragTarget(session);
+        if (target != session->state.target)
+        {
+            const auto old = std::exchange(session->state.target, {});
+            session->state.accepted = false;
+            if (old)
+                dragNotify(old, DragPhase::Leave, session);
+            if (drag != session || cancellation || callbackError)
+                return;
+            if (!eligible(target))
+                target = {};
+            session->state.target = target;
+            if (target)
+                session->state.accepted = dragNotify(target, DragPhase::Enter, session);
+            session->update = false;
+            dirty = dirty | Invalidation::Paint;
+        }
+        else if (session->update)
+        {
+            session->update = false;
+            if (target)
+                session->state.accepted = dragNotify(target, DragPhase::Move, session);
+            dirty = dirty | Invalidation::Paint;
+        }
+    }
     void settle()
     {
         // Notifications can request more changes; cap pathological callback loops.
@@ -297,6 +419,22 @@ struct Context::Impl
                 modals.erase(invalid, modals.end());
                 requestFocus(focusable(previous) ? previous : firstFocus());
                 cancellation = CancelReason::ModalChanged;
+            }
+            if (drag &&
+                (cancellation || !eligible(drag->state.source) || !capture || capture->id != drag->state.source))
+            {
+                const auto reason = cancellation.value_or(CancelReason::Unavailable);
+                cancellation.reset();
+                finishDrag(DragOutcome::Cancelled, reason);
+                continue;
+            }
+            if (drag)
+            {
+                const auto session = drag;
+                updateDrag();
+                if (cancellation || drag != session || !eligible(session->state.source) ||
+                    dragTarget(session) != session->state.target)
+                    continue;
             }
             if (capture && (cancellation || !eligible(capture->id)))
             {
@@ -373,6 +511,8 @@ struct Context::Impl
             std::erase_if(order, [&](WidgetId id) { return !get(id); });
             return;
         }
+        if (drag)
+            finishDrag(DragOutcome::Cancelled, CancelReason::HandlerFailed);
         capture.reset();
         focus = {};
         focusPending = false;
@@ -380,7 +520,7 @@ struct Context::Impl
             if (slot.item && slot.item->removed)
                 slot.item.reset();
         std::erase_if(order, [&](WidgetId id) { return !get(id); });
-        throw std::logic_error("UI focus/capture notification cycle exceeded 1024 transitions");
+        throw std::logic_error("UI focus/capture/drag notification cycle exceeded 1024 transitions");
     }
 
     template <class Function> void transaction(Function&& function)
@@ -1006,7 +1146,8 @@ bool Context::dispatch(const Event& event)
             }
             if ((event.type == EventType::KeyDown || event.type == EventType::KeyRepeat ||
                  event.type == EventType::KeyUp) &&
-                event.key == Key::Tab && !event.modifiers.control && !event.modifiers.alt && !event.modifiers.meta)
+                event.key == Key::Tab && !impl_->drag && !event.modifiers.control && !event.modifiers.alt &&
+                !event.modifiers.meta)
             {
                 const auto list = impl_->focusList();
                 if (!list.empty())
@@ -1023,6 +1164,47 @@ bool Context::dispatch(const Event& event)
                     handled = true;
                     return;
                 }
+            }
+            if (impl_->drag && (event.type == EventType::KeyDown || event.type == EventType::KeyRepeat ||
+                                event.type == EventType::KeyUp || event.type == EventType::TextInput))
+            {
+                handled = true;
+                return;
+            }
+            if (impl_->drag && (event.type == EventType::PointerMove || event.type == EventType::PointerUp ||
+                                event.type == EventType::PointerDown))
+            {
+                const auto session = impl_->drag;
+                handled = true;
+                if (event.pointer != session->pointer)
+                    return;
+                session->state.x = event.x;
+                session->state.y = event.y;
+                session->modifiers = event.modifiers;
+                session->update = true;
+                impl_->pointerPosition = Vec2{event.x, event.y};
+                impl_->updateDrag();
+                if (impl_->drag != session)
+                    return;
+                if (event.type == EventType::PointerUp && event.button == PointerButton::Primary)
+                {
+                    if (impl_->cancellation || impl_->callbackError || !impl_->eligible(session->state.source))
+                        impl_->finishDrag(DragOutcome::Cancelled,
+                                          impl_->cancellation.value_or(CancelReason::Unavailable));
+                    else
+                    {
+                        bool accepted = false;
+                        if (session->state.accepted && impl_->eligible(session->state.target))
+                            accepted = impl_->dragNotify(session->state.target, DragPhase::Drop, session);
+                        if (impl_->drag == session)
+                            impl_->finishDrag(impl_->callbackError ? DragOutcome::Cancelled
+                                              : accepted           ? DragOutcome::Dropped
+                                                                   : DragOutcome::Rejected,
+                                              impl_->callbackError ? CancelReason::HandlerFailed
+                                                                   : CancelReason::Explicit);
+                    }
+                }
+                return;
             }
             WidgetId target = impl_->focus;
             if (pointerEvent(event.type))
@@ -1079,6 +1261,38 @@ WidgetId Context::captured() const
 void Context::cancelCapture(CancelReason reason)
 {
     impl_->transaction([&] { impl_->cancellation = reason; });
+}
+bool Context::beginDrag(WidgetId source, DragPayload payload, std::function<void(const DragResult&)> finished)
+{
+    impl_->requireMutable();
+    if (!payload)
+        throw std::invalid_argument("Drag payload must own a value");
+    const auto* event = impl_->invocation;
+    if (impl_->drag || impl_->invoking != source || !event || !impl_->eligible(source))
+        return false;
+    const bool down = event->type == EventType::PointerDown && event->button == PointerButton::Primary;
+    const bool moving = event->type == EventType::PointerMove && impl_->capture && impl_->capture->id == source &&
+                        impl_->capture->pointer == event->pointer && impl_->capture->button == PointerButton::Primary;
+    if ((!down && !moving) || (impl_->capture && impl_->capture->id != source))
+        return false;
+    auto session = std::make_shared<Impl::DragSession>();
+    session->state = {source, {}, std::move(payload), event->x, event->y, false};
+    session->pointer = event->pointer;
+    session->modifiers = event->modifiers;
+    session->finished = std::move(finished);
+    impl_->drag = std::move(session);
+    impl_->capture = Impl::Capture{source, event->pointer, PointerButton::Primary};
+    impl_->pointerPosition = Vec2{event->x, event->y};
+    invalidate(Invalidation::Paint | Invalidation::Semantics);
+    return true;
+}
+void Context::cancelDrag(CancelReason reason)
+{
+    impl_->transaction([&] { impl_->finishDrag(DragOutcome::Cancelled, reason); });
+}
+std::optional<DragState> Context::dragState() const
+{
+    return impl_->drag ? std::optional<DragState>(impl_->drag->state) : std::nullopt;
 }
 void Context::pushModal(WidgetId root)
 {

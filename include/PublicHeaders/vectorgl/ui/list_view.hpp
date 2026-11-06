@@ -105,9 +105,12 @@ public:
     WidgetId id() const;
     WidgetId viewportId() const;
     void setModel(std::shared_ptr<const ListModel> model); // Null is empty; invalid metadata leaves old model intact.
+    // Filtered projection + complete enabled ID universe. Hidden selections survive;
+    // removing an ID from the universe removes its selection. Published atomically.
+    void setProjection(std::shared_ptr<const ListModel> model, std::vector<ItemId> enabledItems);
     std::shared_ptr<const ListModel> model() const;
     void setSelection(std::vector<ItemId> ids); // Existing enabled IDs only; duplicates collapse.
-    std::vector<ItemId> selection() const;      // Current row order; copy safe across callbacks/model replacement.
+    std::vector<ItemId> selection() const;      // Full model/universe order; safe across callbacks/model replacement.
     std::optional<ItemId> currentItem() const;
     void setCurrentItem(ItemId id);                           // Silent current/anchor change; selection is unchanged.
     bool navigateToItem(ItemId id, Modifiers modifiers = {}); // User navigation semantics, reveal and notification.

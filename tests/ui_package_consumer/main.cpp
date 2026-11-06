@@ -23,6 +23,19 @@ int main()
 #endif
     vectorgl::ui::Context ui;
     {
+        auto payload = vectorgl::ui::DragPayload::make(std::string("owned"));
+        if (!payload.get<std::string>() || payload.get<int>())
+            return 1;
+        vectorgl::ui::ListView list(ui, {},
+                                    std::make_shared<vectorgl::ui::VectorListModel>(
+                                        std::vector<vectorgl::ui::ListItem>{{1, "One"}, {2, "Two"}}));
+        list.setSelection({2});
+        list.setProjection(
+            std::make_shared<vectorgl::ui::VectorListModel>(std::vector<vectorgl::ui::ListItem>{{1, "One"}}), {1, 2});
+        if (list.selection() != std::vector<vectorgl::ui::ItemId>{2} || ui.dragState())
+            return 1;
+    }
+    {
         auto model = std::make_shared<vectorgl::ui::VectorTableModel>(
             std::vector<vectorgl::ui::TableItem>{{100, {{1, "Name"}, {2, "42"}}}});
         vectorgl::ui::TableView table(ui, {}, model, {{1, "Name"}, {2, "Value"}});

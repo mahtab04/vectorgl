@@ -36,8 +36,9 @@ Null denotes an empty model. Each snapshot is limited to 1,000,000 rows and
 and supplied when constructing the view.
 
 Replacing a model preserves selected IDs still present and enabled. Missing or
-disabled selections are removed; hidden selections are not retained for later
-filter restoration. The current row and range anchor retain their IDs when possible.
+disabled selections are removed. A replacement model alone denotes the complete
+dataset, so IDs absent from it count as removed. For filtering, use `setProjection`
+below. The current row and range anchor retain their IDs when possible.
 When current disappears, it moves to the first enabled row at/after its former
 index, or the last enabled row before that index. An all-disabled/empty list has
 no current item. Selection may be empty independently of current. The initial
@@ -49,12 +50,22 @@ scroll offset to ScrollView's normal clamping on the next layout; call
 `Context::layout()` before painting/input after replacing the model.
 
 `setSelection()` accepts existing enabled IDs, collapses duplicates, and sets
-current/anchor to the first supplied ID. Single mode rejects more than one distinct
+current/anchor to the first visible supplied ID. Single mode rejects more than one distinct
 ID. Empty input clears selection while retaining current/anchor. Invalid selection
-leaves the previous state intact. Selection queries return copies in current row
+leaves the previous state intact. Selection queries return copies in full model/universe
 order, safe to retain through model replacement.
 
 ## Input and notifications
+
+For a filtered snapshot, call `setProjection(visibleModel, enabledItems)` with the
+complete enabled ID universe from the unfiltered dataset (up to 1,000,000 IDs).
+Hidden selected IDs remain selected until removed/disabled in that universe.
+Visible rows must agree with its enabled state; IDs must be unique/nonzero. Invalid
+inputs leave the old projection/selection intact. Selection queries follow universe
+order, while current/range anchor remain visible. `setSelection` may identify a
+hidden enabled item without moving current to it. Filtering and current-row fallback
+do not select a different entity. Universe construction/filtering remains application
+work; this API does not claim sublinear filtering.
 
 There is one sequential Tab stop. Ancestor clipping, transforms, enabled/visible
 state, capture cancellation, and modal barriers use Context's existing contracts.

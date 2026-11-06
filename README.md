@@ -78,6 +78,10 @@ Build `vectorgl_ui_tree` for a 2,024-node project hierarchy example.
 The [table guide](docs/ui-tables.md) covers virtualized rows/cells, fixed headers,
 constrained column resizing, sorting hooks, and synchronized horizontal scrolling.
 Build `vectorgl_ui_table` for a searchable 2,000-row tag browser.
+The [drag/drop guide](docs/ui-drag-drop.md) covers owned typed payloads, target
+feedback and cancellation. Build `vectorgl_ui_editor_workspace` for the plan's
+[integrated workspace milestone](docs/ui-editor-workspace.md), combining all four
+regions, collections, properties, overlays, scene placement and artboard zoom.
 Build `vectorgl_ui_layout` for a responsive property-form example, including type-size
 and wrapped-content changes. It accepts `--width`, `--height`, `--font`,
 `--smoke-test`, and `--screenshot FILE.bmp`.

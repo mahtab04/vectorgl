@@ -175,6 +175,8 @@ jobs:
         run: >
           cmake -S tests/ui_package_consumer -B ui-consumer-build
           -DVECTORGL_TEST_GLFW=${{ runner.os == 'Windows' && 'ON' || matrix.gpu_tests }}
+          -DVECTORGL_TEST_WORKSPACE=${{ runner.os == 'Windows' && 'ON' || matrix.gpu_tests }}
+          -DVECTORGL_TEST_WORKSPACE_GPU=${{ matrix.gpu_tests }}
           ${{ matrix.consumer_config }}
           -DCMAKE_PREFIX_PATH=${{ github.workspace }}/staging
 

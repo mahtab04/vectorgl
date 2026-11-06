@@ -136,6 +136,12 @@ install(FILES ${VECTORGL_PUBLIC_HEADERS}
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/vectorgl
 )
 
+# Match the build-tree public loader headers for standalone installed consumers.
+install(DIRECTORY ${VECTORGL_GLAD_DIR}/include/glad ${VECTORGL_GLAD_DIR}/include/KHR
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR} FILES_MATCHING PATTERN "*.h")
+install(FILES ${VECTORGL_GLAD_DIR}/LICENSE
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/vectorgl/glad)
+
 install(FILES ${VECTORGL_SHADER_FILES}
     DESTINATION ${CMAKE_INSTALL_DATADIR}/vectorgl/shaders
 )

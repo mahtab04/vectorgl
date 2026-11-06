@@ -270,7 +270,11 @@ private:
             items.push_back({row->id,
                              {{1, row->name}, {2, row->value}, {3, row->unit}, {4, row->type}, {5, row->status}},
                              row->enabled});
-        table_->setModel(std::make_shared<VectorTableModel>(std::move(items)));
+        std::vector<ItemId> enabled;
+        for (const auto& row : rows_)
+            if (row.enabled)
+                enabled.push_back(row.id);
+        table_->setProjection(std::make_shared<VectorTableModel>(std::move(items)), std::move(enabled));
         updateSelection();
     }
     void updateSelection()
