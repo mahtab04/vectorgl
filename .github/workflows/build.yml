@@ -1,15 +1,11 @@
 name: Build
-
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
   workflow_dispatch:
-
 permissions:
   contents: read
-
 concurrency:
   group: build-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -17,225 +13,75 @@ concurrency:
 jobs:
   build:
     name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
         include:
-          - name: Linux GCC Debug
-            os: ubuntu-latest
-            configuration: Debug
-            cmake_config: -DCMAKE_BUILD_TYPE=Debug
-            toolchain: gcc
-            consumer_config: -DCMAKE_BUILD_TYPE=Debug
-            gpu_tests: ON
-            sanitizers: false
-          - name: Linux GCC Release
-            os: ubuntu-latest
-            configuration: Release
-            cmake_config: -DCMAKE_BUILD_TYPE=Release
-            toolchain: gcc
-            consumer_config: -DCMAKE_BUILD_TYPE=Release
-            gpu_tests: ON
-            sanitizers: false
-          - name: Linux GCC Sanitizers
-            os: ubuntu-latest
-            configuration: Debug
-            cmake_config: >-
-              -DCMAKE_BUILD_TYPE=Debug
-              -DENABLE_SANITIZERS=ON
-              -DENABLE_CLANG_TIDY=OFF
-            toolchain: gcc
-            consumer_config: -DCMAKE_BUILD_TYPE=Debug
-            gpu_tests: OFF
-            sanitizers: true
-          - name: Windows MSVC Debug
-            os: windows-latest
-            configuration: Debug
-            cmake_config: ""
-            toolchain: msvc
-            consumer_config: ""
-            gpu_tests: OFF
-            sanitizers: false
-          - name: Windows MSVC Release
-            os: windows-latest
-            configuration: Release
-            cmake_config: ""
-            toolchain: msvc
-            consumer_config: ""
-            gpu_tests: OFF
-            sanitizers: false
-          - name: Windows MinGW GCC Debug
-            os: windows-latest
-            configuration: Debug
-            toolchain: mingw
-            consumer_config: -G Ninja -DCMAKE_BUILD_TYPE=Debug
-            cmake_config: >-
-              -G Ninja
-              -DCMAKE_BUILD_TYPE=Debug
-              -DCMAKE_C_COMPILER=gcc
-              -DCMAKE_CXX_COMPILER=g++
-              -DENABLE_CLANG_TIDY=OFF
-            gpu_tests: OFF
-            sanitizers: false
-          - name: Windows MinGW GCC Release
-            os: windows-latest
-            configuration: Release
-            toolchain: mingw
-            consumer_config: -G Ninja -DCMAKE_BUILD_TYPE=Release
-            cmake_config: >-
-              -G Ninja
-              -DCMAKE_BUILD_TYPE=Release
-              -DCMAKE_C_COMPILER=gcc
-              -DCMAKE_CXX_COMPILER=g++
-              -DENABLE_CLANG_TIDY=OFF
-            gpu_tests: OFF
-            sanitizers: false
-
-    runs-on: ${{ matrix.os }}
-
+          - {name: Linux GCC Debug, os: ubuntu-24.04, preset: ci-headless, config: Debug, generator: Ninja, cc: gcc, cxx: g++}
+          - {name: Linux GCC Release, os: ubuntu-24.04, preset: ci-headless, config: Release, generator: Ninja, cc: gcc, cxx: g++}
+          - {name: Linux GCC Sanitizers, os: ubuntu-24.04, preset: sanitizers, config: Debug, generator: Ninja, cc: gcc, cxx: g++}
+          - {name: Windows MSVC Debug, os: windows-latest, preset: ci-host, config: Debug, generator: default}
+          - {name: Windows MSVC Release, os: windows-latest, preset: workspace, config: Release, generator: default}
+          - {name: Windows MinGW GCC Debug, os: windows-latest, preset: ci-host, config: Debug, generator: Ninja, cc: gcc, cxx: g++}
+          - {name: Windows MinGW GCC Release, os: windows-latest, preset: workspace, config: Release, generator: Ninja, cc: gcc, cxx: g++}
+          - {name: Linux GPU and examples, os: ubuntu-24.04, preset: full, config: Debug, generator: Ninja, cc: gcc, cxx: g++}
+          - {name: Graphics-only package without UI or GLFW, os: ubuntu-24.04, preset: library, config: Debug, generator: Ninja, cc: gcc, cxx: g++, embedded: ON}
+          - {name: Clang-Tidy and Format, os: ubuntu-24.04, preset: quality, config: Debug, generator: Ninja, cc: clang-18, cxx: clang++-18}
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.cache/ccache
+      CCACHE_BASEDIR: ${{ github.workspace }}
+      CCACHE_COMPILERCHECK: content
     steps:
-      - name: Check out source
-        uses: actions/checkout@v6
-
-      - name: Install Linux GPU test dependencies
-        if: matrix.gpu_tests == 'ON'
+      - uses: actions/checkout@v6
+      - name: Install Linux build tools
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install --yes \
-            libgl1-mesa-dev \
-            libx11-dev \
-            libxcursor-dev \
-            libxi-dev \
-            libxinerama-dev \
-            libxrandr-dev \
-            xauth \
-            xvfb
-
-      - name: Verify Windows MinGW toolchain
-        if: matrix.toolchain == 'mingw'
-        shell: pwsh
-        run: |
-          gcc --version
-          g++ --version
-          ninja --version
-
-      - name: Configure
-        run: >
-          cmake -S . -B build
-          ${{ matrix.cmake_config }}
-          -DENABLE_CLANG_TIDY=OFF
-          -DENABLE_FORMAT_CHECK=OFF
-          -DVECTORGL_BUILD_EXAMPLES=OFF
-          -DVECTORGL_BUILD_TESTS=ON
-          -DVECTORGL_BUILD_UI=ON
-          -DVECTORGL_BUILD_DIALOGS=ON
-          -DVECTORGL_BUILD_UI_EXAMPLES=ON
-          -DVECTORGL_BUILD_GLFW_ADAPTER=${{ runner.os == 'Windows' && 'ON' || matrix.gpu_tests }}
-          -DVECTORGL_BUILD_APPS=${{ matrix.gpu_tests }}
-          -DVECTORGL_BUILD_GPU_TESTS=${{ matrix.gpu_tests }}
-
-      - name: Build
-        run: cmake --build build --config ${{ matrix.configuration }} --parallel
-
+          sudo apt-get install --yes ninja-build ccache
+      - name: Install display build dependencies
+        if: matrix.preset == 'full' || matrix.preset == 'quality'
+        run: >-
+          sudo apt-get install --yes libgl1-mesa-dev libx11-dev libxcursor-dev
+          libxi-dev libxinerama-dev libxrandr-dev xauth xvfb
+      - name: Install pinned quality tools
+        if: matrix.preset == 'quality'
+        run: sudo apt-get install --yes clang-18 clang-format-18 clang-tidy-18
+      # Cache source trees only. Never restore compiler-specific CMake caches or libraries.
+      - name: Cache dependency sources
+        uses: actions/cache@v4
+        with:
+          path: build/${{ matrix.preset }}/_deps/*-src
+          key: deps-${{ runner.os }}-${{ matrix.preset }}-${{ hashFiles('cmake/dependencies.cmake') }}
+      - name: Cache Linux compiler outputs
+        if: runner.os == 'Linux'
+        uses: actions/cache@v4
+        with:
+          path: .cache/ccache
+          key: compiler-${{ runner.os }}-${{ matrix.preset }}-${{ matrix.config }}-${{ matrix.cxx }}-${{ github.sha }}
+          restore-keys: compiler-${{ runner.os }}-${{ matrix.preset }}-${{ matrix.config }}-${{ matrix.cxx }}-
       - name: Configure sanitizer runtime
-        if: matrix.sanitizers
+        if: matrix.preset == 'sanitizers'
         shell: bash
         run: |
           echo "ASAN_OPTIONS=detect_leaks=1:halt_on_error=1:strict_string_checks=1" >> "$GITHUB_ENV"
           echo "UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1" >> "$GITHUB_ENV"
-
-      - name: Test
-        run: ctest --test-dir build -C ${{ matrix.configuration }} --output-on-failure
-
-      - name: Install
-        run: cmake --install build --config ${{ matrix.configuration }} --prefix staging
-
-      - name: Configure installed-package consumer
-        run: >
-          cmake
-          -S tests/package_consumer
-          -B package-consumer-build
-          ${{ matrix.consumer_config }}
-          -DCMAKE_PREFIX_PATH=${{ github.workspace }}/staging
-
-      - name: Build installed-package consumer
-        run: >
-          cmake
-          --build package-consumer-build
-          --config ${{ matrix.configuration }}
-          --parallel
-
-      - name: Test installed-package consumer
-        run: >
-          ctest
-          --test-dir package-consumer-build
-          -C ${{ matrix.configuration }}
-          --output-on-failure
-
-      - name: Configure installed UI consumer
-        run: >
-          cmake -S tests/ui_package_consumer -B ui-consumer-build
-          -DVECTORGL_TEST_GLFW=${{ runner.os == 'Windows' && 'ON' || matrix.gpu_tests }}
-          -DVECTORGL_TEST_WORKSPACE=${{ runner.os == 'Windows' && 'ON' || matrix.gpu_tests }}
-          -DVECTORGL_TEST_WORKSPACE_GPU=${{ matrix.gpu_tests }}
-          -DVECTORGL_TEST_DIALOGS=ON
-          ${{ matrix.consumer_config }}
-          -DCMAKE_PREFIX_PATH=${{ github.workspace }}/staging
-
-      - name: Build installed UI consumer
-        run: cmake --build ui-consumer-build --config ${{ matrix.configuration }} --parallel
-
-      - name: Test installed UI consumer
-        run: ctest --test-dir ui-consumer-build -C ${{ matrix.configuration }} --output-on-failure
-
-  graphics-only:
-    name: Graphics-only package without UI or GLFW
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - name: Configure
-        run: >
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
-          -DVECTORGL_BUILD_UI=OFF -DVECTORGL_BUILD_EXAMPLES=OFF
-          -DVECTORGL_BUILD_APPS=OFF -DVECTORGL_BUILD_TESTS=OFF
-          -DVECTORGL_BUILD_GPU_TESTS=OFF -DENABLE_CLANG_TIDY=OFF -DENABLE_FORMAT_CHECK=OFF
-      - name: Build and install
-        run: |
-          cmake --build build --parallel
-          cmake --install build --prefix staging
-      - name: Verify graphics-only installed consumer
-        run: |
-          cmake -S tests/package_consumer -B consumer -DCMAKE_BUILD_TYPE=Debug -DVECTORGL_EXPECT_NO_UI=ON -DCMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/staging"
-          cmake --build consumer --parallel
-          ctest --test-dir consumer --output-on-failure
-
-  quality:
-    name: Clang-Tidy and Format
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Check out source
-        uses: actions/checkout@v6
-
-      - name: Install Clang tooling
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes clang clang-format clang-tidy
-
-      - name: Configure
-        run: >
-          cmake -S . -B build-quality
-          -DCMAKE_BUILD_TYPE=Debug
-          -DCMAKE_C_COMPILER=clang
-          -DCMAKE_CXX_COMPILER=clang++
-          -DENABLE_CLANG_TIDY=ON
-          -DENABLE_FORMAT_CHECK=ON
-          -DVECTORGL_BUILD_EXAMPLES=OFF
-          -DVECTORGL_BUILD_TESTS=OFF
-          -DVECTORGL_BUILD_UI=ON
-          -DVECTORGL_BUILD_DIALOGS=ON
-          -DVECTORGL_BUILD_APPS=OFF
-          -DVECTORGL_BUILD_GPU_TESTS=OFF
-
-      - name: Analyze and check formatting
-        run: cmake --build build-quality --parallel
+      - name: Configure, build, test and verify SDK
+        run: >-
+          cmake -DPRESET=${{ matrix.preset }} -DCONFIGURATION=${{ matrix.config }}
+          "-DGENERATOR=${{ matrix.generator }}" "-DCC=${{ matrix.cc }}" "-DCXX=${{ matrix.cxx }}"
+          "-DVERIFY_EMBEDDED=${{ matrix.embedded }}" -P scripts/ci-build.cmake
+      - name: Compiler cache statistics
+        if: always() && runner.os == 'Linux'
+        run: ccache --show-stats
+      - name: Upload test reports and diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: diagnostics-${{ matrix.name }}
+          path: |
+            build/**/results.xml
+            build/**/Testing/Temporary/*.log
+            build/**/CMakeFiles/CMakeConfigureLog.yaml
+          if-no-files-found: ignore

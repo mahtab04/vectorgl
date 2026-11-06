@@ -1,51 +1,35 @@
 include_guard(GLOBAL)
 
-option(ENABLE_CLANG_TIDY "Run clang-tidy during build" ON)
-option(ENABLE_FORMAT_CHECK "Run clang-format check during build" ON)
-option(ENABLE_COMPILER_WARNINGS "Enable recommended compiler warnings" ON)
-option(ENABLE_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
-
-find_program(CLANG_TIDY_EXE NAMES clang-tidy
-    HINTS
-        "C:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/Llvm/x64/bin"
-        "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/Llvm/x64/bin"
-        "C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Tools/Llvm/x64/bin"
-        "C:/Program Files/LLVM/bin"
-)
-
-find_program(CLANG_FORMAT_EXE NAMES clang-format
-    HINTS
-        "C:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/Llvm/x64/bin"
-        "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/Llvm/x64/bin"
-        "C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Tools/Llvm/x64/bin"
-        "C:/Program Files/LLVM/bin"
-)
-
-if(CLANG_TIDY_EXE)
-    message(STATUS "clang-tidy found: ${CLANG_TIDY_EXE}")
-else()
-    message(WARNING "clang-tidy not found")
+# Quiet discovery; tools are required only for explicitly requested checks.
+if(PROJECT_IS_TOP_LEVEL OR VECTORGL_ENABLE_CLANG_TIDY OR VECTORGL_ENABLE_FORMAT_CHECK)
+    find_program(CLANG_TIDY_EXE NAMES clang-tidy-18 clang-tidy)
+    find_program(CLANG_FORMAT_EXE NAMES clang-format-18 clang-format HINTS "C:/Program Files/LLVM/bin")
 endif()
-
-if(CLANG_FORMAT_EXE)
-    message(STATUS "clang-format found: ${CLANG_FORMAT_EXE}")
-else()
-    message(WARNING "clang-format not found")
+if(VECTORGL_ENABLE_CLANG_TIDY AND NOT CLANG_TIDY_EXE)
+    message(FATAL_ERROR "clang-tidy requested but not found; set CLANG_TIDY_EXE or disable VECTORGL_ENABLE_CLANG_TIDY")
 endif()
-
-function(_vectorgl_escape_regex INPUT OUTPUT)
-    set(_value "${INPUT}")
-    string(REPLACE "\\" "/" _value "${_value}")
-    string(REGEX REPLACE "([][+.*^$(){}|?\\])" "\\\\\\1" _value "${_value}")
-    set(${OUTPUT} "${_value}" PARENT_SCOPE)
-endfunction()
+if(VECTORGL_ENABLE_FORMAT_CHECK AND NOT CLANG_FORMAT_EXE)
+    message(FATAL_ERROR "clang-format requested but not found; set CLANG_FORMAT_EXE or disable VECTORGL_ENABLE_FORMAT_CHECK")
+endif()
+if(VECTORGL_ENABLE_FORMAT_CHECK)
+    execute_process(COMMAND "${CLANG_FORMAT_EXE}" --version OUTPUT_VARIABLE formatter_version
+        RESULT_VARIABLE formatter_result)
+    if(NOT formatter_result EQUAL 0 OR NOT formatter_version MATCHES "version 18\\.")
+        message(FATAL_ERROR "The format check requires clang-format 18; set CLANG_FORMAT_EXE")
+    endif()
+endif()
 
 function(setup_clang_tooling TARGET_NAME)
     if(NOT TARGET ${TARGET_NAME})
         message(FATAL_ERROR "setup_clang_tooling called for unknown target '${TARGET_NAME}'")
     endif()
 
-    if(ENABLE_COMPILER_WARNINGS)
+    get_target_property(configured ${TARGET_NAME} VECTORGL_TOOLING_CONFIGURED)
+    if(configured)
+        return()
+    endif()
+    set_property(TARGET ${TARGET_NAME} PROPERTY VECTORGL_TOOLING_CONFIGURED TRUE)
+    if(VECTORGL_ENABLE_COMPILER_WARNINGS)
         if(MSVC)
             target_compile_options(${TARGET_NAME} PRIVATE
                 $<$<COMPILE_LANGUAGE:CXX>:/W4>
@@ -60,7 +44,7 @@ function(setup_clang_tooling TARGET_NAME)
         endif()
     endif()
 
-    if(ENABLE_SANITIZERS)
+    if(VECTORGL_ENABLE_SANITIZERS)
         if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
             target_compile_options(${TARGET_NAME} PRIVATE
                 -fsanitize=address,undefined
@@ -73,83 +57,52 @@ function(setup_clang_tooling TARGET_NAME)
             )
         else()
             message(FATAL_ERROR
-                "ENABLE_SANITIZERS requires a GCC or Clang toolchain"
+                "VECTORGL_ENABLE_SANITIZERS requires a GCC or Clang toolchain"
             )
         endif()
     endif()
 
-    file(REAL_PATH "${PROJECT_SOURCE_DIR}" _project_source_dir)
-    string(REPLACE "\\" "/" _project_source_dir "${_project_source_dir}")
-    _vectorgl_escape_regex("${_project_source_dir}" _project_source_regex)
-    file(REAL_PATH "${CMAKE_BINARY_DIR}" _binary_dir)
-    string(REPLACE "\\" "/" _binary_dir "${_binary_dir}")
-    _vectorgl_escape_regex("${_binary_dir}" _binary_dir_regex)
 
-    if(ENABLE_CLANG_TIDY AND CLANG_TIDY_EXE)
-        set_target_properties(${TARGET_NAME} PROPERTIES
-            CXX_CLANG_TIDY "${CLANG_TIDY_EXE};--header-filter=^${_project_source_regex}/(src|include)/"
-        )
+    if(VECTORGL_ENABLE_CLANG_TIDY)
+        set_property(TARGET ${TARGET_NAME} PROPERTY CXX_CLANG_TIDY "${CLANG_TIDY_EXE}")
     endif()
+endfunction()
 
+function(vectorgl_setup_directory directory)
+    get_property(targets DIRECTORY "${directory}" PROPERTY BUILDSYSTEM_TARGETS)
+    foreach(target IN LISTS targets)
+        get_target_property(type ${target} TYPE)
+        if(type MATCHES "^(STATIC_LIBRARY|SHARED_LIBRARY|MODULE_LIBRARY|EXECUTABLE)$")
+            setup_clang_tooling(${target})
+        endif()
+    endforeach()
+    get_property(children DIRECTORY "${directory}" PROPERTY SUBDIRECTORIES)
+    foreach(child IN LISTS children)
+        if(child MATCHES "^${PROJECT_SOURCE_DIR}/(src|tests|example|apps)(/|$)")
+            vectorgl_setup_directory("${child}")
+        endif()
+    endforeach()
+endfunction()
+
+function(vectorgl_add_format_targets)
+    vectorgl_setup_directory("${PROJECT_SOURCE_DIR}")
     if(NOT CLANG_FORMAT_EXE)
         return()
     endif()
-
-    get_target_property(_target_sources ${TARGET_NAME} SOURCES)
-    get_target_property(_target_source_dir ${TARGET_NAME} SOURCE_DIR)
-
-    if(NOT _target_sources)
-        return()
-    endif()
-
-    set(_format_sources "")
-    foreach(_source IN LISTS _target_sources)
-        if(_source MATCHES "^\\$<")
-            continue()
+    foreach(mode IN ITEMS format format-check)
+        set(write OFF)
+        if(mode STREQUAL "format")
+            set(write ON)
         endif()
-
-        if(NOT IS_ABSOLUTE "${_source}")
-            set(_source "${_target_source_dir}/${_source}")
-        endif()
-
-        file(REAL_PATH "${_source}" _source_real)
-        string(REPLACE "\\" "/" _source_real "${_source_real}")
-
-        if(_source_real MATCHES "^${_binary_dir_regex}(/|$)")
-            continue()
-        endif()
-
-        if(NOT _source_real MATCHES "^${_project_source_regex}(/|$)")
-            continue()
-        endif()
-
-        if(_source_real MATCHES "^${_project_source_regex}/third_party(/|$)")
-            continue()
-        endif()
-
-        if(_source_real MATCHES "\\.(c|cc|cpp|cxx|h|hh|hpp|hxx)$")
-            list(APPEND _format_sources "${_source_real}")
-        endif()
+        add_custom_target(vectorgl-${mode}
+            COMMAND ${CMAKE_COMMAND}
+                "-DVECTORGL_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+                "-DVECTORGL_FORMATTER=${CLANG_FORMAT_EXE}"
+                "-DVECTORGL_FORMAT_WRITE=${write}"
+                -P "${PROJECT_SOURCE_DIR}/cmake/format.cmake"
+            VERBATIM)
     endforeach()
-
-    list(REMOVE_DUPLICATES _format_sources)
-    if(NOT _format_sources)
-        return()
-    endif()
-
-    add_custom_target(${TARGET_NAME}-format
-        COMMAND ${CLANG_FORMAT_EXE} -i -style=file ${_format_sources}
-        COMMENT "[${TARGET_NAME}] Running clang-format"
-        VERBATIM
-    )
-
-    add_custom_target(${TARGET_NAME}-format-check
-        COMMAND ${CLANG_FORMAT_EXE} --dry-run --Werror -style=file ${_format_sources}
-        COMMENT "[${TARGET_NAME}] Checking clang-format compliance"
-        VERBATIM
-    )
-
-    if(ENABLE_FORMAT_CHECK)
-        add_dependencies(${TARGET_NAME} ${TARGET_NAME}-format-check)
+    if(VECTORGL_ENABLE_FORMAT_CHECK)
+        add_custom_target(vectorgl-quality ALL DEPENDS vectorgl-format-check)
     endif()
 endfunction()

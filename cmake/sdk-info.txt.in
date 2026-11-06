@@ -1,0 +1,10 @@
+VectorGL @PROJECT_VERSION@
+System: @CMAKE_SYSTEM_NAME@ @CMAKE_SYSTEM_PROCESSOR@
+Compiler: @CMAKE_CXX_COMPILER_ID@ @CMAKE_CXX_COMPILER_VERSION@
+Configuration: $<CONFIG>
+Linkage: static
+UI: @VECTORGL_BUILD_UI@
+GLFW adapter: @VECTORGL_BUILD_GLFW_ADAPTER@
+Native dialogs: @VECTORGL_BUILD_DIALOGS@
+FreeType provider: @VECTORGL_FREETYPE_RESOLVED@
+Use the same compiler ABI, architecture, configuration and C++ runtime as this SDK.

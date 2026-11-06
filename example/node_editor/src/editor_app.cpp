@@ -1,8 +1,7 @@
 #include "editor_app.hpp"
 
-#include <vectorgl/canvas.hpp>
-
 #include <iostream>
+#include <vectorgl/canvas.hpp>
 
 namespace vectorgl::node_editor
 {
@@ -13,9 +12,7 @@ void EditorApp::init()
     model_.loadDemoGraph();
 }
 
-void EditorApp::shutdown()
-{
-}
+void EditorApp::shutdown() {}
 
 void EditorApp::update(float deltaTime)
 {

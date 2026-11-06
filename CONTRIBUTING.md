@@ -1,299 +1,205 @@
-# Building and Contributing to VectorGL
+# Building and contributing
 
-Thank you for helping improve VectorGL. This guide covers the supported local
-build workflow, testing, formatting, and the expected contribution process.
+VectorGL requires C++20 and CMake 3.21+. Visual Studio 2022/2026, GCC and
+Clang are supported toolchains; VS 2026 requires CMake 4.2+. Graphics examples
+need an OpenGL 3.3 driver. Headless unit tests and library-only builds need no
+window system or GLFW. Linux graphical builds need GLFW's X11 development
+packages; GPU tests can run with Mesa and Xvfb.
 
-## Prerequisites
+## Choose a build profile
 
-| Tool | Minimum | Notes |
-|---|---:|---|
-| C++ compiler | MSVC 2022, GCC 12, or Clang 15 | Must support C++20 |
-| CMake | 3.20 | Presets / VS 2022: 3.21+; VS 2026: 4.2+ |
-| Git | Current stable | CMake downloads dependencies with FetchContent |
-| GPU/driver | OpenGL 3.3 | Required to run graphical examples |
+Run from the repository root:
 
-On Windows, install the **Desktop development with C++** workload in Visual
-Studio 2022 or 2026. On Linux, install a compiler, CMake, Ninja, and the
-development packages required by GLFW.
-
-## Vendored OpenGL loader
-
-VectorGL vendors its GLAD 2.0.8 OpenGL 3.3 Core loader under
-`third_party/glad`. Normal builds do not require Python, Jinja2, or network
-access for GLAD generation. See `third_party/glad/README.md` for the exact
-generation settings and `third_party/glad/LICENSE` for license information.
-
-## Recommended Windows build
-
-The simplest option from either PowerShell or Command Prompt is:
-
-```text
-scripts\build.bat
+```sh
+cmake --preset developer
+cmake --build --preset developer
+ctest --preset developer
 ```
 
-The batch wrapper uses a process-scoped PowerShell execution-policy bypass; it
-does not change the machine or user policy. To invoke the PowerShell script
-directly on a machine that restricts local scripts:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
-```
-
-The helpers configure a Debug build, build the library and examples, and run
-the tests. Common options are:
-
-```powershell
-# Release build
-scripts\build.bat -Configuration Release
-
-# Delete the selected build directory before configuring
-scripts\build.bat -Configuration Release -Clean
-
-# Build the library without examples or tests
-scripts\build.bat -SkipExamples -SkipTests
-
-# Override automatic CMake generator detection
-scripts\build.bat -Generator Ninja
-```
-
-The Windows helper uses separate directories for each generator/compiler and
-configuration, for example `build/local-visual-studio-18-2026-debug` or
-`build/local-ninja-gcc-release`. Switching Visual Studio versions or moving
-between MSVC and MinGW therefore does not reuse an incompatible CMake cache.
-The helper prints the selected generator and output directory before building.
-
-### Alternative Windows compilers
-
-Visual Studio is not required. The helper supports these Windows toolchains:
-
-| Toolchain | Automatic detection |
+| Preset | Builds |
 |---|---|
-| Visual Studio with the C++ workload | Visual Studio CMake generator |
-| GCC or Clang with Ninja | Ninja generator |
-| MinGW-w64 with `mingw32-make` | MinGW Makefiles generator |
-| MSVC developer prompt | NMake Makefiles generator |
+| `library` | Core SDK only; no tests, examples, UI or GLFW |
+| `developer` | Core library and CPU tests |
+| `ui` | UI module and headless engine/UI tests |
+| `workspace` | UI, GLFW adapter, native dialogs, UI examples and CPU tests |
+| `full` | All modules, examples, Flow Studio, app tests and GPU/smoke tests |
+| `sanitizers` | Linux headless UI/dialog tests with ASan/UBSan |
+| `quality` | Linux full source analysis using Clang/clang-tidy/clang-format 18 |
 
-For example, after adding an MSYS2 MinGW-w64 toolchain to `PATH`:
+`library-release`, `workspace-release`, and `full-release` configure Release builds.
+Generic profiles let CMake select the generator. To use Ninja with a PATH compiler:
+
+```sh
+cmake --preset workspace -G Ninja -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++
+cmake --build --preset workspace
+```
+
+Each preset uses `build/<preset>`. Use a fresh directory when switching compilers
+or generators. Existing `windows-debug`, `windows-release`, `linux-debug`,
+`linux-release`, and `windows-mingw-*` presets remain available. The Windows
+presets retain automatic Visual Studio discovery; MinGW presets use MinGW
+Makefiles. `CMakeUserPresets.json` is ignored by Git for machine-specific settings.
+
+For Visual Studio, build/test presets supply the configuration. With direct
+commands, use `--config Debug` for builds and `-C Debug` for CTest. Examples stay
+under `build/<preset>/example/Debug` for Visual Studio, or `example/` for Ninja.
+
+## Build helpers
+
+The helpers select the local compiler/generator and configure the same presets:
 
 ```bat
-scripts\build.bat -Generator "MinGW Makefiles"
+scripts\build.bat -Profile workspace
+scripts\build.bat -Profile full -Configuration Release
+scripts\build.bat -Profile library -Generator Ninja
 ```
 
-Or use GCC/Clang with Ninja:
-
-```bat
-scripts\build.bat -Generator Ninja
-```
-
-Make sure the compiler, its runtime DLLs, and the selected build tool come from
-the same toolchain installation. Mixing standalone MinGW, MSYS2, and another
-Ninja installation can produce compiler detection or linking failures.
-
-After a MinGW build, the Windows helper copies the required GCC,
-libstdc++, and winpthreads runtime DLLs beside every generated executable.
-This allows examples and tests to be launched from Explorer without adding the
-MinGW `bin` directory to the permanent system `PATH`.
-
-## Linux and macOS build helper
-
-Run the portable shell helper from the repository root:
-
-```bash
-./scripts/build.sh
-```
-
-Common options:
-
-```bash
-# Clean Release build
-./scripts/build.sh --configuration Release --clean
-
-# Library only
-./scripts/build.sh --skip-examples --skip-tests
-
-# Explicit compiler environment and generator
-CC=clang CXX=clang++ ./scripts/build.sh --generator Ninja
-
-```
-
-The script chooses Ninja when available and otherwise uses Unix Makefiles. It
-then configures the project, builds it, and runs CTest.
-
-## Continuous integration
-
-Every push and pull request runs the build and test suite in these
-configurations:
-
-- Linux GCC Debug and Release
-- Linux GCC Debug with AddressSanitizer and UndefinedBehaviorSanitizer
-- Windows MSVC Debug and Release
-- Windows MinGW GCC with Ninja, Debug and Release
-- A dedicated Linux Clang job for clang-tidy and clang-format
-
-The MinGW jobs explicitly select `gcc`, `g++`, and Ninja, so Windows-specific
-GNU compiler compatibility is tested independently from the Linux GCC jobs.
-Clang-tidy and formatting are disabled in the build matrix and run once in the
-dedicated quality job, avoiding duplicate diagnostics from Debug, Release, and
-sanitizer builds.
-Each job also installs VectorGL and builds a separate project through
-`find_package(vectorgl CONFIG REQUIRED)`, verifying the exported CMake package.
-The main test suite includes a hidden-window GPU integration test that loads
-OpenGL through GLAD, compiles the production shaders, renders with Canvas, and
-checks a read-back pixel. It runs through Mesa and Xvfb on Linux. GitHub-hosted
-Windows runners do not provide a reliable desktop OpenGL 3.3 context, so the
-Windows jobs run the CPU and installed-package tests but do not enable this GPU
-test. You can still enable and run it on a Windows machine with a suitable
-graphics driver.
-
-The sanitizer job instruments the library with AddressSanitizer and
-UndefinedBehaviorSanitizer and runs the CPU and installed-package tests. To run
-the same checks locally with GCC or Clang:
-
-```bash
-cmake -S . -B build/sanitize \
-  -DCMAKE_BUILD_TYPE=Debug \
-  -DENABLE_SANITIZERS=ON \
-  -DENABLE_CLANG_TIDY=OFF \
-  -DVECTORGL_BUILD_EXAMPLES=OFF \
-  -DVECTORGL_BUILD_TESTS=ON
-cmake --build build/sanitize --parallel
-ctest --test-dir build/sanitize --output-on-failure
-```
-
-## Manual CMake build
-
-```bash
-cmake -S . -B build/local \
-  -DVECTORGL_BUILD_EXAMPLES=ON \
-  -DVECTORGL_BUILD_TESTS=ON
-cmake --build build/local --config Debug --parallel
-ctest --test-dir build/local -C Debug --output-on-failure
-```
-
-To include the hidden-window OpenGL integration test:
-
-```bash
-cmake -S . -B build/gpu-tests \
-  -DVECTORGL_BUILD_TESTS=ON \
-  -DVECTORGL_BUILD_GPU_TESTS=ON
-cmake --build build/gpu-tests --parallel
-ctest --test-dir build/gpu-tests --output-on-failure
-```
-
-This option requires GLFW and a working OpenGL environment. On headless Linux,
-install Xvfb; CMake automatically runs the GPU test through `xvfb-run` when it
-is available.
-
-For a single-configuration generator such as Ninja:
-
-```bash
-cmake -S . -B build/local -G Ninja \
-  -DCMAKE_BUILD_TYPE=Debug \
-  -DVECTORGL_BUILD_EXAMPLES=ON \
-  -DVECTORGL_BUILD_TESTS=ON
-cmake --build build/local --parallel
-ctest --test-dir build/local --output-on-failure
-```
-
-## CMake presets
-
-```bash
-cmake --preset windows-debug
-cmake --build --preset windows-debug
-
-cmake --preset windows-release
-cmake --build --preset windows-release
-```
-
-Linux users can replace `windows` with `linux`.
-
-The Windows presets use CMake's default generator discovery, so the same preset
-works with VS 2022 or VS 2026. Use CMake 4.2+ for VS 2026 and CMake 3.21+ for
-VS 2022. You can select a particular version explicitly:
+Direct PowerShell invocation, if the machine restricts local scripts:
 
 ```powershell
-scripts\build.bat -Generator "Visual Studio 17 2022"
-scripts\build.bat -Generator "Visual Studio 18 2026"
+powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1 -Profile workspace
 ```
 
-For MinGW-w64, put `gcc`, `g++`, and `mingw32-make` in PATH, then run:
+This is a process-scoped policy setting. The default profile is `developer`.
+`-SkipExamples` disables all example/app executables; `-SkipTests` disables all
+test groups. `-Clean` removes only the selected generated build directory.
+The Windows helper separates compiler/generator/profile/configuration directories
+and copies MinGW runtime DLLs beside executables for Explorer launches.
 
-```powershell
-cmake --preset windows-mingw-debug
-cmake --build --preset windows-mingw-debug
-ctest --preset windows-mingw-debug
+```sh
+./scripts/build.sh --profile workspace
+./scripts/build.sh --profile full --configuration Release
+CC=clang CXX=clang++ ./scripts/build.sh --profile developer --generator Ninja
 ```
 
-Use the Windows helper for automatic fallback to MinGW or Ninja when Visual
-Studio is unavailable. Presets select CMake's default generator or an explicit
-MinGW generator; they do not execute the helper's compiler detection.
+The shell helper uses Ninja or Make and separates profile/configuration outputs.
+Use a new directory or `--clean` when changing its compiler/generator.
 
-If an existing preset build directory was configured with another generator,
-configure into a new directory (for example `cmake --preset windows-debug -B
-build/windows-vs2026`), then build that directory directly with
-`cmake --build build/windows-vs2026 --config Debug`. CMake cannot switch the
-generator of an existing build directory. The helper avoids this by using
-separate directories automatically.
+## Direct CMake options
 
-## Formatting and static analysis
+A fresh standalone configure defaults to core plus CPU tests. Embedded builds
+using `add_subdirectory` default to the core library only. Developer tools default
+OFF in both cases. No source-tree build or permanent system configuration is needed.
 
-When `clang-format` is installed, a formatting compliance target is added to
-the normal build. Format the project with:
+| Option | Default | Purpose |
+|---|---|---|
+| `VECTORGL_BUILD_TESTS` | Top-level ON, embedded OFF | Engine and enabled UI tests |
+| `VECTORGL_BUILD_APP_TESTS` | OFF | Flow Studio document/workspace tests |
+| `VECTORGL_BUILD_EXAMPLES` | OFF | Graphical engine examples |
+| `VECTORGL_BUILD_APPS` | OFF | Flow Studio executable |
+| `VECTORGL_BUILD_UI` | OFF | Optional UI module |
+| `VECTORGL_BUILD_UI_EXAMPLES` | Follows examples on first configure | UI examples |
+| `VECTORGL_BUILD_GLFW_ADAPTER` | OFF | UI host adapter; requires UI |
+| `VECTORGL_BUILD_DIALOGS` | OFF | Native dialog backends; requires UI |
+| `VECTORGL_BUILD_GPU_TESTS` | OFF | Display-dependent tests; requires engine or app tests |
+| `VECTORGL_ENABLE_HINTED_TEXT` | ON | FreeType small-text rasterization |
+| `VECTORGL_ENABLE_COMPILER_WARNINGS` | ON | Private warnings on first-party targets |
+| `VECTORGL_ENABLE_CLANG_TIDY` | OFF | Analysis while compiling |
+| `VECTORGL_ENABLE_FORMAT_CHECK` | OFF | Full first-party formatting check |
+| `VECTORGL_ENABLE_SANITIZERS` | OFF | GCC/Clang ASan and UBSan |
 
-```bash
-cmake --build build/local --target vectorgl-format
+The old `ENABLE_CLANG_TIDY`, `ENABLE_FORMAT_CHECK`, `ENABLE_COMPILER_WARNINGS`
+and `ENABLE_SANITIZERS` inputs seed the corresponding canonical option on a fresh
+standalone cache. Embedded builds ignore generic parent options; use `VECTORGL_*`
+there. Explicit `VECTORGL_*` values take precedence. After migration, change the
+canonical option; changing an old alias does not override an existing canonical cache.
+Enabling a missing analysis tool fails with a useful configure-time error.
+
+Private warnings and analysis do not propagate to consumer targets. Sanitizer
+link flags intentionally propagate so executables link the required runtime.
+First-party executables are instrumented too. Sanitizers are not enabled for the
+ordinary installed SDK.
+
+## Dependencies and offline builds
+
+GLAD is vendored with its license; no loader generation tools are required.
+stb, libtess2, bundled FreeType and missing GLFW are fetched at pinned revisions.
+GLFW is resolved only for a requested host, app, graphical example or GPU test.
+VectorGL does not forcibly overwrite a parent project's GLFW cache preferences.
+The bundled adapter SDK requires `GLFW_INSTALL=ON`; alternatively supply an
+installed `glfw3` package, which must also be available to SDK consumers.
+
+`VECTORGL_FREETYPE_PROVIDER` accepts `BUNDLED` (default, reproducible static SDK),
+`SYSTEM` (require installed FreeType), or `AUTO` (installed first, otherwise bundled).
+An existing parent-provided `Freetype::Freetype` target is reused.
+System-provider SDKs require compatible FreeType on the consumer's system.
+`VECTORGL_ENABLE_HINTED_TEXT=OFF` omits this dependency.
+
+Set `VECTORGL_FETCH_DEPENDENCIES=OFF` to prohibit downloads. Supply source directories
+using `FETCHCONTENT_SOURCE_DIR_STB`, `FETCHCONTENT_SOURCE_DIR_VECTORGL_LIBTESS2`,
+`FETCHCONTENT_SOURCE_DIR_VECTORGL_FREETYPE`, and, when needed,
+`FETCHCONTENT_SOURCE_DIR_GLFW`. `VECTORGL_STB_INCLUDE_DIR` can instead point to
+installed stb headers. Missing dependencies produce a configure error, not a
+silent network attempt. A first build normally needs network access unless these
+inputs or installed dependencies are provided.
+
+## Testing and quality
+
+```sh
+ctest --test-dir build/full -C Debug -L unit --output-on-failure
+ctest --test-dir build/full -C Debug -L gpu --output-on-failure
+ctest --test-dir build/full -C Debug -L ui --output-on-failure
+cmake --build build/developer --target vectorgl-format-check
+cmake --build build/developer --target vectorgl-format
 ```
 
-When `clang-tidy` is installed, it runs during compilation. Tooling can be
-disabled temporarily while diagnosing a compiler-specific issue:
+Install clang-format 18, or pass `-DCLANG_FORMAT_EXE=/path/to/clang-format-18`,
+to expose format targets. Formatting covers first-party headers, implementation,
+examples, app and tests independently of enabled targets; third-party/generated
+code is excluded. CI installs version 18 explicitly. Apply formatting before
+submitting a change. `quality` also requires Linux host development packages
+because it compiles the adapter/examples; it does not run graphical tests.
 
-```bash
-cmake -S . -B build/local \
-  -DENABLE_CLANG_TIDY=OFF \
-  -DENABLE_FORMAT_CHECK=OFF
+Labels are `unit`, `engine`, `ui`, `gpu`, `smoke`, `app`, and `package`. GPU tests
+use `xvfb-run` when available on Linux. Native-dialog protocol tests use a fake
+helper, and workspace automation injects dialog/clipboard providers. Real desktop
+X11/Wayland/Windows dialog behavior still needs interactive verification.
+
+## Installation and SDK archives
+
+```sh
+cmake --preset workspace-release
+cmake --build --preset workspace-release
+cmake --install build/workspace-release --config Release --prefix staging
 ```
 
-Do not disable these checks merely to submit unformatted or warning-producing
-code.
+Installed consumers use `find_package(vectorgl CONFIG REQUIRED)` for the core,
+or request `COMPONENTS ui`, `glfw`, or `dialogs`. Link their matching namespaced
+targets; UI/dialog discovery does not import GLFW. A static SDK requires compatible
+compiler ABI, architecture, configuration and C++ runtime. `share/vectorgl/sdk-info.txt`
+records the build details. Use an empty install prefix when changing SDK flavor;
+installing core over an older full SDK does not remove stale optional files.
 
-The checked-in `.clang-tidy` policy intentionally focuses CI on correctness,
-static-analyzer, portability, and performance findings. Broad opinionated style
-families are not enabled because VectorGL's public graphics API naturally uses
-short coordinate and color names, public value types, and established enum
-naming that those generic rules would report repeatedly.
+`scripts/package.cmake` creates a core/full archive and SHA256 checksum, extracts
+it, makes the old staging prefix unavailable and tests external consumers:
 
-Recommended compiler warnings are enabled independently of clang-tidy:
-`/W4 /permissive-` for MSVC and `-Wall -Wextra -Wpedantic` for GCC and Clang.
-They apply only while compiling VectorGL C++ sources, not vendored GLAD C code
-or separately built dependencies. They can be disabled for toolchain diagnosis
-with `-DENABLE_COMPILER_WARNINGS=OFF`.
+```sh
+cmake -DBUILD_DIR=/absolute/build/workspace-release -DOUTPUT_DIR=/absolute/release-assets \
+  -DGENERATOR=Ninja -DPLATFORM=linux-x64-gcc -DFLAVOR=full \
+  -P scripts/package.cmake
+```
 
-## Troubleshooting
+Use the build's actual generator (quote Visual Studio names). Release tags must
+match `v<project version>`. Core archives contain the renderer/text/SVG SDK; full
+archives additionally contain UI, GLFW adapter, native dialogs and bundled GLFW.
+Examples/apps are source-build targets, not prebuilt executables in these SDKs.
+Licenses accompany bundled dependencies and VectorGL itself.
 
-### Dependency downloads fail
+## CI and contribution workflow
 
-GLFW and stb are fetched during initial configuration. GLAD is vendored and
-does not require a download. Verify that Git can access GitHub and that a proxy
-or firewall is not blocking CMake.
+CI uses the same presets through `scripts/ci-build.cmake`: Linux/Windows CPU and
+installed consumers, Linux sanitizers, a Linux GPU/examples/app job, graphics-only
+embedding, and pinned Clang 18 quality. Windows builds compile host examples but
+avoid requiring a runner GPU. The GPU job explicitly enables regular examples
+so conditional smoke tests cannot silently disappear. Test reports and diagnostic
+logs are uploaded even after failure. Caches contain dependency source trees and
+Linux ccache outputs, never shared CMake build trees or libraries.
 
-### Windows uses the wrong build configuration
+Release CI builds core/full SDKs on Windows/MSVC and Linux/GCC. Publication waits
+for archive relocation tests and verifies the tag version. Manual workflow dispatch
+builds artifacts without publishing a release. GitHub Pages deployment remains
+separate.
 
-Visual Studio is a multi-configuration generator. Include `--config Debug` or
-`--config Release` when building, and `-C Debug` or `-C Release` when running
-CTest. The supplied scripts always include these arguments.
-
-The helper automatically selects an installed Visual Studio C++ workload or a
-Ninja toolchain. If necessary, override it with `-Generator`, for example
-`scripts\build.bat -Generator Ninja`.
-
-## Contribution workflow
-
-1. Fork the repository and create a focused branch.
-2. Add or update tests for behavior changes.
-3. Run a clean Debug and Release build when practical.
-4. Keep public API changes documented in the guides or API reference.
-5. Commit logically related changes together.
-6. Open a pull request describing the problem, solution, and validation.
-
-Do not commit generated build directories, IDE state, or downloaded
-dependencies. These paths are already covered by `.gitignore`.
+Create a branch from current main, update relevant tests/docs, run the appropriate
+profile and package checks, and open a focused PR. Generated outputs, downloaded
+dependencies and machine-specific presets must stay untracked.

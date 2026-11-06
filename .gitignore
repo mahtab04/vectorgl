@@ -17,3 +17,9 @@ compile_commands.json
 # Platform files
 .DS_Store
 Thumbs.db
+
+# Developer-local CMake presets
+/CMakeUserPresets.json
+/.cache/
+/release-assets/
+/staging/

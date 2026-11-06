@@ -1,30 +1,9 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.21)
 project(vectorgl VERSION 1.0.0 LANGUAGES CXX C)
-
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
-
-option(VECTORGL_BUILD_EXAMPLES "Build vectorgl example applications" ${PROJECT_IS_TOP_LEVEL})
-# Match examples by default so library-only/headless builds do not fetch GLFW.
-# Apps can still be enabled independently with -DVECTORGL_BUILD_APPS=ON.
-option(VECTORGL_BUILD_APPS "Build the Flow Studio diagram editor" ${VECTORGL_BUILD_EXAMPLES})
-option(VECTORGL_BUILD_TESTS "Build vectorgl regression tests" ${PROJECT_IS_TOP_LEVEL})
-option(VECTORGL_BUILD_GPU_TESTS "Build OpenGL integration tests (requires GLFW and a display)" OFF)
-option(VECTORGL_ENABLE_HINTED_TEXT "Use FreeType for hinted small-text bitmap rendering" ON)
-option(VECTORGL_BUILD_UI "Build the optional application UI input foundation" OFF)
-option(VECTORGL_BUILD_UI_EXAMPLES "Build UI examples (graphical examples require the GLFW adapter)" ${VECTORGL_BUILD_EXAMPLES})
-option(VECTORGL_BUILD_GLFW_ADAPTER "Build the optional UI GLFW host adapter" OFF)
-option(VECTORGL_BUILD_DIALOGS "Build optional native file-dialog backends" OFF)
-if(VECTORGL_BUILD_DIALOGS AND NOT VECTORGL_BUILD_UI)
-    message(FATAL_ERROR "VECTORGL_BUILD_DIALOGS requires VECTORGL_BUILD_UI=ON")
-endif()
-if(VECTORGL_BUILD_GLFW_ADAPTER AND NOT VECTORGL_BUILD_UI)
-    message(FATAL_ERROR "VECTORGL_BUILD_GLFW_ADAPTER requires VECTORGL_BUILD_UI=ON")
-endif()
-
+include(cmake/options.cmake)
 add_subdirectory(include/PublicHeaders)
 add_subdirectory(include/InternalHeaders)
 
@@ -55,134 +34,24 @@ include(cmake/embed_shaders.cmake)
 include(cmake/dependencies.cmake)
 include(cmake/tooling.cmake)
 
-add_library(vectorgl STATIC
-    src/canvas.cpp
-    src/path.cpp
-    src/path_tessellation.cpp
-    src/stroke_tessellation.cpp
-    ${VECTORGL_LIBTESS2_DIR}/Source/bucketalloc.c
-    ${VECTORGL_LIBTESS2_DIR}/Source/dict.c
-    ${VECTORGL_LIBTESS2_DIR}/Source/geom.c
-    ${VECTORGL_LIBTESS2_DIR}/Source/mesh.c
-    ${VECTORGL_LIBTESS2_DIR}/Source/priorityq.c
-    ${VECTORGL_LIBTESS2_DIR}/Source/sweep.c
-    ${VECTORGL_LIBTESS2_DIR}/Source/tess.c
-    src/font.cpp
-    src/text.cpp
-    src/image.cpp
-    src/text_box.cpp
-    src/renderer.cpp
-    src/shader_utils.cpp
-    ${VECTORGL_EMBEDDED_SHADER_SOURCE}
-    src/node.cpp
-    src/scene.cpp
-    src/animator.cpp
-    src/svg.cpp
-    src/svg_cache.cpp
-    src/svg/xml_parser.cpp
-    src/svg/svg_color.cpp
-    src/svg/svg_style.cpp
-    src/svg/svg_transform.cpp
-    src/svg/svg_path.cpp
-    src/svg/svg_renderer.cpp
-    src/svg/svg_defs.cpp
-    src/svg/svg_gradient.cpp
-    src/svg/svg_marker.cpp
-    src/svg/svg_css.cpp
-    "${VECTORGL_GLAD_DIR}/src/gl.c"
-    include/PublicHeaders/vectorgl/text_box.hpp
-    include/PublicHeaders/vectorgl/glfw_text_box.hpp
-    include/PublicHeaders/vectorgl/ui.hpp
-)
 
-add_library(vectorgl::vectorgl ALIAS vectorgl)
-
-target_include_directories(vectorgl PUBLIC
-    $<BUILD_INTERFACE:${VECTORGL_PUBLIC_INCLUDE_DIR}>
-    $<BUILD_INTERFACE:${VECTORGL_GLAD_DIR}/include>
-    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
-)
-
-target_include_directories(vectorgl PRIVATE
-    ${VECTORGL_LIBTESS2_DIR}/Include
-    ${VECTORGL_INTERNAL_INCLUDE_DIR}
-    ${stb_SOURCE_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/svg
-)
-
-target_compile_definitions(vectorgl PRIVATE
-    VECTORGL_SHADER_DIR="${CMAKE_CURRENT_BINARY_DIR}/shaders"
-    VECTORGL_INSTALL_SHADER_DIR="${CMAKE_INSTALL_FULL_DATADIR}/vectorgl/shaders"
-)
-
-target_compile_features(vectorgl PUBLIC cxx_std_20)
-target_link_libraries(vectorgl PRIVATE ${CMAKE_DL_LIBS})
-if(VECTORGL_ENABLE_HINTED_TEXT)
-    target_link_libraries(vectorgl PRIVATE freetype)
-    target_compile_definitions(vectorgl PRIVATE VECTORGL_HAS_FREETYPE=1)
-endif()
-
-setup_clang_tooling(vectorgl)
-
+add_subdirectory(src)
 if(VECTORGL_BUILD_UI)
     add_subdirectory(src/ui)
 endif()
+include(cmake/install.cmake)
 
-install(TARGETS vectorgl
-    EXPORT vectorglTargets
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-)
-
-install(FILES ${VECTORGL_PUBLIC_HEADERS}
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/vectorgl
-)
-
-# Match the build-tree public loader headers for standalone installed consumers.
-install(DIRECTORY ${VECTORGL_GLAD_DIR}/include/glad ${VECTORGL_GLAD_DIR}/include/KHR
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR} FILES_MATCHING PATTERN "*.h")
-install(FILES ${VECTORGL_GLAD_DIR}/LICENSE
-    DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/vectorgl/glad)
-
-install(FILES ${VECTORGL_SHADER_FILES}
-    DESTINATION ${CMAKE_INSTALL_DATADIR}/vectorgl/shaders
-)
-
-install(EXPORT vectorglTargets
-    FILE vectorglTargets.cmake
-    NAMESPACE vectorgl::
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/vectorgl
-)
-
-configure_package_config_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/vectorglConfig.cmake.in
-    ${CMAKE_CURRENT_BINARY_DIR}/vectorglConfig.cmake
-    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/vectorgl
-)
-
-write_basic_package_version_file(
-    ${CMAKE_CURRENT_BINARY_DIR}/vectorglConfigVersion.cmake
-    VERSION ${PROJECT_VERSION}
-    COMPATIBILITY SameMajorVersion
-)
-
-install(FILES
-    ${CMAKE_CURRENT_BINARY_DIR}/vectorglConfig.cmake
-    ${CMAKE_CURRENT_BINARY_DIR}/vectorglConfigVersion.cmake
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/vectorgl
-)
-
+if(VECTORGL_BUILD_TESTS OR VECTORGL_BUILD_APP_TESTS)
+    enable_testing()
+endif()
 if(VECTORGL_BUILD_EXAMPLES OR (VECTORGL_BUILD_UI AND VECTORGL_BUILD_UI_EXAMPLES))
     add_subdirectory(example)
 endif()
-
 if(VECTORGL_BUILD_TESTS)
-    enable_testing()
     add_subdirectory(tests)
 endif()
-
-if(VECTORGL_BUILD_APPS OR VECTORGL_BUILD_TESTS)
+if(VECTORGL_BUILD_APPS OR VECTORGL_BUILD_APP_TESTS)
     add_subdirectory(apps/diagram_editor)
 endif()
+vectorgl_add_format_targets()
+include(cmake/summary.cmake)

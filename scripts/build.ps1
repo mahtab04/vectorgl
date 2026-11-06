@@ -3,6 +3,10 @@ param(
     [ValidateSet("Debug", "Release")]
     [string]$Configuration = "Debug",
 
+    [Alias("Profile")]
+    [ValidateSet("library", "developer", "ui", "workspace", "full")]
+    [string]$BuildProfile = "developer",
+
     [switch]$Clean,
     [switch]$SkipTests,
     [switch]$SkipExamples,
@@ -98,7 +102,7 @@ $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $configurationName = $Configuration.ToLowerInvariant()
 
 if (-not (Get-Command cmake -ErrorAction SilentlyContinue)) {
-    throw "CMake was not found. Install CMake 3.20 or newer and add it to PATH."
+    throw "CMake was not found. Install CMake 3.21 or newer and add it to PATH."
 }
 
 $cmakeVersion = cmake --version | Select-Object -First 1
@@ -138,7 +142,7 @@ if ($cmakeGenerator -eq "MinGW Makefiles") {
     }
 }
 $generatorTag = ($cmakeGenerator.ToLowerInvariant() -replace '[^a-z0-9]+', '-').Trim('-')
-$buildDirectory = Join-Path $projectRoot "build/local-$generatorTag$compilerTag-$configurationName"
+$buildDirectory = Join-Path $projectRoot "build/local-$generatorTag$compilerTag-$BuildProfile-$configurationName"
 
 if ($Clean -and (Test-Path -LiteralPath $buildDirectory)) {
     $resolvedBuildDirectory = (Resolve-Path -LiteralPath $buildDirectory).Path
@@ -151,18 +155,21 @@ if ($Clean -and (Test-Path -LiteralPath $buildDirectory)) {
     Remove-Item -LiteralPath $resolvedBuildDirectory -Recurse -Force
 }
 
-$buildExamples = if ($SkipExamples) { "OFF" } else { "ON" }
-$buildTests = if ($SkipTests) { "OFF" } else { "ON" }
 Write-Host "[VectorGL] Generator: $cmakeGenerator"
 
 $configureArguments = @(
     "-S", $projectRoot,
+    "--preset", $BuildProfile,
     "-B", $buildDirectory,
     "-G", $cmakeGenerator,
-    "-DVECTORGL_BUILD_EXAMPLES=$buildExamples",
-    "-DVECTORGL_BUILD_TESTS=$buildTests",
     "-DCMAKE_BUILD_TYPE=$Configuration"
 )
+if ($SkipExamples) {
+    $configureArguments += @("-DVECTORGL_BUILD_EXAMPLES=OFF", "-DVECTORGL_BUILD_UI_EXAMPLES=OFF", "-DVECTORGL_BUILD_APPS=OFF")
+}
+if ($SkipTests) {
+    $configureArguments += @("-DVECTORGL_BUILD_TESTS=OFF", "-DVECTORGL_BUILD_APP_TESTS=OFF", "-DVECTORGL_BUILD_GPU_TESTS=OFF")
+}
 $configureArguments += $compilerArguments
 
 if ($cmakeGenerator.StartsWith("Visual Studio", [StringComparison]::OrdinalIgnoreCase)) {
@@ -202,10 +209,10 @@ if ($compilerEntry) {
     }
 }
 
-if (-not $SkipTests) {
+if (-not $SkipTests -and $BuildProfile -ne "library") {
     Write-Step "Running tests"
     Invoke-Checked -Command "ctest" -Arguments @(
-        "--test-dir", $buildDirectory, "-C", $Configuration, "--output-on-failure"
+        "--test-dir", $buildDirectory, "-C", $Configuration, "--output-on-failure", "--no-tests=error"
     )
 }
 

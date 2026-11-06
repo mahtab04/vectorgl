@@ -1,5 +1,4 @@
 #include <numbers>
-
 #include <vectorgl/path.hpp>
 
 #include "test_utils.hpp"

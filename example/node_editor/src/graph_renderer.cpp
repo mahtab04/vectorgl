@@ -1,14 +1,13 @@
 #include "graph_renderer.hpp"
 
-#include "editor_state.hpp"
-#include "graph_model.hpp"
-#include "theme.hpp"
-
-#include <vectorgl/canvas.hpp>
-
 #include <algorithm>
 #include <cmath>
 #include <string>
+#include <vectorgl/canvas.hpp>
+
+#include "editor_state.hpp"
+#include "graph_model.hpp"
+#include "theme.hpp"
 
 namespace vectorgl::node_editor
 {
@@ -213,7 +212,7 @@ void GraphRenderer::drawStatusBar(Canvas& canvas, const GraphModel& model, const
     canvas.fillRect(0.0f, top, kCanvasWidth, kStatusBarHeight);
     canvas.setFillColor(theme.bodyTextColor);
     canvas.fillText(std::to_string(model.graph().nodes.size()) + " nodes   " +
-                      std::to_string(model.graph().edges.size()) + " connections",
+                        std::to_string(model.graph().edges.size()) + " connections",
                     18.0f, centeredTextY(canvas, top, kStatusBarHeight));
     canvas.fillText("Zoom " + std::to_string(static_cast<int>(state.camera.zoom * 100.0f)) + "%", 1160.0f,
                     centeredTextY(canvas, top, kStatusBarHeight));
@@ -236,12 +235,12 @@ void GraphRenderer::drawEdge(Canvas& canvas, const GraphModel& model, const Edge
     const Vec2 end = applyCamera(portWorldPosition(*toNode, *toPort), state.camera);
     const float handleLength = applyZoom(kEdgeHandleLength, state.camera);
     const bool connectsSelected = fromNode->selected || toNode->selected || state.selectedNodeId == fromNode->id ||
-      state.selectedNodeId == toNode->id;
+                                  state.selectedNodeId == toNode->id;
     const bool isHovered = state.hoveredEdgeId == edge.id;
 
-    canvas.setStrokeColor(edge.selected || connectsSelected ? theme.selectionColor
-                                                            : (isHovered ? theme.accentColor
-                                                                         : theme.accentColor.withAlpha(0.85f)));
+    canvas.setStrokeColor(edge.selected || connectsSelected
+                              ? theme.selectionColor
+                              : (isHovered ? theme.accentColor : theme.accentColor.withAlpha(0.85f)));
     canvas.setLineWidth(edge.selected || connectsSelected ? 3.5f : (isHovered ? 3.0f : 2.5f));
     canvas.beginPath();
     canvas.moveTo(start.x, start.y);
@@ -278,8 +277,9 @@ void GraphRenderer::drawPreviewEdge(Canvas& canvas, const GraphModel& model, con
 
 void GraphRenderer::drawPalette(Canvas& canvas, const EditorState& state, const Theme& theme) const
 {
-    const float panelHeight = kPaletteHeaderHeight + (static_cast<float>(std::size(kPaletteItems)) * kPaletteItemHeight) +
-      (static_cast<float>(std::size(kPaletteItems) - 1) * kPaletteItemGap) + (kPaletteItemInset * 2.0f);
+    const float panelHeight =
+        kPaletteHeaderHeight + (static_cast<float>(std::size(kPaletteItems)) * kPaletteItemHeight) +
+        (static_cast<float>(std::size(kPaletteItems) - 1) * kPaletteItemGap) + (kPaletteItemInset * 2.0f);
 
     canvas.setFillColor(theme.panelColor.withAlpha(0.96f));
     canvas.fillRoundedRect(kPalettePanelX, kPalettePanelY, kPalettePanelWidth, panelHeight, 18.0f);
@@ -327,7 +327,8 @@ void GraphRenderer::drawPorts(Canvas& canvas, const Node& node, const std::vecto
         const Color nodeAccent = accentForNode(node, theme);
         const bool isHoveredNode = state.hoveredNodeId == node.id;
         const bool isHoveredPort = state.hoveredPortNodeId == node.id && state.hoveredPortId == port.id;
-        const bool isActivePort = state.interaction.activeNodeId == node.id && state.interaction.activePortId == port.id;
+        const bool isActivePort =
+            state.interaction.activeNodeId == node.id && state.interaction.activePortId == port.id;
 
         canvas.setFillColor(isInput ? theme.bodyTextColor.withAlpha(isHoveredNode ? 1.0f : 0.85f)
                                     : nodeAccent.withAlpha(isHoveredNode ? 1.0f : 0.95f));
@@ -345,7 +346,8 @@ void GraphRenderer::drawPorts(Canvas& canvas, const Node& node, const std::vecto
         canvas.strokeCircle(center.x, center.y, radius);
 
         canvas.setFillColor(theme.bodyTextColor);
-        const float textX = isInput ? center.x + applyZoom(14.0f, state.camera) : center.x - applyZoom(56.0f, state.camera);
+        const float textX =
+            isInput ? center.x + applyZoom(14.0f, state.camera) : center.x - applyZoom(56.0f, state.camera);
         const float portRowHeight = applyZoom(28.0f, state.camera);
         const float textY = centeredTextY(canvas, center.y - portRowHeight * 0.5f, portRowHeight);
         canvas.fillText(port.name, textX, textY);
@@ -363,7 +365,8 @@ void GraphRenderer::drawNode(Canvas& canvas, const Node& node, const EditorState
     const Color headerAccent = accentForNode(node, theme);
     const Color borderColor = borderColorForNode(node, state, theme);
 
-    canvas.setFillColor(isHovered ? Color::lerp(theme.panelColor, theme.accentColor.withAlpha(0.18f), 0.35f) : theme.panelColor);
+    canvas.setFillColor(isHovered ? Color::lerp(theme.panelColor, theme.accentColor.withAlpha(0.18f), 0.35f)
+                                  : theme.panelColor);
     canvas.fillRoundedRect(position.x, position.y, width, height, radius);
 
     if (isHovered || node.selected)

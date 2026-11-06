@@ -7,14 +7,190 @@
   },
   "configurePresets": [
     {
+      "name": "profile-library",
+      "hidden": true,
+      "cacheVariables": {
+        "VECTORGL_BUILD_EXAMPLES": "OFF",
+        "VECTORGL_BUILD_APPS": "OFF",
+        "VECTORGL_BUILD_TESTS": "OFF",
+        "VECTORGL_BUILD_APP_TESTS": "OFF",
+        "VECTORGL_BUILD_GPU_TESTS": "OFF",
+        "VECTORGL_BUILD_UI": "OFF",
+        "VECTORGL_BUILD_UI_EXAMPLES": "OFF",
+        "VECTORGL_BUILD_GLFW_ADAPTER": "OFF",
+        "VECTORGL_BUILD_DIALOGS": "OFF",
+        "VECTORGL_ENABLE_CLANG_TIDY": "OFF",
+        "VECTORGL_ENABLE_FORMAT_CHECK": "OFF",
+        "VECTORGL_ENABLE_SANITIZERS": "OFF",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
+      "name": "profile-developer",
+      "hidden": true,
+      "inherits": "profile-library",
+      "cacheVariables": {
+        "VECTORGL_BUILD_TESTS": "ON"
+      }
+    },
+    {
+      "name": "profile-ui",
+      "hidden": true,
+      "inherits": "profile-developer",
+      "cacheVariables": {
+        "VECTORGL_BUILD_UI": "ON"
+      }
+    },
+    {
+      "name": "profile-workspace",
+      "hidden": true,
+      "inherits": "profile-ui",
+      "cacheVariables": {
+        "VECTORGL_BUILD_GLFW_ADAPTER": "ON",
+        "VECTORGL_BUILD_DIALOGS": "ON",
+        "VECTORGL_BUILD_UI_EXAMPLES": "ON"
+      }
+    },
+    {
+      "name": "profile-full",
+      "hidden": true,
+      "inherits": "profile-workspace",
+      "cacheVariables": {
+        "VECTORGL_BUILD_EXAMPLES": "ON",
+        "VECTORGL_BUILD_APPS": "ON",
+        "VECTORGL_BUILD_APP_TESTS": "ON",
+        "VECTORGL_BUILD_GPU_TESTS": "ON"
+      }
+    },
+    {
+      "name": "profile-headless",
+      "hidden": true,
+      "inherits": "profile-ui",
+      "cacheVariables": {
+        "VECTORGL_BUILD_DIALOGS": "ON"
+      }
+    },
+    {
+      "name": "library",
+      "displayName": "Core SDK without tests or window dependencies",
+      "inherits": "profile-library",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}"
+      }
+    },
+    {
+      "name": "developer",
+      "displayName": "Core library and CPU tests",
+      "inherits": "profile-developer",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}"
+      }
+    },
+    {
+      "name": "ui",
+      "displayName": "UI library and headless tests",
+      "inherits": "profile-ui",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}"
+      }
+    },
+    {
+      "name": "workspace",
+      "displayName": "UI workspace examples and native dialogs",
+      "inherits": "profile-workspace",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}"
+      }
+    },
+    {
+      "name": "full",
+      "displayName": "All modules, apps, examples and GPU tests",
+      "inherits": "profile-full",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}"
+      }
+    },
+    {
+      "name": "ci-headless",
+      "displayName": "Headless UI and dialog tests",
+      "inherits": "profile-headless",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}"
+      }
+    },
+    {
+      "name": "library-release",
+      "inherits": "library",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "workspace-release",
+      "inherits": "workspace",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "full-release",
+      "inherits": "full",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "sanitizers",
+      "inherits": "ci-headless",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      },
+      "cacheVariables": {
+        "VECTORGL_ENABLE_SANITIZERS": "ON"
+      }
+    },
+    {
+      "name": "quality",
+      "inherits": "full",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      },
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "clang-18",
+        "CMAKE_CXX_COMPILER": "clang++-18",
+        "VECTORGL_ENABLE_CLANG_TIDY": "ON",
+        "VECTORGL_ENABLE_FORMAT_CHECK": "ON",
+        "VECTORGL_BUILD_GPU_TESTS": "OFF"
+      }
+    },
+    {
       "name": "base",
       "hidden": true,
       "binaryDir": "${sourceDir}/build/${presetName}",
       "cacheVariables": {
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
         "VECTORGL_BUILD_EXAMPLES": "ON",
-        "VECTORGL_BUILD_TESTS": "ON"
-      }
+        "VECTORGL_BUILD_TESTS": "ON",
+        "VECTORGL_BUILD_APPS": "ON",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}"
+      },
+      "inherits": "profile-developer"
     },
     {
       "name": "windows-debug",
@@ -125,6 +301,13 @@
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/windows-mingw-release",
         "CMAKE_CXX_COMPILER": "g++"
       }
+    },
+    {
+      "name": "ci-host",
+      "inherits": "full",
+      "cacheVariables": {
+        "VECTORGL_BUILD_GPU_TESTS": "OFF"
+      }
     }
   ],
   "buildPresets": [
@@ -155,6 +338,66 @@
       "name": "windows-mingw-release",
       "configurePreset": "windows-mingw-release",
       "configuration": "Release"
+    },
+    {
+      "name": "library",
+      "configurePreset": "library",
+      "configuration": "Debug"
+    },
+    {
+      "name": "developer",
+      "configurePreset": "developer",
+      "configuration": "Debug"
+    },
+    {
+      "name": "ui",
+      "configurePreset": "ui",
+      "configuration": "Debug"
+    },
+    {
+      "name": "workspace",
+      "configurePreset": "workspace",
+      "configuration": "Debug"
+    },
+    {
+      "name": "full",
+      "configurePreset": "full",
+      "configuration": "Debug"
+    },
+    {
+      "name": "ci-headless",
+      "configurePreset": "ci-headless",
+      "configuration": "Debug"
+    },
+    {
+      "name": "library-release",
+      "configurePreset": "library-release",
+      "configuration": "Release"
+    },
+    {
+      "name": "workspace-release",
+      "configurePreset": "workspace-release",
+      "configuration": "Release"
+    },
+    {
+      "name": "full-release",
+      "configurePreset": "full-release",
+      "configuration": "Release"
+    },
+    {
+      "name": "sanitizers",
+      "configurePreset": "sanitizers",
+      "configuration": "Debug"
+    },
+    {
+      "name": "quality",
+      "configurePreset": "quality",
+      "configuration": "Debug"
+    },
+    {
+      "name": "ci-host",
+      "configurePreset": "ci-host",
+      "configuration": "Debug"
     }
   ],
   "testPresets": [
@@ -221,6 +464,138 @@
         "noTestsAction": "error"
       },
       "configurePreset": "windows-mingw-release"
+    },
+    {
+      "name": "library",
+      "configurePreset": "library",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "developer",
+      "configurePreset": "developer",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "ui",
+      "configurePreset": "ui",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "workspace",
+      "configurePreset": "workspace",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "full",
+      "configurePreset": "full",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "ci-headless",
+      "configurePreset": "ci-headless",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "library-release",
+      "configurePreset": "library-release",
+      "configuration": "Release",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "workspace-release",
+      "configurePreset": "workspace-release",
+      "configuration": "Release",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "full-release",
+      "configurePreset": "full-release",
+      "configuration": "Release",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "sanitizers",
+      "configurePreset": "sanitizers",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "quality",
+      "configurePreset": "quality",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "ci-host",
+      "configurePreset": "ci-host",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
     }
   ]
 }

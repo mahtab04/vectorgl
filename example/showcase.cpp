@@ -6,7 +6,6 @@
 #include <cmath>
 #include <iostream>
 #include <string>
-
 #include <vectorgl/canvas.hpp>
 
 namespace
@@ -240,10 +239,14 @@ int main()
         drawWordmark(canvas, hasFont);
         drawHeroCopy(canvas, hasFont);
         drawOrbitalArtwork(canvas, time);
-        drawFeatureCard(canvas, 58.0f, "01", "SDF PRIMITIVES", "Sharp at every scale", {0.08f, 0.84f, 1.0f, 1.0f}, hasFont);
-        drawFeatureCard(canvas, 350.0f, "02", "EXPRESSIVE PATHS", "Canvas-style drawing", {0.46f, 0.36f, 1.0f, 1.0f}, hasFont);
-        drawFeatureCard(canvas, 642.0f, "03", "SVG + TEXT", "Production-ready assets", {0.98f, 0.32f, 0.62f, 1.0f}, hasFont);
-        drawFeatureCard(canvas, 934.0f, "04", "GPU BATCHING", "Built for real-time UI", {0.22f, 0.92f, 0.58f, 1.0f}, hasFont);
+        drawFeatureCard(canvas, 58.0f, "01", "SDF PRIMITIVES", "Sharp at every scale", {0.08f, 0.84f, 1.0f, 1.0f},
+                        hasFont);
+        drawFeatureCard(canvas, 350.0f, "02", "EXPRESSIVE PATHS", "Canvas-style drawing", {0.46f, 0.36f, 1.0f, 1.0f},
+                        hasFont);
+        drawFeatureCard(canvas, 642.0f, "03", "SVG + TEXT", "Production-ready assets", {0.98f, 0.32f, 0.62f, 1.0f},
+                        hasFont);
+        drawFeatureCard(canvas, 934.0f, "04", "GPU BATCHING", "Built for real-time UI", {0.22f, 0.92f, 0.58f, 1.0f},
+                        hasFont);
         canvas.endFrame();
 
         glfwSwapBuffers(window);
