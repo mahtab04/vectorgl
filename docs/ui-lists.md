@@ -106,6 +106,13 @@ sets current/range anchor without changing selection; `navigateToItem()` applies
 user-navigation modifier semantics and selection notifications. It returns false
 for unknown/disabled items, unavailable controls, or controls behind a modal scope.
 
+`ListViewOptions::horizontalScroll` enables a reserved horizontal scrollbar lane.
+`setContentWidth()` sets a finite nonnegative minimum row width, capped at
+16,777,216 logical pixels; a nonzero width requires that option. Horizontal offset
+has separate query/setters. Row selection/focus reveal and vertical offset setters
+preserve it. Shrinking the extent clamps overscroll at the next layout boundary.
+The separate [TableView](ui-tables.md) uses this to align columns with fixed headers.
+
 ## Catalog example
 
 `example/ui_list_demo.cpp` shows a searchable 2,000-item catalog, multiple selection,

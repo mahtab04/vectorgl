@@ -89,6 +89,7 @@ struct ListView::State final : WidgetPainter
     bool pointerPress = false;
     std::uint64_t pointer = 0;
     Key activationKey = Key::None;
+    float contentWidth = 0;
     State(Context& c, ListViewOptions value) : ui(c), options(std::move(value))
     {
         detail::validPreferred(options.preferredSize);
@@ -122,7 +123,7 @@ struct ListView::State final : WidgetPainter
             offset = top;
         else if (top + options.rowHeight > offset + b->height)
             offset = top + options.rowHeight - b->height;
-        return scroll->setOffset({0, offset});
+        return scroll->setOffset({scroll->offset().x, offset});
     }
     void replace(std::shared_ptr<const ListModel> next)
     {
@@ -182,6 +183,7 @@ struct ListView::State final : WidgetPainter
         anchor = retainedAnchor;
         LayoutHints hints;
         hints.height = float(count) * options.rowHeight;
+        hints.minimum.width = contentWidth;
         ui.setLayoutHints(rowsWidget, hints);
         ui.invalidate(Invalidation::All);
     }
@@ -423,6 +425,7 @@ ListView::ListView(Context& ui, WidgetId parent, std::shared_ptr<const ListModel
         state->root = ui.add(root);
         ScrollOptions scrollOptions;
         scrollOptions.focusable = false;
+        scrollOptions.horizontal = state->options.horizontalScroll;
         scrollOptions.preferredSize = state->options.preferredSize;
         state->scroll = std::make_unique<ScrollView>(ui, state->root, scrollOptions);
         LayoutHints flex;
@@ -495,11 +498,29 @@ bool ListView::scrollToItem(ItemId id)
 }
 bool ListView::setScrollOffset(float offset)
 {
-    return state_->scroll->setOffset({0, offset});
+    return state_->scroll->setOffset({state_->scroll->offset().x, offset});
 }
 float ListView::scrollOffset() const
 {
     return state_->scroll->offset().y;
+}
+void ListView::setContentWidth(float width)
+{
+    if (!std::isfinite(width) || width < 0 || width > 16777216 || (!state_->options.horizontalScroll && width != 0))
+        throw std::invalid_argument("Invalid list content width");
+    LayoutHints hints;
+    hints.height = float(state_->entries.size()) * state_->options.rowHeight;
+    hints.minimum.width = width;
+    state_->ui.setLayoutHints(state_->rowsWidget, hints);
+    state_->contentWidth = width;
+}
+bool ListView::setHorizontalScrollOffset(float offset)
+{
+    return state_->scroll->setOffset({offset, state_->scroll->offset().y});
+}
+float ListView::horizontalScrollOffset() const
+{
+    return state_->scroll->offset().x;
 }
 ListRowRange ListView::visibleRows() const
 {

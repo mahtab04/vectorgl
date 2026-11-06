@@ -85,6 +85,7 @@ struct ListViewOptions
     // Optional composite-control input filter. nullopt keeps normal handling;
     // an EventReply replaces it. Notifications must return nullopt.
     std::function<std::optional<EventReply>(const Event&)> eventFilter;
+    bool horizontalScroll = false; // Optional minimum content width; vertical-only behavior remains the default.
 };
 /*! Fixed-height virtual list: a constant-size widget subtree, O(visible rows)
  * painting, O(N) snapshot indexing, O(selected rows) selection storage.
@@ -113,6 +114,9 @@ public:
     bool scrollToItem(ItemId id);
     bool setScrollOffset(float offset);
     float scrollOffset() const;
+    void setContentWidth(float width); // Minimum row extent; requires horizontalScroll for nonzero width.
+    bool setHorizontalScrollOffset(float offset);
+    float horizontalScrollOffset() const;
     ListRowRange visibleRows() const;
 
 private:

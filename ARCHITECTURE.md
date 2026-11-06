@@ -112,6 +112,14 @@ per-node widgets. Projection changes reconcile current/expansion state by identi
 revision checks suppress obsolete notifications after callback-driven changes.
 See [virtualized trees](docs/ui-trees.md).
 
+TableView composes the same ListView with a fixed, separately focused header and
+cached column edges. A TableModel adapter preserves row identity while cell painters
+query only viewport rows/intersecting columns. Header hit testing and rendering use
+the body's actual viewport and horizontal offset. Sorting remains an application
+callback; resizing changes shared column geometry without reindexing row data.
+Cancellation restores the old width before publishing replacement columns, even
+when Context defers cleanup delivery. See [virtualized tables](docs/ui-tables.md).
+
 Registrations have context-scoped generation IDs. Callback storage stays alive
 until dispatch settles, including cancel/lost-focus delivery for removed widgets.
 The model is bound to one UI thread. Platform services and clocks are injectable,
