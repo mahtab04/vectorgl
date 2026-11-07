@@ -1,62 +1,405 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Practical VectorGL C++ guides for Canvas drawing, scene graphs, SVG, TrueType text, animation, gradients, shadows, blur, and glow.">
-  <meta name="robots" content="index, follow, max-image-preview:large">
-  <link rel="canonical" href="https://mahtab04.github.io/vectorgl/guides.html">
-  <meta property="og:type" content="article">
-  <meta property="og:site_name" content="VectorGL">
-  <meta property="og:title" content="VectorGL C++ Graphics Guides">
-  <meta property="og:description" content="Practical guides for GPU Canvas drawing, scenes, SVG, text, animation, and effects.">
-  <meta property="og:url" content="https://mahtab04.github.io/vectorgl/guides.html">
-  <meta property="og:image" content="https://mahtab04.github.io/vectorgl/images/vectorgl-showcase.png">
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="VectorGL C++ Graphics Guides">
-  <meta name="twitter:description" content="Build GPU-accelerated 2D graphics with VectorGL and modern C++.">
-  <meta name="twitter:image" content="https://mahtab04.github.io/vectorgl/images/vectorgl-showcase.png">
-  <title>Guides — VectorGL</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=Space+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css"><script defer src="app.js"></script>
-</head>
-<body data-page="guides" data-theme="dark">
-  <div class="page-shell">
-    <header class="compact-hero">
-      <nav class="docs-navbar" aria-label="Primary navigation"><div class="site-container nav-inner">
-        <a class="brand-link brand-lockup" href="index.html"><span class="brand-mark">V</span><span>VectorGL</span></a>
-        <div class="nav-links"><a class="docs-nav-link" href="index.html">Home</a><a class="docs-nav-link" href="overview.html">Overview</a><a class="docs-nav-link is-active" href="guides.html">Guides</a><a class="docs-nav-link" href="api.html">API</a><a class="docs-nav-link" href="examples.html">Showcase</a></div>
-        <div class="nav-actions"><button class="theme-toggle" type="button" data-theme-toggle aria-label="Toggle color theme">Theme</button><a class="github-link" href="https://github.com/mahtab04/vectorgl">GitHub ↗</a></div>
-      </div></nav>
-      <div class="site-container page-heading"><span class="eyebrow">Documentation / Guides</span><h1 class="page-title">Build with VectorGL</h1><p class="hero-copy">Focused recipes that explain the important decisions, show complete code, and point to runnable examples.</p></div>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Make something. Learn as you go. · VectorGL</title>
+    <meta
+      name="description"
+      content="Working patterns for drawing, scene composition and application interfaces. Start with one API, then combine them."
+    />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="theme-color" content="#f5f6f2" />
+    <link
+      rel="canonical"
+      href="https://mahtab04.github.io/vectorgl/guides.html"
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="VectorGL" />
+    <meta
+      property="og:title"
+      content="Make something. Learn as you go. · VectorGL"
+    />
+    <meta
+      property="og:description"
+      content="Working patterns for drawing, scene composition and application interfaces. Start with one API, then combine them."
+    />
+    <meta
+      property="og:url"
+      content="https://mahtab04.github.io/vectorgl/guides.html"
+    />
+    <meta
+      property="og:image"
+      content="https://mahtab04.github.io/vectorgl/images/vectorgl-showcase.png"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css" />
+    <script defer src="app.js"></script>
+  </head>
+  <body data-page="guides" data-theme="light">
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header">
+      <div class="site-container nav-inner">
+        <a class="brand-lockup" href="index.html" aria-label="VectorGL home"
+          ><span class="brand-mark" aria-hidden="true"
+            ><svg viewBox="0 0 32 32" fill="none">
+              <path
+                d="M5 7 16 26 27 7M10 7l6 10 6-10"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linejoin="round"
+              />
+              <circle cx="5" cy="7" r="2.5" fill="currentColor" />
+              <circle cx="27" cy="7" r="2.5" fill="currentColor" /></svg></span
+          ><span>VectorGL</span><span class="brand-tag">C++20</span></a
+        >
+        <nav class="desktop-nav" aria-label="Primary navigation">
+          <a href="overview.html">Overview</a
+          ><a href="guides.html" aria-current="page">Guides</a
+          ><a href="api.html">API reference</a
+          ><a href="examples.html">Examples</a>
+        </nav>
+        <div class="nav-actions">
+          <button
+            class="theme-toggle"
+            data-theme-toggle
+            type="button"
+            aria-label="Switch to dark theme"
+            title="Switch color theme"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="4" />
+              <path
+                d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"
+              />
+            </svg></button
+          ><a class="github-link" href="https://github.com/mahtab04/vectorgl"
+            >GitHub <span aria-hidden="true">↗</span></a
+          >
+          <details class="mobile-menu">
+            <summary aria-label="Open navigation">
+              Menu <span aria-hidden="true">＋</span>
+            </summary>
+            <nav aria-label="Mobile navigation">
+              <a href="https://github.com/mahtab04/vectorgl">GitHub</a>
+              <a href="overview.html">Overview</a
+              ><a href="guides.html" aria-current="page">Guides</a
+              ><a href="api.html">API reference</a
+              ><a href="examples.html">Examples</a>
+            </nav>
+          </details>
+        </div>
+      </div>
     </header>
-    <main class="site-container docs-page-main">
+    <main id="main" class="site-container">
+      <div class="page-heading">
+        <a class="back-link" href="index.html">← VectorGL documentation</a
+        ><span class="eyebrow">GUIDES / C++20</span>
+        <h1>Make something.<br />Learn as you go.</h1>
+        <p>
+          Working patterns for drawing, scene composition and application
+          interfaces. Start with one API, then combine them.
+        </p>
+      </div>
       <div class="docs-page-grid">
-        <aside class="docs-sidebar"><div class="sidebar-panel"><strong>Guide topics</strong><a class="sidebar-link" href="#recipes">All recipes</a><a class="sidebar-link" href="#canvas">Canvas drawing</a><a class="sidebar-link" href="#scene">Scene composition</a><a class="sidebar-link" href="#best-practices">Best practices</a></div></aside>
+        <aside class="docs-sidebar">
+          <div class="sidebar-panel">
+            <span class="eyebrow">On this page</span
+            ><a class="rail-link" href="#canvas">Canvas drawing</a
+            ><a class="rail-link" href="#scene">Scene composition</a
+            ><a class="rail-link" href="#ui">Application UI</a
+            ><a class="rail-link" href="#recipes">Graphics recipes</a
+            ><a class="rail-link" href="#best-practices">Ownership and scope</a
+            ><a
+              class="sidebar-source"
+              href="https://github.com/mahtab04/vectorgl/tree/main/include/PublicHeaders/vectorgl"
+              >Public headers ↗</a
+            >
+          </div>
+        </aside>
         <article class="docs-content">
-          <section id="recipes"><span class="section-kicker">Recipes</span><h2>From primitives to animated interfaces</h2><p>Each guide starts with a practical outcome and includes the code needed to reproduce it. Read them in order or jump directly to the feature you need.</p><div class="guide-grid" id="guides-grid"></div></section>
-          <section id="canvas"><span class="section-kicker">Canvas</span><h2>A minimal immediate-mode frame</h2><p>Keep drawing state local, bracket each frame, and express operations in visual order.</p>
-            <div class="code-header"><span>draw_frame.cpp</span><button class="copy-button" type="button">Copy</button></div>
-            <pre class="code-block"><code>canvas.beginFrame();
-canvas.save();
-canvas.translate({24.0f, 24.0f});
-canvas.fill({0.35f, 0.62f, 1.0f, 1.0f});
-canvas.roundedRect({0.0f, 0.0f, 280.0f, 120.0f}, 20.0f);
-canvas.restore();
+          <section id="canvas">
+            <span class="eyebrow">01 / DIRECT DRAWING</span>
+            <h2>A shape is a good place to start.</h2>
+            <p>
+              Initialize Canvas after making the OpenGL context current. Use
+              framebuffer pixel dimensions for each frame. Drawing state is
+              explicit and save/restore scopes local changes.
+            </p>
+            <div class="code-block">
+              <div class="code-header">
+                <span>canvas.cpp</span
+                ><button
+                  class="copy-button"
+                  type="button"
+                  data-copy-target="guide-canvas"
+                  aria-label="Copy canvas.cpp"
+                >
+                  Copy <span aria-hidden="true">↗</span>
+                </button>
+              </div>
+              <pre
+                tabindex="0"
+              ><code id="guide-canvas">// Inside your OpenGL frame.
+canvas.beginFrame(fbWidth, fbHeight);
+canvas.setFillColor(vectorgl::Color::hex(0xA6E35C));
+canvas.fillRoundedRect(24, 24, 280, 140, 18);
+canvas.setFillColor(vectorgl::Color::White);
+canvas.fillCircle(164, 94, 36);
 canvas.endFrame();</code></pre>
+            </div>
           </section>
-          <section id="scene"><span class="section-kicker">Scene graph</span><h2>Compose reusable visual objects</h2><p>Nodes retain geometry and style, while parent-child relationships provide transforms, ordering, and interaction boundaries.</p>
-            <div class="callout"><strong>Use stable ownership.</strong><span>Create long-lived scene nodes once, then update their properties during interaction instead of rebuilding the entire tree every frame.</span></div>
+          <section id="scene">
+            <span class="eyebrow">02 / RETAINED OBJECTS</span>
+            <h2>Keep your visual objects around.</h2>
+            <p>
+              Create nodes once. Change properties as input arrives.
+              Parent-child transforms and z-order describe the composition;
+              Scene picking supports interaction.
+            </p>
+            <div class="code-block">
+              <div class="code-header">
+                <span>scene.cpp</span
+                ><button
+                  class="copy-button"
+                  type="button"
+                  data-copy-target="guide-scene"
+                  aria-label="Copy scene.cpp"
+                >
+                  Copy <span aria-hidden="true">↗</span>
+                </button>
+              </div>
+              <pre
+                tabindex="0"
+              ><code id="guide-scene">// Create once, then update persistent objects.
+vectorgl::Scene scene(canvas.renderer());
+auto card = scene.roundedRect(24, 24, 280, 140, 18);
+card-&gt;setFill(vectorgl::Color::hex(0xA6E35C));
+card-&gt;setPosition(80, 60);
+
+// During an active Canvas frame.
+scene.render();</code></pre>
+            </div>
+            <p>
+              Explore
+              <a
+                href="https://github.com/mahtab04/vectorgl/blob/main/example/hit_testing_demo.cpp"
+                >scene picking ↗</a
+              >
+              and the
+              <a
+                href="https://github.com/mahtab04/vectorgl/blob/main/example/large_scene_demo.cpp"
+                >large-scene demo ↗</a
+              >.
+            </p>
           </section>
-          <section id="best-practices"><span class="section-kicker">Production notes</span><h2>Patterns that keep rendering smooth</h2>
-            <ul class="check-list"><li>Cache fonts and images instead of loading them in the render loop.</li><li>Group related Canvas operations to reduce state changes.</li><li>Drive animation with frame delta time, not fixed increments.</li><li>Keep OpenGL calls on the thread that owns the context.</li></ul>
-            <div class="next-link"><span>Next</span><a href="api.html">Browse the API reference →</a></div>
+          <section id="ui">
+            <span class="eyebrow">03 / INPUT AND CONTROLS</span>
+            <h2>From a button to a workspace.</h2>
+            <p>
+              Context owns registration and routing. Controls own their
+              registered subtrees; Context must outlive them. Set the theme's
+              font path before text painting. Forward host events explicitly,
+              and paint UI inside an active Canvas frame.
+            </p>
+            <div class="code-block">
+              <div class="code-header">
+                <span>controls.cpp</span
+                ><button
+                  class="copy-button"
+                  type="button"
+                  data-copy-target="guide-ui"
+                  aria-label="Copy controls.cpp"
+                >
+                  Copy <span aria-hidden="true">↗</span>
+                </button>
+              </div>
+              <pre
+                tabindex="0"
+              ><code id="guide-ui">// Context outlives the controls it owns.
+vectorgl::ui::Context ui;
+vectorgl::ui::ButtonOptions options;
+options.label = &quot;Save document&quot;;
+options.onActivated = [] { /* Application save hook. */ };
+vectorgl::ui::Button save(ui, {}, options);
+ui.setBounds(save.id(), {24, 24, 180, 44});
+
+// Forward host input; paint inside a Canvas frame.
+ui.dispatch(event);
+ui.paint(canvas, viewport);</code></pre>
+            </div>
+            <div class="resource-grid">
+              <a
+                class="resource-link"
+                href="https://github.com/mahtab04/vectorgl/blob/main/docs/ui-context.md"
+                ><span>Routing and ownership</span
+                ><span aria-hidden="true">↗</span></a
+              ><a
+                class="resource-link"
+                href="https://github.com/mahtab04/vectorgl/blob/main/docs/ui-layout.md"
+                ><span>Row, column and grid layout</span
+                ><span aria-hidden="true">↗</span></a
+              ><a
+                class="resource-link"
+                href="https://github.com/mahtab04/vectorgl/blob/main/docs/ui-containers.md"
+                ><span>Scrolling and split panels</span
+                ><span aria-hidden="true">↗</span></a
+              ><a
+                class="resource-link"
+                href="https://github.com/mahtab04/vectorgl/blob/main/docs/ui-controls.md"
+                ><span>Routed controls and editing</span
+                ><span aria-hidden="true">↗</span></a
+              ><a
+                class="resource-link"
+                href="https://github.com/mahtab04/vectorgl/blob/main/docs/ui-overlays.md"
+                ><span>Menus, tooltips and modal scopes</span
+                ><span aria-hidden="true">↗</span></a
+              ><a
+                class="resource-link"
+                href="https://github.com/mahtab04/vectorgl/blob/main/docs/ui-workspace-controls.md"
+                ><span>Tabs, labels and live search</span
+                ><span aria-hidden="true">↗</span></a
+              ><a
+                class="resource-link"
+                href="https://github.com/mahtab04/vectorgl/blob/main/docs/ui-lists.md"
+                ><span>Virtualized lists</span
+                ><span aria-hidden="true">↗</span></a
+              ><a
+                class="resource-link"
+                href="https://github.com/mahtab04/vectorgl/blob/main/docs/ui-trees.md"
+                ><span>Hierarchy and selection</span
+                ><span aria-hidden="true">↗</span></a
+              ><a
+                class="resource-link"
+                href="https://github.com/mahtab04/vectorgl/blob/main/docs/ui-tables.md"
+                ><span>Tables, columns and sorting</span
+                ><span aria-hidden="true">↗</span></a
+              ><a
+                class="resource-link"
+                href="https://github.com/mahtab04/vectorgl/blob/main/docs/ui-drag-drop.md"
+                ><span>Typed in-process drag/drop</span
+                ><span aria-hidden="true">↗</span></a
+              ><a
+                class="resource-link"
+                href="https://github.com/mahtab04/vectorgl/blob/main/docs/ui-file-dialogs.md"
+                ><span>Native dialog completion</span
+                ><span aria-hidden="true">↗</span></a
+              ><a
+                class="resource-link"
+                href="https://github.com/mahtab04/vectorgl/blob/main/docs/ui-glfw.md"
+                ><span>GLFW host and DPI</span
+                ><span aria-hidden="true">↗</span></a
+              >
+            </div>
+            <div class="callout">
+              <strong>Keep domain work in your application.</strong>
+              <p>
+                Native Save chooses a path; your application serializes its
+                document and updates dirty state after successful I/O. The
+                integrated workspace demonstrates those hooks.
+              </p>
+            </div>
+          </section>
+          <section id="recipes">
+            <h2>Work through one idea at a time.</h2>
+            <p>
+              Copyable examples for paths, text, SVG, clipping and animation.
+            </p>
+            <div class="guides-grid" id="guides-grid"></div>
+          </section>
+          <section id="best-practices">
+            <h2>Build on explicit contracts.</h2>
+            <ul class="check-list">
+              <li>
+                Keep graphics resources alive only while their OpenGL context is
+                valid.
+              </li>
+              <li>
+                Cache fonts, images and persistent scene nodes outside the
+                render loop.
+              </li>
+              <li>
+                Drain host events under the file-dialog modal barrier before
+                restoring input.
+              </li>
+              <li>
+                Use stable IDs for filtered collections and document operations.
+              </li>
+              <li>
+                Drive idle UI painting from invalidation and timer deadlines.
+              </li>
+            </ul>
+            <div class="callout">
+              <strong>Text and accessibility scope</strong>
+              <p>
+                Editing is left-to-right and codepoint based. Complex shaping,
+                bidi, IME composition, grapheme editing and OS accessibility
+                bridges remain separate work. Read the
+                <a
+                  href="https://github.com/mahtab04/vectorgl/blob/main/docs/ui-migration.md"
+                  >migration gates ↗</a
+                >
+                before replacing those capabilities in an existing application.
+              </p>
+            </div>
           </section>
         </article>
-        <aside class="docs-rail"><div class="rail-panel"><strong>Contents</strong><a class="rail-link" href="#recipes">Recipes</a><a class="rail-link" href="#canvas">Canvas</a><a class="rail-link" href="#scene">Scene graph</a><a class="rail-link" href="#best-practices">Best practices</a></div></aside>
       </div>
     </main>
-    <footer class="docs-footer"><div class="site-container footer-inner"><span>VectorGL documentation</span><a href="examples.html">Runnable examples →</a></div></footer>
-  </div>
-</body>
+    <footer class="site-footer">
+      <div class="site-container footer-grid">
+        <div>
+          <a class="brand-lockup" href="index.html"
+            ><span class="brand-mark" aria-hidden="true"
+              ><svg viewBox="0 0 32 32" fill="none">
+                <path
+                  d="M5 7 16 26 27 7M10 7l6 10 6-10"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                  stroke-linejoin="round"
+                />
+                <circle cx="5" cy="7" r="2.5" fill="currentColor" />
+                <circle
+                  cx="27"
+                  cy="7"
+                  r="2.5"
+                  fill="currentColor"
+                /></svg></span
+            ><span>VectorGL</span></a
+          >
+          <p>
+            From vector graphics to application UI.<br />Built in C++. Built in
+            the open.
+          </p>
+        </div>
+        <div>
+          <span class="footer-label">Learn</span
+          ><a href="overview.html">Get started</a
+          ><a href="guides.html">Practical guides</a
+          ><a href="api.html">API reference</a>
+        </div>
+        <div>
+          <span class="footer-label">Explore</span
+          ><a href="examples.html">Examples</a
+          ><a href="https://github.com/mahtab04/vectorgl">Source code ↗</a
+          ><a href="https://github.com/mahtab04/vectorgl/issues"
+            >Report an issue ↗</a
+          >
+        </div>
+      </div>
+      <div class="site-container footer-bottom">
+        <span>Open source · MIT License</span
+        ><a href="https://github.com/mahtab04/vectorgl/blob/main/LICENSE"
+          >License &amp; notices ↗</a
+        ><span>C++20 / OpenGL 3.3 Core</span>
+      </div>
+    </footer>
+    <div
+      class="sr-only"
+      id="site-status"
+      role="status"
+      aria-live="polite"
+    ></div>
+  </body>
 </html>

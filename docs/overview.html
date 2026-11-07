@@ -1,95 +1,415 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Learn VectorGL architecture, its C++20 Canvas and Scene APIs, OpenGL 3.3 rendering pipeline, and how to build your first GPU vector application.">
-  <meta name="robots" content="index, follow, max-image-preview:large">
-  <link rel="canonical" href="https://mahtab04.github.io/vectorgl/overview.html">
-  <meta property="og:type" content="article">
-  <meta property="og:site_name" content="VectorGL">
-  <meta property="og:title" content="VectorGL Architecture and Getting Started">
-  <meta property="og:description" content="Understand VectorGL's Canvas, Scene graph, and OpenGL rendering architecture.">
-  <meta property="og:url" content="https://mahtab04.github.io/vectorgl/overview.html">
-  <meta property="og:image" content="https://mahtab04.github.io/vectorgl/images/vectorgl-showcase.png">
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="VectorGL Architecture and Getting Started">
-  <meta name="twitter:description" content="Learn the architecture of the C++20 GPU vector graphics library.">
-  <meta name="twitter:image" content="https://mahtab04.github.io/vectorgl/images/vectorgl-showcase.png">
-  <title>Overview — VectorGL</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=Space+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
-  <script defer src="app.js"></script>
-</head>
-<body data-page="overview" data-theme="dark">
-  <div class="page-shell">
-    <header class="compact-hero">
-      <nav class="docs-navbar" aria-label="Primary navigation">
-        <div class="site-container nav-inner">
-          <a class="brand-link brand-lockup" href="index.html"><span class="brand-mark">V</span><span>VectorGL</span></a>
-          <div class="nav-links">
-            <a class="docs-nav-link" href="index.html">Home</a><a class="docs-nav-link is-active" href="overview.html">Overview</a>
-            <a class="docs-nav-link" href="guides.html">Guides</a><a class="docs-nav-link" href="api.html">API</a><a class="docs-nav-link" href="examples.html">Showcase</a>
-          </div>
-          <div class="nav-actions"><button class="theme-toggle" type="button" data-theme-toggle aria-label="Toggle color theme">Theme</button><a class="github-link" href="https://github.com/mahtab04/vectorgl">GitHub ↗</a></div>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>A small stack. A clear starting point. · VectorGL</title>
+    <meta
+      name="description"
+      content="Understand the APIs, choose a build profile, and get your first native C++ example on screen."
+    />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="theme-color" content="#f5f6f2" />
+    <link
+      rel="canonical"
+      href="https://mahtab04.github.io/vectorgl/overview.html"
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="VectorGL" />
+    <meta
+      property="og:title"
+      content="A small stack. A clear starting point. · VectorGL"
+    />
+    <meta
+      property="og:description"
+      content="Understand the APIs, choose a build profile, and get your first native C++ example on screen."
+    />
+    <meta
+      property="og:url"
+      content="https://mahtab04.github.io/vectorgl/overview.html"
+    />
+    <meta
+      property="og:image"
+      content="https://mahtab04.github.io/vectorgl/images/vectorgl-showcase.png"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css" />
+    <script defer src="app.js"></script>
+  </head>
+  <body data-page="overview" data-theme="light">
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header">
+      <div class="site-container nav-inner">
+        <a class="brand-lockup" href="index.html" aria-label="VectorGL home"
+          ><span class="brand-mark" aria-hidden="true"
+            ><svg viewBox="0 0 32 32" fill="none">
+              <path
+                d="M5 7 16 26 27 7M10 7l6 10 6-10"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linejoin="round"
+              />
+              <circle cx="5" cy="7" r="2.5" fill="currentColor" />
+              <circle cx="27" cy="7" r="2.5" fill="currentColor" /></svg></span
+          ><span>VectorGL</span><span class="brand-tag">C++20</span></a
+        >
+        <nav class="desktop-nav" aria-label="Primary navigation">
+          <a href="overview.html" aria-current="page">Overview</a
+          ><a href="guides.html">Guides</a><a href="api.html">API reference</a
+          ><a href="examples.html">Examples</a>
+        </nav>
+        <div class="nav-actions">
+          <button
+            class="theme-toggle"
+            data-theme-toggle
+            type="button"
+            aria-label="Switch to dark theme"
+            title="Switch color theme"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="4" />
+              <path
+                d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"
+              />
+            </svg></button
+          ><a class="github-link" href="https://github.com/mahtab04/vectorgl"
+            >GitHub <span aria-hidden="true">↗</span></a
+          >
+          <details class="mobile-menu">
+            <summary aria-label="Open navigation">
+              Menu <span aria-hidden="true">＋</span>
+            </summary>
+            <nav aria-label="Mobile navigation">
+              <a href="https://github.com/mahtab04/vectorgl">GitHub</a>
+              <a href="overview.html" aria-current="page">Overview</a
+              ><a href="guides.html">Guides</a
+              ><a href="api.html">API reference</a
+              ><a href="examples.html">Examples</a>
+            </nav>
+          </details>
         </div>
-      </nav>
-      <div class="site-container page-heading"><span class="eyebrow">Documentation / Overview</span><h1 class="page-title">How VectorGL fits together</h1><p class="hero-copy">A practical tour of the renderer, the two drawing models, and the shortest path to your first frame.</p></div>
+      </div>
     </header>
-
-    <main class="site-container docs-page-main">
+    <main id="main" class="site-container">
+      <div class="page-heading">
+        <a class="back-link" href="index.html">← VectorGL documentation</a
+        ><span class="eyebrow">OVERVIEW / C++20</span>
+        <h1>A small stack.<br />A clear starting point.</h1>
+        <p>
+          Understand the APIs, choose a build profile, and get your first native
+          C++ example on screen.
+        </p>
+      </div>
       <div class="docs-page-grid">
-        <aside class="docs-sidebar"><div class="sidebar-panel"><strong>On this page</strong><a class="sidebar-link" href="#introduction">Introduction</a><a class="sidebar-link" href="#architecture">Architecture</a><a class="sidebar-link" href="#rendering-models">Rendering models</a><a class="sidebar-link" href="#lifecycle">Frame lifecycle</a><a class="sidebar-link" href="#getting-started">Getting started</a></div></aside>
+        <aside class="docs-sidebar">
+          <div class="sidebar-panel">
+            <span class="eyebrow">On this page</span
+            ><a class="rail-link" href="#introduction">Introduction</a
+            ><a class="rail-link" href="#architecture">Architecture</a
+            ><a class="rail-link" href="#rendering-models"
+              >Canvas, Scene and UI</a
+            ><a class="rail-link" href="#lifecycle">Frame lifecycle</a
+            ><a class="rail-link" href="#getting-started"
+              >Build your first example</a
+            ><a class="rail-link" href="#integration">Use in your project</a
+            ><a
+              class="sidebar-source"
+              href="https://github.com/mahtab04/vectorgl/tree/main/include/PublicHeaders/vectorgl"
+              >Public headers ↗</a
+            >
+          </div>
+        </aside>
         <article class="docs-content">
           <section id="introduction">
-            <span class="section-kicker">Introduction</span><h2>A focused 2D layer over OpenGL</h2>
-            <p>VectorGL turns common vector operations—paths, shapes, text, images, clipping, and effects—into GPU-backed draw calls. Its public API stays small enough to learn quickly while still supporting structured scenes and animation.</p>
-            <div class="callout"><strong>Choose the API per surface.</strong><span>Canvas and Scene share the same renderer, so an application can use both without maintaining separate graphics stacks.</span></div>
+            <span class="eyebrow">THE BIG PICTURE</span>
+            <h2>A shared renderer. Clear responsibilities.</h2>
+            <p>
+              VectorGL is a C++20 library for GPU-backed vector graphics and
+              application UI. Draw directly with Canvas, retain visual objects
+              in Scene, or compose controls through UI Context. These layers can
+              coexist in the same frame.
+            </p>
+            <div class="callout">
+              <strong>You own the host.</strong>
+              <p>
+                Create the window and OpenGL context, forward input and manage
+                presentation. VectorGL owns drawing resources and the controls
+                you compose through its public API.
+              </p>
+            </div>
           </section>
           <section id="architecture">
-            <span class="section-kicker">Architecture</span><h2>Three layers with clear responsibilities</h2>
+            <h2>Three APIs, one graphics stack.</h2>
             <div class="architecture-flow">
-              <div class="architecture-node"><small>Your application</small><strong>Canvas or Scene</strong><span>Drawing intent and interaction</span></div>
-              <span class="architecture-arrow">→</span>
-              <div class="architecture-node"><small>VectorGL</small><strong>Renderer</strong><span>Batches, paths, text, effects</span></div>
-              <span class="architecture-arrow">→</span>
-              <div class="architecture-node"><small>GPU</small><strong>OpenGL 3.3</strong><span>Portable hardware rendering</span></div>
+              <div class="architecture-node">
+                <small>YOUR CODE</small><strong>Canvas / Scene / UI</strong>
+                <p>Drawing, persistent objects and interaction.</p>
+              </div>
+              <span aria-hidden="true">↓</span>
+              <div class="architecture-node">
+                <small>VECTORGL</small><strong>Renderer</strong>
+                <p>
+                  Batch submission, path geometry, glyphs and effect passes.
+                </p>
+              </div>
+              <span aria-hidden="true">↓</span>
+              <div class="architecture-node">
+                <small>GPU</small><strong>OpenGL 3.3 Core</strong>
+                <p>
+                  The application supplies the current context and render
+                  target.
+                </p>
+              </div>
             </div>
-            <p><a href="https://github.com/mahtab04/vectorgl/blob/main/ARCHITECTURE.md">Read the complete class and code-flow architecture guide →</a></p>
+            <p>
+              For resource ownership and data flow, read
+              <a
+                href="https://github.com/mahtab04/vectorgl/blob/main/ARCHITECTURE.md"
+                >the architecture guide ↗</a
+              >.
+            </p>
           </section>
           <section id="rendering-models">
-            <span class="section-kicker">Rendering models</span><h2>Immediate when you want control, retained when you want structure</h2>
+            <h2>Choose the right level of structure.</h2>
             <div class="comparison-grid">
-              <div class="doc-card"><span class="card-label">Canvas API</span><h3>Draw every frame</h3><p>Best for charts, editors, custom widgets, and highly dynamic visuals. Your code owns ordering and redraw logic.</p><a href="guides.html#canvas">Canvas guide →</a></div>
-              <div class="doc-card"><span class="card-label">Scene API</span><h3>Compose persistent nodes</h3><p>Best for interface trees and animated objects. VectorGL manages traversal, transforms, hit testing, and transitions.</p><a href="guides.html#scene">Scene guide →</a></div>
+              <div class="doc-card">
+                <span class="mono-label">CANVAS</span>
+                <h3>Draw each frame</h3>
+                <p>Direct commands for charts, custom visuals and overlays.</p>
+                <a href="guides.html#canvas">Draw with Canvas →</a>
+              </div>
+              <div class="doc-card">
+                <span class="mono-label">SCENE</span>
+                <h3>Keep objects alive</h3>
+                <p>Hierarchy, transforms, picking, animation and z-order.</p>
+                <a href="guides.html#scene">Compose a scene →</a>
+              </div>
+              <div class="doc-card">
+                <span class="mono-label">UI</span>
+                <h3>Compose interaction</h3>
+                <p>Layout, controls, focus, input routing and collections.</p>
+                <a href="guides.html#ui">Build an interface →</a>
+              </div>
             </div>
           </section>
           <section id="lifecycle">
-            <span class="section-kicker">Frame lifecycle</span><h2>A predictable render loop</h2>
+            <h2>Keep the frame loop explicit.</h2>
             <ol class="step-list">
-              <li><strong>Process input</strong><span>Update interaction state and scene properties.</span></li>
-              <li><strong>Advance animation</strong><span>Tick the animator using frame delta time.</span></li>
-              <li><strong>Submit drawing</strong><span>Issue Canvas operations or render the Scene tree.</span></li>
-              <li><strong>Present</strong><span>Swap the host window's OpenGL buffers.</span></li>
+              <li>
+                <strong>Process input</strong>
+                <p>
+                  Forward host events to UI. Offer unconsumed input to
+                  scene/application actions.
+                </p>
+              </li>
+              <li>
+                <strong>Advance state</strong>
+                <p>
+                  Update application state, animation and UI timer deadlines.
+                </p>
+              </li>
+              <li>
+                <strong>Draw when needed</strong>
+                <p>
+                  Begin the Canvas frame, submit the scene and UI, then end the
+                  frame.
+                </p>
+              </li>
+              <li>
+                <strong>Present</strong>
+                <p>
+                  Swap the host's buffers. Release graphics resources before
+                  destroying the GL context.
+                </p>
+              </li>
             </ol>
           </section>
           <section id="getting-started">
-            <span class="section-kicker">Getting started</span><h2>Build and run your first frame</h2>
-            <p>VectorGL uses CMake and requires a C++20 compiler. Clone the repository to build the included examples, or consume it with <code>FetchContent</code>.</p>
-            <div class="code-header"><span>Terminal</span><button class="copy-button" type="button">Copy</button></div>
-            <pre class="code-block"><code>git clone https://github.com/mahtab04/vectorgl.git
+            <h2>Start with a complete program.</h2>
+            <p>
+              Use a C++20 compiler, CMake 3.21+ and an OpenGL 3.3 driver. VS
+              2026 requires CMake 4.2+. Linux host builds need GLFW's
+              window-system development packages.
+            </p>
+            <div class="code-block">
+              <div class="code-header">
+                <span>Terminal</span
+                ><button
+                  class="copy-button"
+                  type="button"
+                  data-copy-target="build-workspace"
+                  aria-label="Copy Terminal"
+                >
+                  Copy <span aria-hidden="true">↗</span>
+                </button>
+              </div>
+              <pre
+                tabindex="0"
+              ><code id="build-workspace">git clone https://github.com/mahtab04/vectorgl.git
 cd vectorgl
-cmake -S . -B build -DVECTORGL_BUILD_EXAMPLES=ON
-cmake --build build --config Release</code></pre>
-            <div class="next-link"><span>Next</span><a href="guides.html">Follow the practical guides →</a></div>
+cmake --preset workspace
+cmake --build --preset workspace --target vectorgl_ui_editor_workspace</code></pre>
+            </div>
+            <p>
+              Visual Studio executable:
+              <code
+                >build/workspace/example/Debug/vectorgl_ui_editor_workspace.exe</code
+              >. With Ninja:
+              <code>build/workspace/example/vectorgl_ui_editor_workspace</code>.
+            </p>
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Profile</th>
+                    <th>What you build</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><code>library</code></td>
+                    <td>All library modules; no tests, examples or apps.</td>
+                  </tr>
+                  <tr>
+                    <td><code>developer</code></td>
+                    <td>Library modules and CPU tests.</td>
+                  </tr>
+                  <tr>
+                    <td><code>workspace</code></td>
+                    <td>UI examples and CPU tests.</td>
+                  </tr>
+                  <tr>
+                    <td><code>full</code></td>
+                    <td>Examples, Flow Studio, app tests and GPU checks.</td>
+                  </tr>
+                  <tr>
+                    <td><code>core</code></td>
+                    <td>
+                      Explicit graphics-only build, without UI/host/dialog
+                      modules.
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p>
+              See the
+              <a
+                href="https://github.com/mahtab04/vectorgl/blob/main/CONTRIBUTING.md"
+                >complete build guide ↗</a
+              >
+              for MinGW, toolchain selection, system dependencies and offline
+              builds.
+            </p>
+          </section>
+          <section id="integration">
+            <h2>Link what your application uses.</h2>
+            <div class="code-block">
+              <div class="code-header">
+                <span>CMakeLists.txt</span
+                ><button
+                  class="copy-button"
+                  type="button"
+                  data-copy-target="overview-install"
+                  aria-label="Copy CMakeLists.txt"
+                >
+                  Copy <span aria-hidden="true">↗</span>
+                </button>
+              </div>
+              <pre
+                tabindex="0"
+              ><code id="overview-install">include(FetchContent)
+FetchContent_Declare(vectorgl
+  GIT_REPOSITORY https://github.com/mahtab04/vectorgl.git
+  GIT_TAG 22975c2e4a252e196c19616028f390e6d2fee3ab
+)
+FetchContent_MakeAvailable(vectorgl)
+
+target_link_libraries(my_app PRIVATE vectorgl::ui)</code></pre>
+            </div>
+            <p>For an installed SDK, request its components explicitly:</p>
+            <div class="code-block">
+              <div class="code-header">
+                <span>Installed SDK</span
+                ><button
+                  class="copy-button"
+                  type="button"
+                  data-copy-target="overview-sdk"
+                  aria-label="Copy Installed SDK"
+                >
+                  Copy <span aria-hidden="true">↗</span>
+                </button>
+              </div>
+              <pre
+                tabindex="0"
+              ><code id="overview-sdk">find_package(vectorgl CONFIG REQUIRED COMPONENTS ui glfw dialogs)
+target_link_libraries(my_app PRIVATE vectorgl::glfw vectorgl::dialogs)</code></pre>
+            </div>
+            <p>
+              VectorGL's targets are static libraries. UI links core;
+              host/dialog targets link UI and core. Dependencies can still be
+              shared when supplied by a parent project. Building the native
+              dialog backend does not open a dialog; Linux Zenity is needed only
+              when using that backend at runtime.
+            </p>
           </section>
         </article>
-        <aside class="docs-rail"><div class="rail-panel"><strong>Contents</strong><a class="rail-link" href="#introduction">Introduction</a><a class="rail-link" href="#architecture">Architecture</a><a class="rail-link" href="#rendering-models">Rendering models</a><a class="rail-link" href="#lifecycle">Lifecycle</a><a class="rail-link" href="#getting-started">Get started</a></div></aside>
       </div>
     </main>
-    <footer class="docs-footer"><div class="site-container footer-inner"><span>VectorGL documentation</span><a href="https://github.com/mahtab04/vectorgl">Edit on GitHub ↗</a></div></footer>
-  </div>
-</body>
+    <footer class="site-footer">
+      <div class="site-container footer-grid">
+        <div>
+          <a class="brand-lockup" href="index.html"
+            ><span class="brand-mark" aria-hidden="true"
+              ><svg viewBox="0 0 32 32" fill="none">
+                <path
+                  d="M5 7 16 26 27 7M10 7l6 10 6-10"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                  stroke-linejoin="round"
+                />
+                <circle cx="5" cy="7" r="2.5" fill="currentColor" />
+                <circle
+                  cx="27"
+                  cy="7"
+                  r="2.5"
+                  fill="currentColor"
+                /></svg></span
+            ><span>VectorGL</span></a
+          >
+          <p>
+            From vector graphics to application UI.<br />Built in C++. Built in
+            the open.
+          </p>
+        </div>
+        <div>
+          <span class="footer-label">Learn</span
+          ><a href="overview.html">Get started</a
+          ><a href="guides.html">Practical guides</a
+          ><a href="api.html">API reference</a>
+        </div>
+        <div>
+          <span class="footer-label">Explore</span
+          ><a href="examples.html">Examples</a
+          ><a href="https://github.com/mahtab04/vectorgl">Source code ↗</a
+          ><a href="https://github.com/mahtab04/vectorgl/issues"
+            >Report an issue ↗</a
+          >
+        </div>
+      </div>
+      <div class="site-container footer-bottom">
+        <span>Open source · MIT License</span
+        ><a href="https://github.com/mahtab04/vectorgl/blob/main/LICENSE"
+          >License &amp; notices ↗</a
+        ><span>C++20 / OpenGL 3.3 Core</span>
+      </div>
+    </footer>
+    <div
+      class="sr-only"
+      id="site-status"
+      role="status"
+      aria-live="polite"
+    ></div>
+  </body>
 </html>

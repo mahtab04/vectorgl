@@ -14,17 +14,23 @@
 [Guides](https://mahtab04.github.io/vectorgl/guides.html) ·
 [Releases](https://github.com/mahtab04/vectorgl/releases)
 
-> A GPU-accelerated 2D vector graphics library for C++20, built on OpenGL 3.3 Core.
+> GPU-accelerated 2D vector graphics and application UI for C++20, built on OpenGL 3.3 Core.
 
 [![VectorGL showcase rendered by the library](docs/images/vectorgl-showcase.png)](example/showcase.cpp)
 
 _The scene above is rendered in real time by the standalone
 [`vectorgl_showcase`](example/showcase.cpp) example._
 
-VectorGL provides two complementary APIs:
+VectorGL provides three complementary APIs:
 
 - **Canvas** — an immediate-mode, HTML5 Canvas-style drawing surface with SDF-accelerated shape primitives.
 - **Scene** — a retained-mode scene graph with animations, effects, and hierarchical node composition.
+- **UI** — a retained widget system with layouts, controls, focus and event routing, virtualized collections, and application workspaces.
+
+Use Canvas for direct drawing, Scene for persistent visual objects, and UI for
+interactive controls. Scene and UI paint through Canvas and can share the same
+OpenGL frame. The GLFW adapter supplies host integration; native file-dialog
+services support Windows and Linux applications.
 
 It also includes an SVG loader, TrueType font rendering, and a post-processing effects pipeline (blur, shadow, glow).
 
@@ -37,81 +43,62 @@ It also includes an SVG loader, TrueType font rendering, and a post-processing e
 | **SDF Primitives** | Rectangles, circles, ellipses, and rounded rectangles rendered on the GPU via signed distance fields — hundreds of shapes in a single draw call. |
 | **Path Rendering** | Lines, cubic/quadratic Bézier curves, arcs, and ellipses; nonzero/even-odd compound fills with holes, overlaps, and self-intersections. |
 | **SVG Support** | Load and render SVG files via `SvgImage` (single file) or `SvgCache` (handle-based asset manager). |
-| **Text Rendering** | TrueType fonts rasterized to a GPU texture atlas via `stb_truetype`. |
+| **Text Rendering** | Dynamic Unicode glyphs, font kerning, wrapping and alignment; FreeType-hinted small text with SDF rendering for larger/transformed text. |
 | **Animation System** | Tween (22 easing curves), spring (critically-damped), and keyframe animations with loop/ping-pong modes. |
 | **Post-Processing** | FBO-based Gaussian blur, drop shadows, and outer glow — composable via a fluent `EffectChain` API. |
 | **Scene Graph** | Parent/child hierarchy with transform inheritance, dirty tracking, and z-index ordering. |
 | **Paint System** | Solid colors, linear/radial gradients, and texture patterns. |
 | **Nested Clipping** | Transformed rectangular and rounded clipping with intersection, reset, and automatic `save()` / `restore()` state. |
+| **Application UI** | Row/column/grid layout, split panels, scrolling, text fields, numeric editors, menus, tabs, tooltips and modal dialogs. |
+| **Collections and Interaction** | Virtualized lists, trees and tables with stable IDs, selection, keyboard navigation and typed in-process drag/drop. |
+| **Host and Platform Services** | GLFW event/DPI integration, injectable clipboard and file-dialog services, and invalidation-driven painting. |
 
-## Application UI input
+## Application UI
 
-The UI module is built by default alongside Canvas/core. `vectorgl::ui` provides
-stable widget IDs, consumed/unconsumed event routing, Tab focus traversal, pointer
-capture, modal scopes, and invalidation/wakeup scheduling. Routing and layout run
-without a window or OpenGL context. The existing `vectorgl/ui.hpp` helpers remain unchanged.
+`vectorgl::ui` provides persistent controls, shared themes, layout, keyboard focus,
+pointer capture, clipping-aware hit testing and modal input scopes. Routing and
+layout work without an OpenGL context; painting uses an active Canvas frame.
+The host forwards events explicitly, so UI can coexist with a separate Scene
+artboard and application shortcuts.
 
-Widgets support affine transforms, clipping-aware hit tests, shared themes, and
-polymorphic `WidgetPainter` strategies. Context paints into an active Canvas frame
-with independent logical-to-framebuffer scale on each axis. Row, column, and grid
-strategies add intrinsic measurement, size constraints, padding/gaps, flexible space,
-and spans. Routed controls add editing, validation, and activation.
-See the [UI Context guide](docs/ui-context.md) for usage and routing contracts.
-The [layout guide](docs/ui-layout.md) covers measure/arrange and cache invalidation.
-The [container guide](docs/ui-containers.md) covers constrained split panels,
-nested scrolling, residual wheel routing, and automatic focus reveal. Build
-`vectorgl_ui_workspace` for a four-region resizable workspace example.
-The [controls guide](docs/ui-controls.md) covers routed text fields, buttons,
-checkboxes/toggles, numeric editing, validation, and commit/cancel behavior.
-Build `vectorgl_ui_controls` for an editable inspector example.
-The [overlay guide](docs/ui-overlays.md) covers ComboBox lists, menus/context menus,
-delayed tooltips, and modal dialogs with focus restoration and click-through barriers.
-The [workspace controls guide](docs/ui-workspace-controls.md) covers tabs/pages,
-collapsible sections, clipped/ellipsized/wrapped labels, separators, and live search.
-The workspace demo includes searchable groups and a tabbed inspector (`--metadata`).
-The [list guide](docs/ui-lists.md) covers fixed-height virtualized lists, stable item
-IDs, single/multiple selection, keyboard activation, and filtered/reordered models.
-Build `vectorgl_ui_list` for a searchable 2,000-row catalog with custom row painting.
-The [tree guide](docs/ui-trees.md) adds virtualized hierarchy views with disclosure
-controls, expansion persistence, parent/child navigation, and stable item selection.
-Build `vectorgl_ui_tree` for a 2,024-node project hierarchy example.
-The [table guide](docs/ui-tables.md) covers virtualized rows/cells, fixed headers,
-constrained column resizing, sorting hooks, and synchronized horizontal scrolling.
-Build `vectorgl_ui_table` for a searchable 2,000-row tag browser.
-The [drag/drop guide](docs/ui-drag-drop.md) covers owned typed payloads, target
-feedback and cancellation. Build `vectorgl_ui_editor_workspace` for the plan's
-[integrated workspace milestone](docs/ui-editor-workspace.md), combining all four
-regions, collections, properties, overlays, scene placement and artboard zoom.
-Build `vectorgl_ui_layout` for a responsive property-form example, including type-size
-and wrapped-content changes. It accepts `--width`, `--height`, `--font`,
-`--smoke-test`, and `--screenshot FILE.bmp`.
-
-The GLFW adapter (`vectorgl::glfw`) is built by default alongside Canvas and UI.
-The [graphical UI host example](example/ui_host_demo.cpp) shows editable text fields,
-keyboard focus, a palette toggle, transformed clips, and an event-driven host loop.
-Build target `vectorgl_ui_host` with `VECTORGL_BUILD_UI_EXAMPLES=ON`; it accepts
-`--font PATH`, `--smoke-test`, and `--screenshot FILE.bmp`.
-See the [painting and GLFW guide](docs/ui-glfw.md) for coordinate and lifetime rules.
-
-Native file-dialog backends (`vectorgl::dialogs`) are also built by default: Windows Common Item Dialog and runtime-optional Linux Zenity. The
-[file dialog guide](docs/ui-file-dialogs.md) covers queued completion, cancellation,
-owner lifetime and host event draining. The integrated workspace's Open and Save
-actions demonstrate path selection; document I/O remains application code.
-See the [migration guide](docs/ui-migration.md) for component choices, release
-checks, and remaining text/accessibility limitations.
-
-The [routing example](example/ui_routing_demo.cpp) exercises two text fields,
-keyboard activation, a captured drag, and modal isolation in a deterministic
-console program. To build it without GLFW or graphical examples:
+Start with the [integrated workspace example](example/ui_editor_workspace_demo.cpp):
+a searchable toolbox, Scene artboard, property inspector/hierarchy and 2,000-row
+tag table. It demonstrates resizable panels, drag/drop, independent artboard zoom,
+and Open/Save path selection. Document serialization remains application code.
 
 ```sh
-cmake -S . -B build-ui -DVECTORGL_BUILD_UI=ON -DVECTORGL_BUILD_GLFW_ADAPTER=OFF -DVECTORGL_BUILD_DIALOGS=OFF -DVECTORGL_BUILD_UI_EXAMPLES=ON -DVECTORGL_BUILD_EXAMPLES=OFF -DVECTORGL_BUILD_APPS=OFF
-cmake --build build-ui --config Debug --target vectorgl_ui_routing
+cmake --preset workspace
+cmake --build --preset workspace --target vectorgl_ui_editor_workspace
 ```
 
-Installed consumers request the optional component with
-`find_package(vectorgl CONFIG REQUIRED COMPONENTS ui)` and link `vectorgl::ui`.
-Use the `core` preset for an explicit graphics-only build without UI/host/dialog modules.
+On Windows with Visual Studio, run
+`build/workspace/example/Debug/vectorgl_ui_editor_workspace.exe`.
+With Ninja on Linux, run `build/workspace/example/vectorgl_ui_editor_workspace`.
+The example accepts `--font PATH`, `--width`, `--height` and `--screenshot FILE.bmp`.
+
+| Area | Guide | Example target |
+|---|---|---|
+| Events, focus, capture and widget lifetime | [UI Context](docs/ui-context.md) | `vectorgl_ui_routing` |
+| Painting, DPI and GLFW event forwarding | [Host integration](docs/ui-glfw.md) | `vectorgl_ui_host` |
+| Measurement, row/column/grid and alignment | [Layout](docs/ui-layout.md) | `vectorgl_ui_layout` |
+| Split panels, scrolling and focus reveal | [Containers](docs/ui-containers.md) | `vectorgl_ui_workspace` |
+| Text fields, buttons, checkboxes and numeric editing | [Controls](docs/ui-controls.md) | `vectorgl_ui_controls` |
+| ComboBox, menus, tooltips and modal dialogs | [Overlays](docs/ui-overlays.md) | `vectorgl_ui_controls` |
+| Tabs, labels, collapsible sections and search | [Workspace controls](docs/ui-workspace-controls.md) | `vectorgl_ui_workspace` |
+| Virtualized lists, hierarchy and table cells | [Lists](docs/ui-lists.md), [trees](docs/ui-trees.md), [tables](docs/ui-tables.md) | `vectorgl_ui_list`, `vectorgl_ui_tree`, `vectorgl_ui_table` |
+| Typed drag/drop and Scene placement | [Drag/drop](docs/ui-drag-drop.md) | `vectorgl_ui_editor_workspace` |
+| Queued native Open/Save path selection | [File dialogs](docs/ui-file-dialogs.md) | `vectorgl_ui_editor_workspace` |
+
+Canvas/core, UI, the GLFW adapter and native dialogs build by default. Tests,
+examples and apps remain disabled until explicitly requested; the `workspace`
+preset enables the UI examples. Native dialog backends use Windows Common Item
+Dialog or runtime-optional Linux Zenity. Use `core` for an explicit graphics-only
+build, or `ci-headless` for UI tests without the GLFW adapter.
+
+Text editing is currently left-to-right and Unicode-codepoint based. Shaping/bidi,
+IME composition, grapheme-cluster editing and OS accessibility bridges remain
+separate work. See the [migration guide](docs/ui-migration.md) for capability and
+platform validation requirements.
 
 ## Color palette
 
@@ -328,17 +315,24 @@ if accessed from multiple threads.
 | CMake | 3.21+ (4.2+ for VS 2026) |
 | GPU | OpenGL 3.3 capable; 8-bit stencil buffer for rounded clipping |
 
-> All other dependencies are fetched automatically via **CMake FetchContent**.
+The default GLFW adapter requires platform development packages on Linux.
+See [prerequisites and build profiles](CONTRIBUTING.md). Missing source dependencies
+are fetched at pinned revisions; system/offline inputs are also supported.
 
 ---
 
 ## 🔧 Dependencies
 
-| Dependency | Version | Purpose |
+| Dependency | Version / revision | Purpose |
 |---|---|---|
-| [GLFW](https://www.glfw.org/) | 3.3.8 | Optional host adapter, apps, examples and GPU tests |
-| [glad](https://github.com/Dav1dde/glad) | 2.0.8 | Vendored OpenGL 3.3 loader |
-| [stb](https://github.com/nothings/stb) | Pinned commit | Image loading (`stb_image`) and font rasterization (`stb_truetype`) |
+| [GLFW](https://www.glfw.org/) | 3.3.8 | Default host adapter; window/context management for apps and examples |
+| [glad](https://github.com/Dav1dde/glad) | 2.0.8 | Vendored OpenGL 3.3 loader; no generation step needed |
+| [stb](https://github.com/nothings/stb) | `31c1ad3` | Image decoding, font metrics and SDF glyph rasterization |
+| [FreeType](https://freetype.org/) | 2.14.3 bundled, or a system provider | Hinted grayscale coverage for small text |
+| [libtess2](https://github.com/memononen/libtess2) | `8dbd648` | Compound-path tessellation and fill rules |
+
+VectorGL's own targets are static libraries. Dependencies may be shared when
+provided by a parent project or system package. See [dependency configuration](CONTRIBUTING.md#dependencies-and-offline-builds).
 
 ---
 
@@ -347,7 +341,14 @@ if accessed from multiple threads.
 For prerequisites, troubleshooting, and contribution steps,
 see [Building and Contributing](CONTRIBUTING.md).
 
-Choose a profile and use it for configure, build and test:
+Build all library modules with tests, examples and apps disabled:
+
+```sh
+cmake --preset library
+cmake --build --preset library
+```
+
+To enable and run CPU tests, choose the developer profile:
 
 ```sh
 cmake --preset developer
@@ -390,10 +391,10 @@ Developer checks are opt-in. Library tests, app tests, examples and applications
 are independently controlled. See [the build guide](CONTRIBUTING.md) for options,
 offline/system dependencies, test labels and compiler setup.
 
-[Releases](https://github.com/mahtab04/vectorgl/releases) provide core/full static
-SDK archives with compiler/platform metadata and checksums. Full SDKs include the
-optional UI, host and dialog components. Release CI verifies external consumers
-after extracting and relocating each archive.
+The [release workflow](.github/workflows/release.yml) builds core/full static SDK
+archives with compiler/platform metadata and checksums. Full SDKs include UI,
+host and dialog components. External consumers verify each archive after extraction
+and relocation, before publication to [Releases](https://github.com/mahtab04/vectorgl/releases).
 
 ---
 
@@ -450,6 +451,38 @@ scene.animator().emplace<vectorgl::TweenAnimation>(
 scene.update(dt);
 scene.render();
 ```
+
+### Application UI controls
+
+Create controls once and keep their Context alive for their lifetime:
+
+```cpp
+#include <vectorgl/ui/context.hpp>
+#include <vectorgl/ui/controls.hpp>
+
+vectorgl::ui::Context ui;
+auto theme = ui.theme();
+theme.fontPath = fontPath; // Application-selected TrueType font.
+ui.setTheme(theme);
+
+vectorgl::ui::ButtonOptions options;
+options.label = "Save";
+options.onActivated = [] { /* Save the application's document. */ };
+vectorgl::ui::Button saveButton(ui, {}, options);
+ui.setBounds(saveButton.id(), {20, 20, 140, 44});
+
+// When the host supplies an input event:
+ui.dispatch(event);
+
+// During an active Canvas frame, using the host's logical/framebuffer sizes:
+vectorgl::ui::Viewport viewport(logicalWidth, logicalHeight, fbWidth, fbHeight);
+ui.paint(canvas, viewport);
+```
+
+Link `vectorgl::ui`, or `vectorgl::glfw` when using the adapter. The
+[host example](example/ui_host_demo.cpp) supplies a complete event loop, coordinate
+mapping and callback lifetime management. The UI does not initialize OpenGL or
+install application window callbacks implicitly.
 
 ### Scene Hit Testing
 
@@ -598,10 +631,10 @@ phases to preserve fractional spacing. This is grayscale coverage, not LCD or
 Windows ClearType. All sizes/phases share the font's existing four-page,
 4096-entry cache limit; pages and UVs stay stable until font reload/destruction.
 
-FreeType 2.14.3 is fetched at configure time, built statically, and installed with
-VectorGL and its license notices. Use `-DVECTORGL_ENABLE_HINTED_TEXT=OFF` for the
-original SDF-only build; bitmap requests then fall back to SDF. Existing offline
-builds need one online configure to populate the new dependency.
+By default FreeType 2.14.3 is fetched at configure time, built statically, and
+installed with VectorGL and its license notices. A system provider is also supported. Use `-DVECTORGL_ENABLE_HINTED_TEXT=OFF` for the
+original SDF-only build; bitmap requests then fall back to SDF. Offline builds can supply a populated source directory or installed dependency;
+see [offline builds](CONTRIBUTING.md#dependencies-and-offline-builds).
 
 The [small-text comparison example](example/text_raster_demo.cpp),
 `vectorgl_text_raster`, compares SDF, hinted bitmap and Auto at 12-32 px and
@@ -634,7 +667,13 @@ Animation time steps must be finite and non-negative. Looping animations wrap
 time without repeatedly subtracting their duration, and tween/keyframe masks
 support position, size, rotation, scale, opacity, fill, and stroke color.
 
-VectorGL includes a small widget layer for common UI building blocks:
+The older standalone text-input example uses lightweight helpers from
+`vectorgl/ui.hpp`. For new application interfaces, prefer the routed controls in
+`vectorgl/ui/controls.hpp` and the [UI examples](#application-ui). The legacy helper
+and routed-control headers define overlapping class names and should not be
+included together in the same translation unit.
+
+The standalone example demonstrates:
 
 - `vectorgl::TextBox` — single-line text editing
 - `vectorgl::GlfwTextBoxController` — forwards GLFW input events
@@ -663,53 +702,57 @@ app.textInput.bind(app.field, app.canvas, window);
 
 ## 📁 Project Structure
 
-```
+```text
 vectorgl/
-├── CMakeLists.txt
-├── cmake/                  # CMake modules (dependencies, tooling)
+├── CMakeLists.txt                 # Build orchestration and default modules
+├── CMakePresets.json              # Library, developer, workspace and CI profiles
+├── cmake/                        # Options, dependencies, tooling and SDK exports
 ├── include/
-│   └── PublicHeaders/
-│       └── vectorgl/       # Public API headers
-│           ├── canvas.hpp
-│           ├── color.hpp
-│           ├── path.hpp
-│           ├── image.hpp
-│           ├── font.hpp
-│           ├── renderer.hpp
-│           ├── node.hpp
-│           ├── scene.hpp
-│           ├── animator.hpp
-│           ├── effects.hpp
-│           ├── paint.hpp
-│           ├── svg.hpp
-│           └── svg_cache.hpp
-├── src/                    # Implementation files
-│   └── svg/                # SVG parser modules
-├── shaders/                # GLSL shaders (SDF, path, textured, blur)
-└── example/                # Demo applications
-    ├── main.cpp            # SDF + scene graph demo
-    ├── svg_demo.cpp        # SVG rendering demo
-    ├── animation_demo.cpp  # Animation showcase
-    ├── paths_demo.cpp      # Complex path rendering
-    └── ...
+│   ├── PublicHeaders/vectorgl/    # Canvas, Scene, text, SVG and other public APIs
+│   │   └── ui/                   # Context, layout, controls, collections and hosts
+│   └── InternalHeaders/          # Implementation helpers
+├── src/
+│   ├── CMakeLists.txt            # Core renderer target
+│   ├── svg/                      # SVG parser and rendering modules
+│   └── ui/                       # UI, GLFW adapter and native dialog targets
+├── shaders/                      # GLSL sources, embedded during configuration
+├── third_party/glad/             # Vendored OpenGL loader and license
+├── example/                      # Runnable graphics and UI examples
+├── apps/diagram_editor/          # Flow Studio application
+├── tests/                        # Engine/UI/GPU and external-consumer checks
+├── scripts/                      # Local builds, CI and SDK verification
+└── docs/                         # Guides and documentation website
 ```
 
 ---
 
 ## 🔌 Integration
 
-### Via `find_package` *(after installing)*
+All four targets are built by default. Link the targets your application uses:
+
+| CMake target | Provides | Transitive VectorGL dependencies |
+|---|---|---|
+| `vectorgl::vectorgl` | Canvas, Scene, text, SVG, images and effects | None |
+| `vectorgl::ui` | Routed controls, layout, collections and UI Context | Core |
+| `vectorgl::glfw` | GLFW events, DPI metrics, clipboard and cursor adapter | UI and core |
+| `vectorgl::dialogs` | Windows/Linux native file-dialog backends | UI and core |
+
+### Via `find_package` (installed SDK)
 
 ```cmake
-find_package(vectorgl REQUIRED)
-target_link_libraries(myapp PRIVATE vectorgl::vectorgl)
+find_package(vectorgl CONFIG REQUIRED COMPONENTS ui glfw dialogs)
+target_link_libraries(myapp PRIVATE vectorgl::glfw vectorgl::dialogs)
 ```
+
+For drawing only, omit `COMPONENTS` and link `vectorgl::vectorgl`. Installed SDKs
+import UI/host/dialog targets only when the corresponding components are requested.
+A core-only SDK does not provide those components.
 
 ### Via `add_subdirectory`
 
 ```cmake
 add_subdirectory(vectorgl)
-target_link_libraries(myapp PRIVATE vectorgl::vectorgl)
+target_link_libraries(myapp PRIVATE vectorgl::glfw vectorgl::dialogs)
 ```
 
 ### Via `FetchContent`
@@ -719,12 +762,16 @@ include(FetchContent)
 
 FetchContent_Declare(vectorgl
     GIT_REPOSITORY https://github.com/mahtab04/vectorgl.git
-    GIT_TAG        v1.0.0
+    GIT_TAG        22975c2e4a252e196c19616028f390e6d2fee3ab # Pin a reviewed revision.
 )
-
 FetchContent_MakeAvailable(vectorgl)
-target_link_libraries(myapp PRIVATE vectorgl::vectorgl)
+
+target_link_libraries(myapp PRIVATE vectorgl::glfw vectorgl::dialogs)
 ```
+
+No module-enable flags are needed. Replace the pinned revision when deliberately
+updating the dependency. Tests, examples and apps are not built unless enabled.
+Applications provide the window/GL context, event loop and document persistence.
 
 ---
 
@@ -738,23 +785,29 @@ The complete documentation is published as a browsable site:
 - [API reference](https://mahtab04.github.io/vectorgl/api.html)
 - [Example gallery](https://mahtab04.github.io/vectorgl/examples.html)
 
-The source for the static site lives in [`docs/`](./docs). Every push to
-`main` deploys that directory through the GitHub Pages workflow.
+The source for the static site lives in [`docs/`](./docs). Changes under
+`docs/` pushed to `main` trigger the GitHub Pages deployment workflow.
 
 ---
 
 ## ✅ Build and test status
 
 The [Build and Test workflow](https://github.com/mahtab04/vectorgl/actions/workflows/build.yml)
-compiles and tests all four supported CI configurations:
+is configured to cover:
 
-- Linux GCC Debug
-- Linux GCC Release
-- Windows MSVC Debug
-- Windows MSVC Release
+- Linux GCC Debug/Release and headless AddressSanitizer/UndefinedBehaviorSanitizer checks.
+- Windows MSVC and MinGW GCC, each in Debug and Release.
+- Linux GPU, graphics/UI example and Flow Studio smoke tests with Mesa/Xvfb.
+- Clang 18 static analysis and first-party formatting.
+- Core-only SDKs, default FetchContent embedding, and installed component consumers.
 
-Version tags matching `v*` run the release pipeline and publish installable
-Windows and Linux archives. See [Releases](https://github.com/mahtab04/vectorgl/releases).
+The badge links to actual workflow results. Linux/Windows desktop dialog behavior
+requires separate interactive validation; mocked service tests do not establish
+desktop parity.
+
+Version tags matching the project version (`v<version>`) run the release pipeline;
+publication waits for the package checks. Manual workflow dispatch builds artifacts
+without publishing a release. See [Releases](https://github.com/mahtab04/vectorgl/releases).
 
 ---
 
