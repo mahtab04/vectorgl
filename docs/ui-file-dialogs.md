@@ -20,7 +20,8 @@ a document format or mark a document saved merely because a path was selected.
 Smoke mode injects a fake dialog backend and fake clipboard, including error and
 cancellation results; it opens no OS dialogs.
 
-Native dialogs default OFF. They require UI, but do not require the GLFW adapter.
+Native dialogs default ON alongside UI and the GLFW adapter. They require UI,
+but can also be built with the adapter explicitly disabled.
 Installed consumers use:
 
 ```cmake

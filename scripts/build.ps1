@@ -4,8 +4,8 @@ param(
     [string]$Configuration = "Debug",
 
     [Alias("Profile")]
-    [ValidateSet("library", "developer", "ui", "workspace", "full")]
-    [string]$BuildProfile = "developer",
+    [ValidateSet("core", "library", "developer", "ui", "workspace", "full")]
+    [string]$BuildProfile = "library",
 
     [switch]$Clean,
     [switch]$SkipTests,
@@ -209,7 +209,7 @@ if ($compilerEntry) {
     }
 }
 
-if (-not $SkipTests -and $BuildProfile -ne "library") {
+if (-not $SkipTests -and $BuildProfile -notin @("core", "library")) {
     Write-Step "Running tests"
     Invoke-Checked -Command "ctest" -Arguments @(
         "--test-dir", $buildDirectory, "-C", $Configuration, "--output-on-failure", "--no-tests=error"

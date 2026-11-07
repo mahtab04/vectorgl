@@ -27,7 +27,7 @@ jobs:
           - {name: Windows MinGW GCC Debug, os: windows-latest, preset: ci-host, config: Debug, generator: Ninja, cc: gcc, cxx: g++}
           - {name: Windows MinGW GCC Release, os: windows-latest, preset: workspace, config: Release, generator: Ninja, cc: gcc, cxx: g++}
           - {name: Linux GPU and examples, os: ubuntu-24.04, preset: full, config: Debug, generator: Ninja, cc: gcc, cxx: g++}
-          - {name: Graphics-only package without UI or GLFW, os: ubuntu-24.04, preset: library, config: Debug, generator: Ninja, cc: gcc, cxx: g++, embedded: ON}
+          - {name: Graphics-only package without UI or GLFW, os: ubuntu-24.04, preset: core, config: Debug, generator: Ninja, cc: gcc, cxx: g++, embedded: ON}
           - {name: Clang-Tidy and Format, os: ubuntu-24.04, preset: quality, config: Debug, generator: Ninja, cc: clang-18, cxx: clang++-18}
     env:
       CCACHE_DIR: ${{ github.workspace }}/.cache/ccache
@@ -41,7 +41,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes ninja-build ccache
       - name: Install display build dependencies
-        if: matrix.preset == 'full' || matrix.preset == 'quality'
+        if: matrix.preset == 'full' || matrix.preset == 'quality' || matrix.embedded == 'ON'
         run: >-
           sudo apt-get install --yes libgl1-mesa-dev libx11-dev libxcursor-dev
           libxi-dev libxinerama-dev libxrandr-dev xauth xvfb

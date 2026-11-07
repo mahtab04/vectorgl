@@ -18,9 +18,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {os: ubuntu-24.04, platform: linux-x64-gcc, flavor: core, preset: library-release, generator: Ninja}
+          - {os: ubuntu-24.04, platform: linux-x64-gcc, flavor: core, preset: core-release, generator: Ninja}
           - {os: ubuntu-24.04, platform: linux-x64-gcc, flavor: full, preset: workspace-release, generator: Ninja}
-          - {os: windows-latest, platform: windows-x64-msvc, flavor: core, preset: library-release, generator: default}
+          - {os: windows-latest, platform: windows-x64-msvc, flavor: core, preset: core-release, generator: default}
           - {os: windows-latest, platform: windows-x64-msvc, flavor: full, preset: workspace-release, generator: default}
     steps:
       - uses: actions/checkout@v6

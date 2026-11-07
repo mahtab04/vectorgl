@@ -49,7 +49,7 @@ Both routes eventually submit work to `Renderer`.
 
 ## Optional application input layer
 
-The opt-in `vectorgl::ui` static target adds a host-independent Context over
+The default-enabled `vectorgl::ui` static target adds a host-independent Context over
 registered widget descriptors. It manages identity, focus scopes, event bubbling,
 capture, cancellation, deferred removal, and invalidation/deadlines. It neither
 creates a window nor initializes OpenGL; it does not use Scene picking for UI hits.
@@ -306,7 +306,9 @@ docs/                            GitHub Pages documentation
 
 The root CMake file orchestrates options, dependencies and subdirectories.
 `src/CMakeLists.txt` owns the renderer target; `src/ui/CMakeLists.txt` owns optional
-UI/host/dialog targets. `cmake/install.cmake` defines SDK installation/exports,
+UI/host/dialog targets. Canvas/core, UI, the GLFW adapter and native dialogs build
+by default; tests, examples and apps require explicit opt-in.
+`cmake/install.cmake` defines SDK installation/exports,
 while `cmake/options.cmake` owns namespaced configuration. Public include paths
 and static target names are unchanged. App tests are independent of engine tests.
 

@@ -89,8 +89,7 @@ if(VECTORGL_ENABLE_HINTED_TEXT)
     endif()
 endif()
 
-# GLFW is only needed by example applications and opt-in GPU integration
-# tests. Library-only builds and installed-package consumers do not need it.
+# The default host adapter needs GLFW, as do enabled graphical apps/examples/tests.
 function(vectorgl_resolve_glfw)
     if(NOT TARGET glfw)
         find_package(glfw3 3.3 CONFIG QUIET)
@@ -103,7 +102,10 @@ function(vectorgl_resolve_glfw)
         option(GLFW_BUILD_TESTS "Build GLFW tests" OFF)
         option(GLFW_BUILD_EXAMPLES "Build GLFW examples" OFF)
         if(VECTORGL_BUILD_GLFW_ADAPTER AND NOT GLFW_INSTALL)
-            message(FATAL_ERROR "The bundled GLFW adapter SDK requires GLFW_INSTALL=ON, or an installed glfw3 package")
+            message(FATAL_ERROR
+                "The bundled GLFW adapter SDK requires GLFW_INSTALL=ON, or an installed glfw3 package. "
+                "A previous build may have cached GLFW_INSTALL=OFF. Reconfigure with "
+                "-DGLFW_INSTALL=ON, or use a VectorGL library/platform preset.")
         endif()
         FetchContent_Declare(glfw
             GIT_REPOSITORY https://github.com/glfw/glfw.git
