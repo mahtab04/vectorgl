@@ -7,16 +7,16 @@
 [![OpenGL 3.3](https://img.shields.io/badge/OpenGL-3.3-5586A4?logo=opengl)](https://www.khronos.org/opengl/)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/mahtab04/vectorgl)
 
-[Documentation](https://mahtab04.github.io/vectorgl/) ·
+[Documentation](https://mahtab04.github.io/vectorgl-website/) ·
 [Architecture](ARCHITECTURE.md) ·
-[Examples](https://mahtab04.github.io/vectorgl/examples.html) ·
-[API Reference](https://mahtab04.github.io/vectorgl/api.html) ·
-[Guides](https://mahtab04.github.io/vectorgl/guides.html) ·
+[Examples](https://mahtab04.github.io/vectorgl-website/examples.html) ·
+[API Reference](https://mahtab04.github.io/vectorgl-website/api.html) ·
+[Guides](https://mahtab04.github.io/vectorgl-website/guides.html) ·
 [Releases](https://github.com/mahtab04/vectorgl/releases)
 
 > GPU-accelerated 2D vector graphics and application UI for C++20, built on OpenGL 3.3 Core.
 
-[![VectorGL showcase rendered by the library](docs/images/vectorgl-showcase.png)](example/showcase.cpp)
+[![VectorGL showcase rendered by the library](.github/assets/vectorgl-showcase.png)](example/showcase.cpp)
 
 _The scene above is rendered in real time by the standalone
 [`vectorgl_showcase`](example/showcase.cpp) example._
@@ -721,7 +721,7 @@ vectorgl/
 ├── apps/diagram_editor/          # Flow Studio application
 ├── tests/                        # Engine/UI/GPU and external-consumer checks
 ├── scripts/                      # Local builds, CI and SDK verification
-└── docs/                         # Guides and documentation website
+└── docs/                         # Technical Markdown guides
 ```
 
 ---
@@ -736,6 +736,22 @@ All four targets are built by default. Link the targets your application uses:
 | `vectorgl::ui` | Routed controls, layout, collections and UI Context | Core |
 | `vectorgl::glfw` | GLFW events, DPI metrics, clipboard and cursor adapter | UI and core |
 | `vectorgl::dialogs` | Windows/Linux native file-dialog backends | UI and core |
+
+**Linking `vectorgl::ui` also provides Canvas and Scene.** UI publicly links
+`vectorgl::vectorgl`, so CMake automatically adds the core library and its include
+directories. You do not need to list the core target separately:
+
+```cmake
+# UI + Canvas + Scene
+target_link_libraries(myapp PRIVATE vectorgl::ui)
+
+# For an application using only Canvas and Scene, use this instead:
+# target_link_libraries(myapp PRIVATE vectorgl::vectorgl)
+```
+
+`FetchContent_MakeAvailable()` makes the targets available; it does not link them
+to your application. GLFW adaptation and native dialogs require their respective
+targets when used; linking UI alone does not add those backends.
 
 ### Via `find_package` (installed SDK)
 
@@ -779,14 +795,16 @@ Applications provide the window/GL context, event loop and document persistence.
 
 The complete documentation is published as a browsable site:
 
-- [Documentation home](https://mahtab04.github.io/vectorgl/)
-- [Overview and architecture](https://mahtab04.github.io/vectorgl/overview.html)
-- [Usage guides](https://mahtab04.github.io/vectorgl/guides.html)
-- [API reference](https://mahtab04.github.io/vectorgl/api.html)
-- [Example gallery](https://mahtab04.github.io/vectorgl/examples.html)
+- [Documentation home](https://mahtab04.github.io/vectorgl-website/)
+- [Overview and architecture](https://mahtab04.github.io/vectorgl-website/overview.html)
+- [Usage guides](https://mahtab04.github.io/vectorgl-website/guides.html)
+- [API reference](https://mahtab04.github.io/vectorgl-website/api.html)
+- [Example gallery](https://mahtab04.github.io/vectorgl-website/examples.html)
 
-The source for the static site lives in [`docs/`](./docs). Changes under
-`docs/` pushed to `main` trigger the GitHub Pages deployment workflow.
+The website source and deployment live in
+[`vectorgl-website`](https://github.com/mahtab04/vectorgl-website). Technical
+Markdown guides remain in [`docs/`](./docs). This repository only deploys small
+redirect pages to preserve the old website URLs.
 
 ---
 

@@ -299,7 +299,7 @@ third_party/glad/                Vendored OpenGL 3.3 loader
 example/                         Runnable applications
 tests/                           Unit, GPU, and package-consumer tests
 cmake/                           Dependencies, tooling, and package config
-docs/                            GitHub Pages documentation
+docs/                            Technical Markdown guides
 ```
 
 ## Build and package flow

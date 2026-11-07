@@ -26,8 +26,9 @@ jobs:
           - {name: Windows MSVC Release, os: windows-latest, preset: workspace, config: Release, generator: default}
           - {name: Windows MinGW GCC Debug, os: windows-latest, preset: ci-host, config: Debug, generator: Ninja, cc: gcc, cxx: g++}
           - {name: Windows MinGW GCC Release, os: windows-latest, preset: workspace, config: Release, generator: Ninja, cc: gcc, cxx: g++}
-          - {name: Linux GPU and examples, os: ubuntu-24.04, preset: full, config: Debug, generator: Ninja, cc: gcc, cxx: g++}
-          - {name: Graphics-only package without UI or GLFW, os: ubuntu-24.04, preset: core, config: Debug, generator: Ninja, cc: gcc, cxx: g++, embedded: ON}
+          # Offline default embedding needs GLFW sources, which the full preset populates.
+          - {name: Linux GPU and examples, os: ubuntu-24.04, preset: full, config: Debug, generator: Ninja, cc: gcc, cxx: g++, embedded: ON}
+          - {name: Graphics-only package without UI or GLFW, os: ubuntu-24.04, preset: core, config: Debug, generator: Ninja, cc: gcc, cxx: g++}
           - {name: Clang-Tidy and Format, os: ubuntu-24.04, preset: quality, config: Debug, generator: Ninja, cc: clang-18, cxx: clang++-18}
     env:
       CCACHE_DIR: ${{ github.workspace }}/.cache/ccache
