@@ -204,8 +204,10 @@ Linux ccache outputs, never shared CMake build trees or libraries.
 
 Release CI builds core/full SDKs on Windows/MSVC and Linux/GCC. Publication waits
 for archive relocation tests and verifies the tag version. Manual workflow dispatch
-builds artifacts without publishing a release. GitHub Pages deployment remains
-separate.
+builds artifacts without publishing a release. The public website and its CI live
+in [vectorgl-website](https://github.com/mahtab04/vectorgl-website). Technical
+Markdown guides stay in `docs/`. This repository's Pages workflow only preserves
+legacy website URLs with redirects and does not run for technical guide changes.
 
 Create a branch from current main, update relevant tests/docs, run the appropriate
 profile and package checks, and open a focused PR. Generated outputs, downloaded

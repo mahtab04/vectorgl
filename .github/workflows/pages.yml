@@ -1,11 +1,11 @@
-name: Documentation
+name: Legacy website redirects
 
 on:
   push:
     branches:
       - main
     paths:
-      - "docs/**"
+      - ".github/pages-redirects/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   deploy:
-    name: Deploy GitHub Pages
+    name: Deploy legacy URL redirects
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -35,11 +35,11 @@ jobs:
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
-      - name: Upload documentation
+      - name: Upload redirect pages
         uses: actions/upload-pages-artifact@v4
         with:
-          path: docs
+          path: .github/pages-redirects
 
-      - name: Deploy documentation
+      - name: Deploy redirects
         id: deployment
         uses: actions/deploy-pages@v4
