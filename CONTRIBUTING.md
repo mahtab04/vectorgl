@@ -215,6 +215,14 @@ dependencies and machine-specific presets must stay untracked.
 
 ## FetchContent defaults
 
+`target_link_libraries(myapp PRIVATE vectorgl::ui)` provides UI, Canvas and Scene:
+UI publicly links the core target `vectorgl::vectorgl`, so consumers inherit its
+link dependency and include directories. Do not require consumers to repeat the
+core target. For Canvas and Scene without UI, link `vectorgl::vectorgl` instead.
+`FetchContent_MakeAvailable()` only makes targets available; applications must
+still link a target. Keep these usage requirements public when changing targets,
+and keep the standalone website's integration snippets aligned with this behavior.
+
 Declare VectorGL at a pinned revision, then call `FetchContent_MakeAvailable(vectorgl)`.
 All four targets are available without feature options: `vectorgl::vectorgl`
 (Canvas, Scene, text and SVG), `vectorgl::ui`, `vectorgl::glfw`, and

@@ -737,6 +737,22 @@ All four targets are built by default. Link the targets your application uses:
 | `vectorgl::glfw` | GLFW events, DPI metrics, clipboard and cursor adapter | UI and core |
 | `vectorgl::dialogs` | Windows/Linux native file-dialog backends | UI and core |
 
+**Linking `vectorgl::ui` also provides Canvas and Scene.** UI publicly links
+`vectorgl::vectorgl`, so CMake automatically adds the core library and its include
+directories. You do not need to list the core target separately:
+
+```cmake
+# UI + Canvas + Scene
+target_link_libraries(myapp PRIVATE vectorgl::ui)
+
+# For an application using only Canvas and Scene, use this instead:
+# target_link_libraries(myapp PRIVATE vectorgl::vectorgl)
+```
+
+`FetchContent_MakeAvailable()` makes the targets available; it does not link them
+to your application. GLFW adaptation and native dialogs require their respective
+targets when used; linking UI alone does not add those backends.
+
 ### Via `find_package` (installed SDK)
 
 ```cmake
