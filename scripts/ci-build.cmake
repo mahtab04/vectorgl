@@ -58,7 +58,7 @@ set(GENERATOR "${configured_CMAKE_GENERATOR}")
 if(PRESET STREQUAL "quality")
     return()
 endif()
-if(NOT PRESET MATCHES "^library")
+if(NOT PRESET MATCHES "^(library|core)")
     checked(${CMAKE_CTEST_COMMAND} --test-dir "${build}" -C "${CONFIGURATION}"
         --output-on-failure --no-tests=error --output-junit results.xml)
 endif()

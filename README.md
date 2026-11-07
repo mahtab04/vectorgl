@@ -44,12 +44,12 @@ It also includes an SVG loader, TrueType font rendering, and a post-processing e
 | **Paint System** | Solid colors, linear/radial gradients, and texture patterns. |
 | **Nested Clipping** | Transformed rectangular and rounded clipping with intersection, reset, and automatic `save()` / `restore()` state. |
 
-## Optional application UI input
+## Application UI input
 
-Enable `VECTORGL_BUILD_UI=ON` to build `vectorgl::ui`: stable widget IDs,
-consumed/unconsumed event routing, Tab focus traversal, pointer capture, modal
-scopes, and invalidation/wakeup scheduling. It runs without a window or OpenGL
-context and leaves the existing `vectorgl/ui.hpp` helpers unchanged.
+The UI module is built by default alongside Canvas/core. `vectorgl::ui` provides
+stable widget IDs, consumed/unconsumed event routing, Tab focus traversal, pointer
+capture, modal scopes, and invalidation/wakeup scheduling. Routing and layout run
+without a window or OpenGL context. The existing `vectorgl/ui.hpp` helpers remain unchanged.
 
 Widgets support affine transforms, clipping-aware hit tests, shared themes, and
 polymorphic `WidgetPainter` strategies. Context paints into an active Canvas frame
@@ -86,15 +86,14 @@ Build `vectorgl_ui_layout` for a responsive property-form example, including typ
 and wrapped-content changes. It accepts `--width`, `--height`, `--font`,
 `--smoke-test`, and `--screenshot FILE.bmp`.
 
-Enable `VECTORGL_BUILD_GLFW_ADAPTER=ON` alongside UI to build `vectorgl::glfw`.
+The GLFW adapter (`vectorgl::glfw`) is built by default alongside Canvas and UI.
 The [graphical UI host example](example/ui_host_demo.cpp) shows editable text fields,
 keyboard focus, a palette toggle, transformed clips, and an event-driven host loop.
 Build target `vectorgl_ui_host` with `VECTORGL_BUILD_UI_EXAMPLES=ON`; it accepts
 `--font PATH`, `--smoke-test`, and `--screenshot FILE.bmp`.
 See the [painting and GLFW guide](docs/ui-glfw.md) for coordinate and lifetime rules.
 
-Enable `VECTORGL_BUILD_DIALOGS=ON` alongside UI for optional `vectorgl::dialogs`
-backends: Windows Common Item Dialog and runtime-optional Linux Zenity. The
+Native file-dialog backends (`vectorgl::dialogs`) are also built by default: Windows Common Item Dialog and runtime-optional Linux Zenity. The
 [file dialog guide](docs/ui-file-dialogs.md) covers queued completion, cancellation,
 owner lifetime and host event draining. The integrated workspace's Open and Save
 actions demonstrate path selection; document I/O remains application code.
@@ -103,16 +102,16 @@ checks, and remaining text/accessibility limitations.
 
 The [routing example](example/ui_routing_demo.cpp) exercises two text fields,
 keyboard activation, a captured drag, and modal isolation in a deterministic
-console program. Build it without GLFW or graphical examples:
+console program. To build it without GLFW or graphical examples:
 
 ```sh
-cmake -S . -B build-ui -DVECTORGL_BUILD_UI=ON -DVECTORGL_BUILD_UI_EXAMPLES=ON -DVECTORGL_BUILD_EXAMPLES=OFF -DVECTORGL_BUILD_APPS=OFF
+cmake -S . -B build-ui -DVECTORGL_BUILD_UI=ON -DVECTORGL_BUILD_GLFW_ADAPTER=OFF -DVECTORGL_BUILD_DIALOGS=OFF -DVECTORGL_BUILD_UI_EXAMPLES=ON -DVECTORGL_BUILD_EXAMPLES=OFF -DVECTORGL_BUILD_APPS=OFF
 cmake --build build-ui --config Debug --target vectorgl_ui_routing
 ```
 
 Installed consumers request the optional component with
 `find_package(vectorgl CONFIG REQUIRED COMPONENTS ui)` and link `vectorgl::ui`.
-Graphics-only builds keep the UI module disabled by default.
+Use the `core` preset for an explicit graphics-only build without UI/host/dialog modules.
 
 ## Color palette
 
@@ -356,13 +355,14 @@ cmake --build --preset developer
 ctest --preset developer
 ```
 
-- `library`: core SDK only, without tests, UI, GLFW or developer tools.
-- `developer`: core library and CPU tests.
-- `ui`: UI module and headless tests.
+- `library`: Canvas/core, UI, GLFW adapter and native dialogs; no tests, examples or apps.
+- `core`: explicit graphics-only SDK with UI disabled.
+- `developer`: all library modules and CPU tests.
+- `ui`: UI/host/dialog modules and CPU tests.
 - `workspace`: UI examples, GLFW adapter and native dialogs.
 - `full`: all examples, Flow Studio, tests and GPU smoke checks.
 
-Release profiles include `library-release`, `workspace-release` and `full-release`.
+Release profiles include `core-release`, `library-release`, `workspace-release` and `full-release`.
 Linux also has `sanitizers` and `quality`. Existing Windows/Linux/MinGW presets
 remain available. Generic presets let CMake choose the generator; select Ninja or
 MinGW explicitly when using those toolchains. Visual Studio 2022/2026 discovery
@@ -383,6 +383,9 @@ UI workspace, build `vectorgl_ui_editor_workspace` from `workspace`. Visual Stud
 executables are under `build/<preset>/example/Debug/`; Ninja executables are under
 `build/<preset>/example/`.
 
+Fresh FetchContent and direct CMake builds provide Canvas, UI, the GLFW adapter
+and native dialogs automatically.
+Tests, examples and apps stay disabled until explicitly enabled.
 Developer checks are opt-in. Library tests, app tests, examples and applications
 are independently controlled. See [the build guide](CONTRIBUTING.md) for options,
 offline/system dependencies, test labels and compiler setup.

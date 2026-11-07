@@ -9,7 +9,7 @@ function(check name success expected)
     endif()
     execute_process(COMMAND ${CMAKE_COMMAND} -S "${SOURCE_DIR}" -B "${directory}" -G "${GENERATOR}"
         "-DCMAKE_C_COMPILER=${C_COMPILER}" "-DCMAKE_CXX_COMPILER=${CXX_COMPILER}"
-        -DVECTORGL_ENABLE_HINTED_TEXT=OFF -DVECTORGL_BUILD_TESTS=OFF
+        -DVECTORGL_ENABLE_HINTED_TEXT=OFF -DVECTORGL_BUILD_GLFW_ADAPTER=OFF -DVECTORGL_BUILD_DIALOGS=OFF
         -DVECTORGL_FETCH_DEPENDENCIES=OFF ${dependencies} ${ARGN}
         RESULT_VARIABLE result OUTPUT_VARIABLE output ERROR_VARIABLE error)
     file(MAKE_DIRECTORY "${directory}")
@@ -33,7 +33,12 @@ function(check name success expected)
     message(STATUS "CMake policy ${name}: passed")
 endfunction()
 check(missing FALSE "Downloads disabled")
-check(host FALSE "requires VECTORGL_BUILD_UI=ON" -DVECTORGL_BUILD_GLFW_ADAPTER=ON)
+execute_process(COMMAND ${CMAKE_COMMAND} "-DSOURCE_DIR=${SOURCE_DIR}"
+    -P "${SOURCE_DIR}/tests/cmake/defaults.cmake" RESULT_VARIABLE defaults_result)
+if(NOT defaults_result EQUAL 0)
+    message(FATAL_ERROR "Default module settings failed")
+endif()
+check(host FALSE "requires VECTORGL_BUILD_UI=ON" -DVECTORGL_BUILD_GLFW_ADAPTER=ON -DVECTORGL_BUILD_UI=OFF)
 check(gpu FALSE "GPU tests require" -DVECTORGL_BUILD_GPU_TESTS=ON)
 check(provider FALSE "must be BUNDLED" -DVECTORGL_FREETYPE_PROVIDER=invalid)
 check(format-version FALSE "requires clang-format 18" -DVECTORGL_ENABLE_FORMAT_CHECK=ON "-DCLANG_FORMAT_EXE=${CMAKE_COMMAND}")

@@ -7,7 +7,7 @@
   },
   "configurePresets": [
     {
-      "name": "profile-library",
+      "name": "profile-core",
       "hidden": true,
       "cacheVariables": {
         "VECTORGL_BUILD_EXAMPLES": "OFF",
@@ -23,6 +23,17 @@
         "VECTORGL_ENABLE_FORMAT_CHECK": "OFF",
         "VECTORGL_ENABLE_SANITIZERS": "OFF",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
+      "name": "profile-library",
+      "hidden": true,
+      "inherits": "profile-core",
+      "cacheVariables": {
+        "GLFW_INSTALL": "ON",
+        "VECTORGL_BUILD_UI": "ON",
+        "VECTORGL_BUILD_GLFW_ADAPTER": "ON",
+        "VECTORGL_BUILD_DIALOGS": "ON"
       }
     },
     {
@@ -67,12 +78,13 @@
       "hidden": true,
       "inherits": "profile-ui",
       "cacheVariables": {
-        "VECTORGL_BUILD_DIALOGS": "ON"
+        "VECTORGL_BUILD_DIALOGS": "ON",
+        "VECTORGL_BUILD_GLFW_ADAPTER": "OFF"
       }
     },
     {
       "name": "library",
-      "displayName": "Core SDK without tests or window dependencies",
+      "displayName": "All library modules without tests, examples or apps",
       "inherits": "profile-library",
       "binaryDir": "${sourceDir}/build/${presetName}",
       "cacheVariables": {
@@ -82,7 +94,7 @@
     },
     {
       "name": "developer",
-      "displayName": "Core library and CPU tests",
+      "displayName": "All library modules and CPU tests",
       "inherits": "profile-developer",
       "binaryDir": "${sourceDir}/build/${presetName}",
       "cacheVariables": {
@@ -92,7 +104,7 @@
     },
     {
       "name": "ui",
-      "displayName": "UI library and headless tests",
+      "displayName": "UI and host modules with CPU tests",
       "inherits": "profile-ui",
       "binaryDir": "${sourceDir}/build/${presetName}",
       "cacheVariables": {
@@ -185,12 +197,9 @@
       "binaryDir": "${sourceDir}/build/${presetName}",
       "cacheVariables": {
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-        "VECTORGL_BUILD_EXAMPLES": "ON",
-        "VECTORGL_BUILD_TESTS": "ON",
-        "VECTORGL_BUILD_APPS": "ON",
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}"
       },
-      "inherits": "profile-developer"
+      "inherits": "profile-library"
     },
     {
       "name": "windows-debug",
@@ -308,6 +317,23 @@
       "cacheVariables": {
         "VECTORGL_BUILD_GPU_TESTS": "OFF"
       }
+    },
+    {
+      "name": "core",
+      "displayName": "Explicit graphics-only SDK without UI, tests or GLFW",
+      "inherits": "profile-core",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}"
+      }
+    },
+    {
+      "name": "core-release",
+      "inherits": "core",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
     }
   ],
   "buildPresets": [
@@ -398,6 +424,16 @@
       "name": "ci-host",
       "configurePreset": "ci-host",
       "configuration": "Debug"
+    },
+    {
+      "name": "core",
+      "configurePreset": "core",
+      "configuration": "Debug"
+    },
+    {
+      "name": "core-release",
+      "configurePreset": "core-release",
+      "configuration": "Release"
     }
   ],
   "testPresets": [
@@ -590,6 +626,28 @@
       "name": "ci-host",
       "configurePreset": "ci-host",
       "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "core",
+      "configurePreset": "core",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "core-release",
+      "configurePreset": "core-release",
+      "configuration": "Release",
       "output": {
         "outputOnFailure": true
       },

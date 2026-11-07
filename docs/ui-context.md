@@ -1,6 +1,6 @@
-# Optional application UI context
+# Application UI context
 
-VectorGL's optional `vectorgl::ui` target supplies widget registration, input routing,
+VectorGL's `vectorgl::ui` target, built by default, supplies widget registration, input routing,
 keyboard focus, pointer capture, modal scopes, and repaint/wakeup scheduling.
 It does not create a window or initialize OpenGL. This module supplies the input
 foundation and automatic layout for application controls.
@@ -17,7 +17,7 @@ remain later slices.
 ## Build and run the routing example
 
 ```sh
-cmake -S . -B build-ui -DVECTORGL_BUILD_UI=ON -DVECTORGL_BUILD_UI_EXAMPLES=ON -DVECTORGL_BUILD_EXAMPLES=OFF -DVECTORGL_BUILD_APPS=OFF -DVECTORGL_BUILD_GPU_TESTS=OFF
+cmake -S . -B build-ui -DVECTORGL_BUILD_TESTS=ON -DVECTORGL_BUILD_GLFW_ADAPTER=OFF -DVECTORGL_BUILD_DIALOGS=OFF -DVECTORGL_BUILD_UI_EXAMPLES=ON -DVECTORGL_BUILD_EXAMPLES=OFF -DVECTORGL_BUILD_APPS=OFF -DVECTORGL_BUILD_GPU_TESTS=OFF
 cmake --build build-ui --config Debug --target vectorgl_ui_routing vectorgl_ui_tests
 ctest --test-dir build-ui -C Debug -R vectorgl_ui --output-on-failure
 ```
@@ -31,9 +31,11 @@ a font file, a display server, nor an OpenGL context.
 The executable is under `build-ui/example/` for single-configuration generators;
 Visual Studio adds the configuration subdirectory, such as `example/Debug/`.
 
-Both the module and its example are optional. `VECTORGL_BUILD_UI` defaults OFF.
-`VECTORGL_BUILD_UI_EXAMPLES` follows the existing examples setting by default, but
-can be enabled independently. UI-only headless builds do not fetch GLFW; the normal
+The UI module defaults ON. Tests and UI examples default OFF and must be enabled
+explicitly. Use the `core` preset for a graphics-only build. The GLFW adapter
+and native dialogs also build by default; disable them explicitly for this
+headless routing example.
+UI-only headless builds do not fetch GLFW; the normal
 examples/apps/GPU-test options still request GLFW when enabled.
 
 For an installed package built with UI enabled:

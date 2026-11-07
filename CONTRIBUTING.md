@@ -2,9 +2,9 @@
 
 VectorGL requires C++20 and CMake 3.21+. Visual Studio 2022/2026, GCC and
 Clang are supported toolchains; VS 2026 requires CMake 4.2+. Graphics examples
-need an OpenGL 3.3 driver. Headless unit tests and library-only builds need no
-window system or GLFW. Linux graphical builds need GLFW's X11 development
-packages; GPU tests can run with Mesa and Xvfb.
+need an OpenGL 3.3 driver. The default library includes GLFW, so Linux builds need GLFW's X11 development
+packages. Explicit core/headless profiles avoid this dependency. GPU tests can run
+with Mesa and Xvfb; ordinary library builds do not open windows or dialogs.
 
 ## Choose a build profile
 
@@ -18,15 +18,16 @@ ctest --preset developer
 
 | Preset | Builds |
 |---|---|
-| `library` | Core SDK only; no tests, examples, UI or GLFW |
-| `developer` | Core library and CPU tests |
-| `ui` | UI module and headless engine/UI tests |
+| `library` | Canvas/core, UI, GLFW adapter and native dialogs; no tests, examples or apps |
+| `core` | Explicit graphics-only SDK; UI disabled |
+| `developer` | All library modules and CPU tests |
+| `ui` | UI/host/dialog modules and CPU tests |
 | `workspace` | UI, GLFW adapter, native dialogs, UI examples and CPU tests |
 | `full` | All modules, examples, Flow Studio, app tests and GPU/smoke tests |
 | `sanitizers` | Linux headless UI/dialog tests with ASan/UBSan |
 | `quality` | Linux full source analysis using Clang/clang-tidy/clang-format 18 |
 
-`library-release`, `workspace-release`, and `full-release` configure Release builds.
+`core-release`, `library-release`, `workspace-release`, and `full-release` configure Release builds.
 Generic profiles let CMake select the generator. To use Ninja with a PATH compiler:
 
 ```sh
@@ -38,7 +39,8 @@ Each preset uses `build/<preset>`. Use a fresh directory when switching compiler
 or generators. Existing `windows-debug`, `windows-release`, `linux-debug`,
 `linux-release`, and `windows-mingw-*` presets remain available. The Windows
 presets retain automatic Visual Studio discovery; MinGW presets use MinGW
-Makefiles. `CMakeUserPresets.json` is ignored by Git for machine-specific settings.
+Makefiles. Platform presets build all library modules with extras disabled; enable
+tests/examples explicitly or choose a developer/workspace/full profile. `CMakeUserPresets.json` is ignored by Git for machine-specific settings.
 
 For Visual Studio, build/test presets supply the configuration. With direct
 commands, use `--config Debug` for builds and `-C Debug` for CTest. Examples stay
@@ -60,7 +62,9 @@ Direct PowerShell invocation, if the machine restricts local scripts:
 powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1 -Profile workspace
 ```
 
-This is a process-scoped policy setting. The default profile is `developer`.
+This is a process-scoped policy setting. The default helper profile is `library`:
+all library modules, with tests, examples and apps disabled. Choose `developer`
+explicitly to build/run CPU tests.
 `-SkipExamples` disables all example/app executables; `-SkipTests` disables all
 test groups. `-Clean` removes only the selected generated build directory.
 The Windows helper separates compiler/generator/profile/configuration directories
@@ -77,20 +81,22 @@ Use a new directory or `--clean` when changing its compiler/generator.
 
 ## Direct CMake options
 
-A fresh standalone configure defaults to core plus CPU tests. Embedded builds
-using `add_subdirectory` default to the core library only. Developer tools default
-OFF in both cases. No source-tree build or permanent system configuration is needed.
+Fresh standalone, FetchContent and `add_subdirectory` builds provide Canvas/core,
+UI, the GLFW adapter and native dialogs by default. Tests, examples, applications
+and developer checks stay OFF unless explicitly enabled. Choosing a developer or
+workspace preset explicitly enables its listed extras. No source-tree build or
+permanent system configuration is needed.
 
 | Option | Default | Purpose |
 |---|---|---|
-| `VECTORGL_BUILD_TESTS` | Top-level ON, embedded OFF | Engine and enabled UI tests |
+| `VECTORGL_BUILD_TESTS` | OFF | Engine and enabled UI tests |
 | `VECTORGL_BUILD_APP_TESTS` | OFF | Flow Studio document/workspace tests |
 | `VECTORGL_BUILD_EXAMPLES` | OFF | Graphical engine examples |
 | `VECTORGL_BUILD_APPS` | OFF | Flow Studio executable |
-| `VECTORGL_BUILD_UI` | OFF | Optional UI module |
-| `VECTORGL_BUILD_UI_EXAMPLES` | Follows examples on first configure | UI examples |
-| `VECTORGL_BUILD_GLFW_ADAPTER` | OFF | UI host adapter; requires UI |
-| `VECTORGL_BUILD_DIALOGS` | OFF | Native dialog backends; requires UI |
+| `VECTORGL_BUILD_UI` | ON | UI module; can be disabled for a graphics-only build |
+| `VECTORGL_BUILD_UI_EXAMPLES` | OFF | UI examples |
+| `VECTORGL_BUILD_GLFW_ADAPTER` | ON | UI host adapter; requires UI |
+| `VECTORGL_BUILD_DIALOGS` | ON | Native dialog backends; requires UI |
 | `VECTORGL_BUILD_GPU_TESTS` | OFF | Display-dependent tests; requires engine or app tests |
 | `VECTORGL_ENABLE_HINTED_TEXT` | ON | FreeType small-text rasterization |
 | `VECTORGL_ENABLE_COMPILER_WARNINGS` | ON | Private warnings on first-party targets |
@@ -114,7 +120,8 @@ ordinary installed SDK.
 
 GLAD is vendored with its license; no loader generation tools are required.
 stb, libtess2, bundled FreeType and missing GLFW are fetched at pinned revisions.
-GLFW is resolved only for a requested host, app, graphical example or GPU test.
+GLFW is resolved for the default adapter, or a requested app, graphical example
+or GPU test. The explicit `core` and `ci-headless` profiles disable the adapter.
 VectorGL does not forcibly overwrite a parent project's GLFW cache preferences.
 The bundled adapter SDK requires `GLFW_INSTALL=ON`; alternatively supply an
 installed `glfw3` package, which must also be available to SDK consumers.
@@ -203,3 +210,24 @@ separate.
 Create a branch from current main, update relevant tests/docs, run the appropriate
 profile and package checks, and open a focused PR. Generated outputs, downloaded
 dependencies and machine-specific presets must stay untracked.
+
+## FetchContent defaults
+
+Declare VectorGL at a pinned revision, then call `FetchContent_MakeAvailable(vectorgl)`.
+All four targets are available without feature options: `vectorgl::vectorgl`
+(Canvas, Scene, text and SVG), `vectorgl::ui`, `vectorgl::glfw`, and
+`vectorgl::dialogs`. Link the targets the application uses; host/dialog targets
+transitively link UI and core. Building them does not create a window or open an
+OS dialog. Use the `core` preset, or explicitly disable `VECTORGL_BUILD_UI`,
+`VECTORGL_BUILD_GLFW_ADAPTER` and `VECTORGL_BUILD_DIALOGS` together, for a
+graphics-only build. Linux Zenity remains a runtime dependency for native dialog
+use, not a configure-time dependency.
+
+CMake preserves existing cache choices. In an older build directory configured
+with UI OFF or tests ON, set the desired options explicitly or use a fresh directory
+to obtain the new defaults.
+
+Library/platform presets explicitly set `GLFW_INSTALL=ON` so older build directories
+with a cached OFF value configure with the default adapter. For a direct CMake
+command, pass `-DGLFW_INSTALL=ON` once if an older cache disabled GLFW installation.
+Embedded projects retain control of their GLFW cache settings.

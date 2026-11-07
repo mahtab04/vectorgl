@@ -3,7 +3,7 @@
 set -Eeuo pipefail
 
 configuration="Debug"
-profile="developer"
+profile="library"
 clean=0
 skip_tests=0
 skip_examples=0
@@ -18,7 +18,7 @@ Usage:
 
 Options:
   --configuration <Debug|Release>  Build configuration (default: Debug)
-  --profile <name>                 library, developer, ui, workspace, full
+  --profile <name>                 core, library, developer, ui, workspace, full
   --clean                          Remove the selected build directory first
   --skip-tests                     Do not build or run tests
   --skip-examples                  Do not build example applications
@@ -81,7 +81,7 @@ case "$configuration" in
 esac
 
 case "$profile" in
-    library|developer|ui|workspace|full) ;;
+    core|library|developer|ui|workspace|full) ;;
     *) fail "unknown build profile: $profile" ;;
 esac
 
@@ -146,7 +146,7 @@ cmake "${configure_arguments[@]}"
 step "Building $configuration"
 cmake --build "$build_directory" --config "$configuration" --parallel
 
-if ((!skip_tests)) && [[ "$profile" != library ]]; then
+if ((!skip_tests)) && [[ "$profile" != library && "$profile" != core ]]; then
     step "Running tests"
     ctest --test-dir "$build_directory" -C "$configuration" --output-on-failure --no-tests=error
 fi

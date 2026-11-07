@@ -165,7 +165,7 @@ It demonstrates text editing/selection and fake/native clipboard services, focus
 palette changes, transformed clips and an event-driven loop. The original
 `vectorgl_ui_routing` headless example remains available.
 
-`VECTORGL_BUILD_GLFW_ADAPTER` defaults OFF and requires UI ON. UI without the adapter
+`VECTORGL_BUILD_GLFW_ADAPTER` defaults ON and requires UI ON. Explicitly disabling it
 does not fetch GLFW. When the adapter fetches pinned GLFW, it installs GLFW's
 target, headers, package files and license alongside VectorGL. If the application
 supplies GLFW, it must also supply a discoverable installed GLFW package.
