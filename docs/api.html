@@ -1,51 +1,212 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Search the VectorGL C++20 API reference for Canvas, Renderer, Scene, Node, Path2D, SVG, animation, paint, text, images, and effects.">
-  <meta name="robots" content="index, follow, max-image-preview:large">
-  <title>VectorGL C++ API Reference</title>
-  <link rel="canonical" href="https://mahtab04.github.io/vectorgl/api.html">
-  <meta property="og:type" content="website">
-  <meta property="og:site_name" content="VectorGL">
-  <meta property="og:title" content="VectorGL C++ API Reference">
-  <meta property="og:description" content="Search the public API for the VectorGL C++20 GPU vector graphics library.">
-  <meta property="og:url" content="https://mahtab04.github.io/vectorgl/api.html">
-  <meta property="og:image" content="https://mahtab04.github.io/vectorgl/images/vectorgl-showcase.png">
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="VectorGL C++ API Reference">
-  <meta name="twitter:description" content="Canvas, Renderer, Scene, SVG, animation, text, paths, and effects.">
-  <meta name="twitter:image" content="https://mahtab04.github.io/vectorgl/images/vectorgl-showcase.png">
-  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=Space+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css"><script defer src="app.js"></script>
-</head>
-<body data-page="api" data-theme="dark">
-  <div class="page-shell">
-    <header class="compact-hero">
-      <nav class="docs-navbar" aria-label="Primary navigation"><div class="site-container nav-inner">
-        <a class="brand-link brand-lockup" href="index.html"><span class="brand-mark">V</span><span>VectorGL</span></a>
-        <div class="nav-links"><a class="docs-nav-link" href="index.html">Home</a><a class="docs-nav-link" href="overview.html">Overview</a><a class="docs-nav-link" href="guides.html">Guides</a><a class="docs-nav-link is-active" href="api.html">API</a><a class="docs-nav-link" href="examples.html">Showcase</a></div>
-        <div class="nav-actions"><button class="theme-toggle" type="button" data-theme-toggle aria-label="Toggle color theme">Theme</button><a class="github-link" href="https://github.com/mahtab04/vectorgl">GitHub ↗</a></div>
-      </div></nav>
-      <div class="site-container page-heading"><span class="eyebrow">Documentation / API</span><h1 class="page-title">API reference</h1><p class="hero-copy">Search the public surface by class, method, or concept. Signatures are paired with concise behavior notes.</p></div>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Less searching. More building. · VectorGL</title>
+    <meta
+      name="description"
+      content="A searchable reference for drawing, scene objects, application controls and host integration."
+    />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="theme-color" content="#f5f6f2" />
+    <link rel="canonical" href="https://mahtab04.github.io/vectorgl/api.html" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="VectorGL" />
+    <meta
+      property="og:title"
+      content="Less searching. More building. · VectorGL"
+    />
+    <meta
+      property="og:description"
+      content="A searchable reference for drawing, scene objects, application controls and host integration."
+    />
+    <meta
+      property="og:url"
+      content="https://mahtab04.github.io/vectorgl/api.html"
+    />
+    <meta
+      property="og:image"
+      content="https://mahtab04.github.io/vectorgl/images/vectorgl-showcase.png"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css" />
+    <script defer src="app.js"></script>
+  </head>
+  <body data-page="api" data-theme="light">
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header">
+      <div class="site-container nav-inner">
+        <a class="brand-lockup" href="index.html" aria-label="VectorGL home"
+          ><span class="brand-mark" aria-hidden="true"
+            ><svg viewBox="0 0 32 32" fill="none">
+              <path
+                d="M5 7 16 26 27 7M10 7l6 10 6-10"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linejoin="round"
+              />
+              <circle cx="5" cy="7" r="2.5" fill="currentColor" />
+              <circle cx="27" cy="7" r="2.5" fill="currentColor" /></svg></span
+          ><span>VectorGL</span><span class="brand-tag">C++20</span></a
+        >
+        <nav class="desktop-nav" aria-label="Primary navigation">
+          <a href="overview.html">Overview</a><a href="guides.html">Guides</a
+          ><a href="api.html" aria-current="page">API reference</a
+          ><a href="examples.html">Examples</a>
+        </nav>
+        <div class="nav-actions">
+          <button
+            class="theme-toggle"
+            data-theme-toggle
+            type="button"
+            aria-label="Switch to dark theme"
+            title="Switch color theme"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="4" />
+              <path
+                d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"
+              />
+            </svg></button
+          ><a class="github-link" href="https://github.com/mahtab04/vectorgl"
+            >GitHub <span aria-hidden="true">↗</span></a
+          >
+          <details class="mobile-menu">
+            <summary aria-label="Open navigation">
+              Menu <span aria-hidden="true">＋</span>
+            </summary>
+            <nav aria-label="Mobile navigation">
+              <a href="https://github.com/mahtab04/vectorgl">GitHub</a>
+              <a href="overview.html">Overview</a
+              ><a href="guides.html">Guides</a
+              ><a href="api.html" aria-current="page">API reference</a
+              ><a href="examples.html">Examples</a>
+            </nav>
+          </details>
+        </div>
+      </div>
     </header>
-    <main class="site-container docs-page-main">
+    <main id="main" class="site-container">
+      <div class="page-heading">
+        <a class="back-link" href="index.html">← VectorGL documentation</a
+        ><span class="eyebrow">API / C++20</span>
+        <h1>Less searching.<br />More building.</h1>
+        <p>
+          A searchable reference for drawing, scene objects, application
+          controls and host integration.
+        </p>
+      </div>
       <div class="docs-page-grid">
-        <aside class="docs-sidebar"><div class="sidebar-panel"><strong>API groups</strong><a class="sidebar-link" href="#reference">Renderer</a><a class="sidebar-link" href="#reference">Canvas</a><a class="sidebar-link" href="#reference">Scene</a><a class="sidebar-link" href="#reference">Animation</a><a class="sidebar-link" href="#reference">Assets</a></div></aside>
+        <aside class="docs-sidebar">
+          <div class="sidebar-panel">
+            <span class="eyebrow">On this page</span
+            ><a class="rail-link" href="#reference">Search the API</a
+            ><a
+              class="sidebar-source"
+              href="https://github.com/mahtab04/vectorgl/tree/main/include/PublicHeaders/vectorgl"
+              >Public headers ↗</a
+            >
+          </div>
+        </aside>
         <article class="docs-content">
           <section id="reference">
-            <span class="section-kicker">Public headers</span><h2>Find a symbol</h2><p>The reference follows the types exposed through <code>include/PublicHeaders/vectorgl</code>. Use the search field to filter names, signatures, and descriptions.</p>
-            <label class="search-label" for="api-search">Search the API</label>
-            <input class="docs-search-input" id="api-search" type="search" placeholder="Try Canvas, drawPath, animation…" autocomplete="off">
+            <span class="eyebrow">THE PUBLIC SURFACE</span>
+            <h2>Find your next call.</h2>
+            <p>
+              Search names, headers, signatures and usage notes. For complete
+              declarations and current overloads, follow the public-header
+              links.
+            </p>
+            <div class="search-toolbar">
+              <label for="api-search">Search the API</label>
+              <div class="search-input-wrap">
+                <span aria-hidden="true">⌕</span
+                ><input
+                  id="api-search"
+                  type="search"
+                  placeholder="Canvas, Context, Button, layout…"
+                  autocomplete="off"
+                  aria-describedby="api-results"
+                /><kbd aria-hidden="true">/</kbd>
+              </div>
+              <div class="search-meta">
+                <span id="api-results" role="status" aria-live="polite"></span
+                ><span>Type a symbol or concept</span>
+              </div>
+            </div>
             <div class="api-container" id="api-container"></div>
+            <noscript
+              ><div class="callout">
+                <strong>JavaScript is needed for API search.</strong>
+                <p>
+                  Read the
+                  <a
+                    href="https://github.com/mahtab04/vectorgl/tree/main/include/PublicHeaders/vectorgl"
+                    >public headers ↗</a
+                  >
+                  or the <a href="guides.html">guides</a> directly.
+                </p>
+              </div></noscript
+            >
           </section>
-          <div class="next-link"><span>Need context?</span><a href="guides.html">Read the practical guides →</a></div>
         </article>
-        <aside class="docs-rail"><div class="rail-panel"><strong>Reference</strong><a class="rail-link" href="#reference">Search API</a><a href="https://github.com/mahtab04/vectorgl/tree/main/include/PublicHeaders/vectorgl">Public headers ↗</a></div></aside>
       </div>
     </main>
-    <footer class="docs-footer"><div class="site-container footer-inner"><span>VectorGL API reference</span><span>C++20 · OpenGL 3.3</span></div></footer>
-  </div>
-</body>
+    <footer class="site-footer">
+      <div class="site-container footer-grid">
+        <div>
+          <a class="brand-lockup" href="index.html"
+            ><span class="brand-mark" aria-hidden="true"
+              ><svg viewBox="0 0 32 32" fill="none">
+                <path
+                  d="M5 7 16 26 27 7M10 7l6 10 6-10"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                  stroke-linejoin="round"
+                />
+                <circle cx="5" cy="7" r="2.5" fill="currentColor" />
+                <circle
+                  cx="27"
+                  cy="7"
+                  r="2.5"
+                  fill="currentColor"
+                /></svg></span
+            ><span>VectorGL</span></a
+          >
+          <p>
+            From vector graphics to application UI.<br />Built in C++. Built in
+            the open.
+          </p>
+        </div>
+        <div>
+          <span class="footer-label">Learn</span
+          ><a href="overview.html">Get started</a
+          ><a href="guides.html">Practical guides</a
+          ><a href="api.html">API reference</a>
+        </div>
+        <div>
+          <span class="footer-label">Explore</span
+          ><a href="examples.html">Examples</a
+          ><a href="https://github.com/mahtab04/vectorgl">Source code ↗</a
+          ><a href="https://github.com/mahtab04/vectorgl/issues"
+            >Report an issue ↗</a
+          >
+        </div>
+      </div>
+      <div class="site-container footer-bottom">
+        <span>Open source · MIT License</span
+        ><a href="https://github.com/mahtab04/vectorgl/blob/main/LICENSE"
+          >License &amp; notices ↗</a
+        ><span>C++20 / OpenGL 3.3 Core</span>
+      </div>
+    </footer>
+    <div
+      class="sr-only"
+      id="site-status"
+      role="status"
+      aria-live="polite"
+    ></div>
+  </body>
 </html>

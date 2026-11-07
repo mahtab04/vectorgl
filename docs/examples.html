@@ -1,106 +1,390 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Explore runnable VectorGL C++ examples for GPU Canvas drawing, paths, SVG, animation, text, images, effects, stress testing, and node editing.">
-  <meta name="robots" content="index, follow, max-image-preview:large">
-  <title>VectorGL C++ Graphics Showcase and Examples</title>
-  <link rel="canonical" href="https://mahtab04.github.io/vectorgl/examples.html">
-  <meta property="og:type" content="website">
-  <meta property="og:site_name" content="VectorGL">
-  <meta property="og:title" content="VectorGL C++ Graphics Examples">
-  <meta property="og:description" content="Runnable OpenGL examples for Canvas, paths, SVG, animation, text, effects, and node editing.">
-  <meta property="og:url" content="https://mahtab04.github.io/vectorgl/examples.html">
-  <meta property="og:image" content="https://mahtab04.github.io/vectorgl/images/vectorgl-showcase.png">
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="VectorGL C++ Graphics Examples">
-  <meta name="twitter:description" content="See what the VectorGL GPU vector graphics library can render.">
-  <meta name="twitter:image" content="https://mahtab04.github.io/vectorgl/images/vectorgl-showcase.png">
-  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=Space+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css"><script defer src="app.js"></script>
-</head>
-<body data-page="examples" data-theme="dark">
-  <div class="page-shell">
-    <header class="compact-hero">
-      <nav class="docs-navbar" aria-label="Primary navigation"><div class="site-container nav-inner">
-        <a class="brand-link brand-lockup" href="index.html"><span class="brand-mark">V</span><span>VectorGL</span></a>
-        <div class="nav-links"><a class="docs-nav-link" href="index.html">Home</a><a class="docs-nav-link" href="overview.html">Overview</a><a class="docs-nav-link" href="guides.html">Guides</a><a class="docs-nav-link" href="api.html">API</a><a class="docs-nav-link is-active" href="examples.html">Showcase</a></div>
-        <div class="nav-actions"><button class="theme-toggle" type="button" data-theme-toggle aria-label="Toggle color theme">Theme</button><a class="github-link" href="https://github.com/mahtab04/vectorgl">GitHub ↗</a></div>
-      </div></nav>
-      <div class="site-container page-heading"><span class="eyebrow">VectorGL / Showcase</span><h1 class="page-title">Graphics are better seen than listed</h1><p class="hero-copy">Explore real output from repository programs, then open the source and build each example locally.</p></div>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Built with it. Included with it. · VectorGL</title>
+    <meta
+      name="description"
+      content="Explore real VectorGL output, then open the C++ that made it. Every example is a starting point you can change."
+    />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="theme-color" content="#f5f6f2" />
+    <link
+      rel="canonical"
+      href="https://mahtab04.github.io/vectorgl/examples.html"
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="VectorGL" />
+    <meta
+      property="og:title"
+      content="Built with it. Included with it. · VectorGL"
+    />
+    <meta
+      property="og:description"
+      content="Explore real VectorGL output, then open the C++ that made it. Every example is a starting point you can change."
+    />
+    <meta
+      property="og:url"
+      content="https://mahtab04.github.io/vectorgl/examples.html"
+    />
+    <meta
+      property="og:image"
+      content="https://mahtab04.github.io/vectorgl/images/vectorgl-showcase.png"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css" />
+    <script defer src="app.js"></script>
+  </head>
+  <body data-page="examples" data-theme="light">
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header">
+      <div class="site-container nav-inner">
+        <a class="brand-lockup" href="index.html" aria-label="VectorGL home"
+          ><span class="brand-mark" aria-hidden="true"
+            ><svg viewBox="0 0 32 32" fill="none">
+              <path
+                d="M5 7 16 26 27 7M10 7l6 10 6-10"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linejoin="round"
+              />
+              <circle cx="5" cy="7" r="2.5" fill="currentColor" />
+              <circle cx="27" cy="7" r="2.5" fill="currentColor" /></svg></span
+          ><span>VectorGL</span><span class="brand-tag">C++20</span></a
+        >
+        <nav class="desktop-nav" aria-label="Primary navigation">
+          <a href="overview.html">Overview</a><a href="guides.html">Guides</a
+          ><a href="api.html">API reference</a
+          ><a href="examples.html" aria-current="page">Examples</a>
+        </nav>
+        <div class="nav-actions">
+          <button
+            class="theme-toggle"
+            data-theme-toggle
+            type="button"
+            aria-label="Switch to dark theme"
+            title="Switch color theme"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="4" />
+              <path
+                d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"
+              />
+            </svg></button
+          ><a class="github-link" href="https://github.com/mahtab04/vectorgl"
+            >GitHub <span aria-hidden="true">↗</span></a
+          >
+          <details class="mobile-menu">
+            <summary aria-label="Open navigation">
+              Menu <span aria-hidden="true">＋</span>
+            </summary>
+            <nav aria-label="Mobile navigation">
+              <a href="https://github.com/mahtab04/vectorgl">GitHub</a>
+              <a href="overview.html">Overview</a
+              ><a href="guides.html">Guides</a
+              ><a href="api.html">API reference</a
+              ><a href="examples.html" aria-current="page">Examples</a>
+            </nav>
+          </details>
+        </div>
+      </div>
     </header>
-    <main class="site-container docs-page-main">
+    <main id="main" class="site-container">
+      <div class="page-heading">
+        <a class="back-link" href="index.html">← VectorGL documentation</a
+        ><span class="eyebrow">EXAMPLES / C++20</span>
+        <h1>Built with it.<br />Included with it.</h1>
+        <p>
+          Explore real VectorGL output, then open the C++ that made it. Every
+          example is a starting point you can change.
+        </p>
+      </div>
       <div class="docs-page-grid">
-        <aside class="docs-sidebar"><div class="sidebar-panel"><strong>Examples</strong><a class="sidebar-link" href="#showcase">Showcase</a><a class="sidebar-link" href="#first-frame">First frame</a><a class="sidebar-link" href="#repository-examples">All examples</a><a class="sidebar-link" href="#build-examples">Build locally</a></div></aside>
+        <aside class="docs-sidebar">
+          <div class="sidebar-panel">
+            <span class="eyebrow">On this page</span
+            ><a class="rail-link" href="#gallery">Rendered examples</a
+            ><a class="rail-link" href="#build-examples">Build and run</a
+            ><a class="rail-link" href="#repository-examples"
+              >More example programs</a
+            ><a
+              class="sidebar-source"
+              href="https://github.com/mahtab04/vectorgl/tree/main/include/PublicHeaders/vectorgl"
+              >Public headers ↗</a
+            >
+          </div>
+        </aside>
         <article class="docs-content">
-          <section id="showcase">
-            <span class="section-kicker">Built with VectorGL</span>
-            <h2>Real output from real C++ programs</h2>
-            <p>These are captures from executables shipped in the repository—not design mockups. Each example isolates a useful rendering or interaction pattern and links directly to its source.</p>
+          <section id="gallery">
+            <span class="eyebrow">MADE WITH VECTORGL</span>
+            <h2>The examples are the proof.</h2>
+            <p>
+              Captures from C++ programs shipped in the repository. These are
+              native application screenshots, not interactive browser demos.
+            </p>
             <div class="showcase-gallery">
-              <article class="showcase-card showcase-card-wide">
-                <img src="images/vectorgl-showcase.png" width="1280" height="680" alt="VectorGL flagship vector graphics showcase">
+              <article class="showcase-card" id="workspace">
+                <a
+                  class="gallery-image"
+                  href="https://github.com/mahtab04/vectorgl/blob/main/example/ui_editor_workspace_demo.cpp"
+                  ><img
+                    src="images/ui-workspace.png"
+                    width="1280"
+                    height="780"
+                    loading="lazy"
+                    alt="Actual VectorGL ui editor workspace executable capture"
+                /></a>
                 <div class="showcase-card-body">
-                  <div class="showcase-card-heading"><div><span class="card-label">Flagship demo</span><h3>VectorGL Showcase</h3></div><span class="showcase-runtime">Real-time</span></div>
-                  <p>A cohesive interface scene demonstrating SDF primitives, paths, transforms, glow layers, text, and perceptual Oklab color interpolation.</p>
-                  <div class="showcase-tags"><span>OpenGL 3.3</span><span>Canvas</span><span>Paths</span><span>Animation</span></div>
-                  <a href="https://github.com/mahtab04/vectorgl/blob/main/example/showcase.cpp">View source →</a>
+                  <span class="eyebrow">Application UI</span>
+                  <h3>UI editor workspace</h3>
+                  <p>
+                    A searchable toolbox, separate Scene artboard, inspector,
+                    hierarchy and tag browser. Resizable panels, typed drag/drop
+                    and native dialog hooks.
+                  </p>
+                  <div class="gallery-bottom">
+                    <code>vectorgl_ui_editor_workspace</code
+                    ><a
+                      href="https://github.com/mahtab04/vectorgl/blob/main/example/ui_editor_workspace_demo.cpp"
+                      aria-label="View UI editor workspace source"
+                      >Source ↗</a
+                    >
+                  </div>
                 </div>
               </article>
-              <article class="showcase-card">
-                <img src="images/node-editor.png" width="1280" height="680" loading="lazy" alt="VectorGL interactive material node editor">
+              <article class="showcase-card" id="showcase">
+                <a
+                  class="gallery-image"
+                  href="https://github.com/mahtab04/vectorgl/blob/main/example/showcase.cpp"
+                  ><img
+                    src="images/vectorgl-showcase.png"
+                    width="1280"
+                    height="780"
+                    loading="lazy"
+                    alt="Actual VectorGL graphics showcase executable capture"
+                /></a>
                 <div class="showcase-card-body">
-                  <div class="showcase-card-heading"><div><span class="card-label">Interactive tool</span><h3>Node Editor</h3></div><span class="showcase-runtime">Input</span></div>
-                  <p>A practical editor with draggable nodes, Bézier connections, port replacement, zoom, pan, selection, deletion, a palette, and minimap.</p>
-                  <div class="showcase-tags"><span>Editor UI</span><span>Interaction</span><span>Bézier</span></div>
-                  <a href="https://github.com/mahtab04/vectorgl/tree/main/example/node_editor">View source →</a>
+                  <span class="eyebrow">Vector graphics</span>
+                  <h3>Graphics showcase</h3>
+                  <p>
+                    SDF primitives, Bézier paths, colors, text and animated
+                    visuals in one composition.
+                  </p>
+                  <div class="gallery-bottom">
+                    <code>vectorgl_showcase</code
+                    ><a
+                      href="https://github.com/mahtab04/vectorgl/blob/main/example/showcase.cpp"
+                      aria-label="View Graphics showcase source"
+                      >Source ↗</a
+                    >
+                  </div>
                 </div>
               </article>
-              <article class="showcase-card">
-                <img src="images/path-showcase.png" width="1280" height="680" loading="lazy" alt="VectorGL animated path rendering examples">
+              <article class="showcase-card" id="node-editor">
+                <a
+                  class="gallery-image"
+                  href="https://github.com/mahtab04/vectorgl/blob/main/example/node_editor"
+                  ><img
+                    src="images/node-editor.png"
+                    width="1280"
+                    height="780"
+                    loading="lazy"
+                    alt="Actual VectorGL node editor executable capture"
+                /></a>
                 <div class="showcase-card-body">
-                  <div class="showcase-card-heading"><div><span class="card-label">Geometry</span><h3>Path Laboratory</h3></div><span class="showcase-runtime">Animated</span></div>
-                  <p>Stars, waves, spirographs, cubic curves, compound contours, strokes, fills, transforms, and animated dashboard cards.</p>
-                  <div class="showcase-tags"><span>Path2D</span><span>Curves</span><span>Stroke</span><span>Fill</span></div>
-                  <a href="https://github.com/mahtab04/vectorgl/blob/main/example/paths_demo.cpp">View source →</a>
+                  <span class="eyebrow">Interactive tool</span>
+                  <h3>Node editor</h3>
+                  <p>
+                    Draggable nodes, connected ports, pan, zoom, selection and a
+                    minimap.
+                  </p>
+                  <div class="gallery-bottom">
+                    <code>vectorgl_node_editor</code
+                    ><a
+                      href="https://github.com/mahtab04/vectorgl/blob/main/example/node_editor"
+                      aria-label="View Node editor source"
+                      >Source ↗</a
+                    >
+                  </div>
                 </div>
               </article>
-              <article class="showcase-card">
-                <img src="images/animation-showcase.png" width="1280" height="680" loading="lazy" alt="VectorGL animation and easing showcase">
+              <article class="showcase-card" id="paths">
+                <a
+                  class="gallery-image"
+                  href="https://github.com/mahtab04/vectorgl/blob/main/example/paths_demo.cpp"
+                  ><img
+                    src="images/path-showcase.png"
+                    width="1280"
+                    height="780"
+                    loading="lazy"
+                    alt="Actual VectorGL path laboratory executable capture"
+                /></a>
                 <div class="showcase-card-body">
-                  <div class="showcase-card-heading"><div><span class="card-label">Motion</span><h3>Animation System</h3></div><span class="showcase-runtime">22 easings</span></div>
-                  <p>Tween, spring, keyframe, loop, and ping-pong motion displayed across synchronized shapes and color transitions.</p>
-                  <div class="showcase-tags"><span>Tween</span><span>Spring</span><span>Keyframes</span></div>
-                  <a href="https://github.com/mahtab04/vectorgl/blob/main/example/animation_demo.cpp">View source →</a>
+                  <span class="eyebrow">Geometry</span>
+                  <h3>Path laboratory</h3>
+                  <p>
+                    Curves, stars, waves, filled contours, strokes and animated
+                    path geometry.
+                  </p>
+                  <div class="gallery-bottom">
+                    <code>vectorgl_paths</code
+                    ><a
+                      href="https://github.com/mahtab04/vectorgl/blob/main/example/paths_demo.cpp"
+                      aria-label="View Path laboratory source"
+                      >Source ↗</a
+                    >
+                  </div>
                 </div>
               </article>
-              <article class="showcase-card showcase-card-wide">
-                <img src="images/clipping-demo.png" width="1180" height="680" loading="lazy" alt="VectorGL nested rectangular clipping showcase">
+              <article class="showcase-card" id="animation">
+                <a
+                  class="gallery-image"
+                  href="https://github.com/mahtab04/vectorgl/blob/main/example/animation_demo.cpp"
+                  ><img
+                    src="images/animation-showcase.png"
+                    width="1280"
+                    height="780"
+                    loading="lazy"
+                    alt="Actual VectorGL animation showcase executable capture"
+                /></a>
                 <div class="showcase-card-body">
-                  <div class="showcase-card-heading"><div><span class="card-label">Canvas state</span><h3>Nested Clipping</h3></div><span class="showcase-runtime">Animated</span></div>
-                  <p>Animated overflow, rounded stencil masks, nested clip intersections, a scrolling activity feed, and save/restore state in one focused UI composition.</p>
-                  <div class="showcase-tags"><span>clipRoundedRect</span><span>Stencil</span><span>Nested state</span><span>UI</span></div>
-                  <a href="https://github.com/mahtab04/vectorgl/blob/main/example/clipping_demo.cpp">View source →</a>
+                  <span class="eyebrow">Motion</span>
+                  <h3>Animation showcase</h3>
+                  <p>
+                    Tweens, springs, keyframes, looping and easing in a native
+                    render loop.
+                  </p>
+                  <div class="gallery-bottom">
+                    <code>vectorgl_animation</code
+                    ><a
+                      href="https://github.com/mahtab04/vectorgl/blob/main/example/animation_demo.cpp"
+                      aria-label="View Animation showcase source"
+                      >Source ↗</a
+                    >
+                  </div>
+                </div>
+              </article>
+              <article class="showcase-card" id="clipping">
+                <a
+                  class="gallery-image"
+                  href="https://github.com/mahtab04/vectorgl/blob/main/example/clipping_demo.cpp"
+                  ><img
+                    src="images/clipping-demo.png"
+                    width="1280"
+                    height="780"
+                    loading="lazy"
+                    alt="Actual VectorGL nested clipping executable capture"
+                /></a>
+                <div class="showcase-card-body">
+                  <span class="eyebrow">Composition</span>
+                  <h3>Nested clipping</h3>
+                  <p>
+                    Nested rectangular and rounded masks with transforms,
+                    scrolling and scoped drawing state.
+                  </p>
+                  <div class="gallery-bottom">
+                    <code>vectorgl_clipping</code
+                    ><a
+                      href="https://github.com/mahtab04/vectorgl/blob/main/example/clipping_demo.cpp"
+                      aria-label="View Nested clipping source"
+                      >Source ↗</a
+                    >
+                  </div>
                 </div>
               </article>
             </div>
           </section>
-          <section id="first-frame"><span class="section-kicker">Walkthroughs</span><h2>Understand the rendering flow</h2><p>These compact examples isolate one idea at a time, making them useful as starting points for your own components.</p><div class="example-flow-grid" id="example-flow-grid"></div></section>
-          <section id="repository-examples"><span class="section-kicker">Runnable programs</span><h2>Explore complete examples</h2><p>The repository includes applications you can compile, modify, and step through in a debugger.</p><div class="repo-example-grid" id="repo-example-grid"></div></section>
-          <section id="build-examples"><span class="section-kicker">Build locally</span><h2>Compile every example</h2>
-            <div class="code-header"><span>Terminal</span><button class="copy-button" type="button">Copy</button></div>
-            <pre class="code-block"><code>cmake -S . -B build -DVECTORGL_BUILD_EXAMPLES=ON
-cmake --build build --config Release
-ctest --test-dir build -C Release --output-on-failure</code></pre>
-            <div class="callout"><strong>Windows note.</strong><span>For multi-config generators such as Visual Studio, keep <code>--config Release</code> on both the build and test commands.</span></div>
+          <section id="build-examples">
+            <h2>Take an example apart.</h2>
+            <p>
+              The workspace profile enables UI examples. Use full to enable all
+              graphics examples, Flow Studio and GPU tests.
+            </p>
+            <div class="code-block">
+              <div class="code-header">
+                <span>Terminal</span
+                ><button
+                  class="copy-button"
+                  type="button"
+                  data-copy-target="example-build"
+                  aria-label="Copy Terminal"
+                >
+                  Copy <span aria-hidden="true">↗</span>
+                </button>
+              </div>
+              <pre tabindex="0"><code id="example-build">cmake --preset full
+cmake --build --preset full
+ctest --preset full</code></pre>
+            </div>
+            <p>
+              For Visual Studio, executables are under
+              <code>build/full/example/Debug</code>. With Ninja they are under
+              <code>build/full/example</code>. GPU tests need a suitable
+              driver/display; Linux CI uses Mesa and Xvfb.
+            </p>
           </section>
-          <div class="next-link"><span>Looking for a signature?</span><a href="api.html">Open the API reference →</a></div>
+          <section id="repository-examples">
+            <h2>Find your next starting point.</h2>
+            <div class="repo-example-grid" id="repo-example-grid"></div>
+          </section>
         </article>
-        <aside class="docs-rail"><div class="rail-panel"><strong>Contents</strong><a class="rail-link" href="#showcase">Showcase</a><a class="rail-link" href="#first-frame">First frame</a><a class="rail-link" href="#repository-examples">All examples</a><a class="rail-link" href="#build-examples">Build</a></div></aside>
       </div>
     </main>
-    <footer class="docs-footer"><div class="site-container footer-inner"><span>VectorGL examples</span><a href="https://github.com/mahtab04/vectorgl/tree/main/example">Browse source ↗</a></div></footer>
-  </div>
-</body>
+    <footer class="site-footer">
+      <div class="site-container footer-grid">
+        <div>
+          <a class="brand-lockup" href="index.html"
+            ><span class="brand-mark" aria-hidden="true"
+              ><svg viewBox="0 0 32 32" fill="none">
+                <path
+                  d="M5 7 16 26 27 7M10 7l6 10 6-10"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                  stroke-linejoin="round"
+                />
+                <circle cx="5" cy="7" r="2.5" fill="currentColor" />
+                <circle
+                  cx="27"
+                  cy="7"
+                  r="2.5"
+                  fill="currentColor"
+                /></svg></span
+            ><span>VectorGL</span></a
+          >
+          <p>
+            From vector graphics to application UI.<br />Built in C++. Built in
+            the open.
+          </p>
+        </div>
+        <div>
+          <span class="footer-label">Learn</span
+          ><a href="overview.html">Get started</a
+          ><a href="guides.html">Practical guides</a
+          ><a href="api.html">API reference</a>
+        </div>
+        <div>
+          <span class="footer-label">Explore</span
+          ><a href="examples.html">Examples</a
+          ><a href="https://github.com/mahtab04/vectorgl">Source code ↗</a
+          ><a href="https://github.com/mahtab04/vectorgl/issues"
+            >Report an issue ↗</a
+          >
+        </div>
+      </div>
+      <div class="site-container footer-bottom">
+        <span>Open source · MIT License</span
+        ><a href="https://github.com/mahtab04/vectorgl/blob/main/LICENSE"
+          >License &amp; notices ↗</a
+        ><span>C++20 / OpenGL 3.3 Core</span>
+      </div>
+    </footer>
+    <div
+      class="sr-only"
+      id="site-status"
+      role="status"
+      aria-live="polite"
+    ></div>
+  </body>
 </html>
